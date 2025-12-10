@@ -1,0 +1,44 @@
+"""
+Configuration management using Pydantic Settings.
+
+Loads configuration from environment variables with validation and defaults.
+"""
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # Database
+    database_url: str = "duckdb:///./data/journal.duckdb"
+
+    # JWT Authentication
+    jwt_secret: str = "CHANGE_ME_IN_PRODUCTION"
+    jwt_expiry_hours: int = 24
+
+    # User Authorization
+    allowed_email: str = ""
+
+    # Frontend URL for CORS
+    frontend_url: str = "http://localhost:5173"
+
+    # LLM Configuration
+    gemini_api_key: str = ""
+    ollama_url: str = "http://localhost:11434"
+
+    def get_database_path(self) -> str:
+        """Extract the file path from the database URL."""
+        if self.database_url.startswith("duckdb:///"):
+            return self.database_url.replace("duckdb:///", "")
+        return self.database_url
+
+
+# Global settings instance
+settings = Settings()
