@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     jwt_secret: str = "CHANGE_ME_IN_PRODUCTION"
     jwt_expiry_hours: int = 24
 
+    # Google OAuth
+    google_client_id: str = ""
+    google_client_secret: str = ""
+
+    # Cookie Settings
+    cookie_secure: bool = True  # Set to False for localhost development
+
     # User Authorization
     allowed_email: str = ""
 
