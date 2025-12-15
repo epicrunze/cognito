@@ -46,35 +46,17 @@ async def list_entries(
         }
     """
     with get_db() as conn:
-        # TODO: Get user_id from database based on email
-        # For now, using a placeholder approach
-        # We need to either store user_id in JWT or look it up
-        user_result = conn.execute(
-            "SELECT id FROM users WHERE email = ?", [current_user.email]
-        ).fetchone()
+        # Get user from database (should exist after OAuth)
+        from app.repositories import user_repo
 
-        if not user_result:
-            # Create user if doesn't exist
-            from uuid import uuid4
-            from datetime import datetime
-
-            user_id = uuid4()
-            conn.execute(
-                """
-                INSERT INTO users (id, email, name, picture, created_at, last_login_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                [
-                    str(user_id),
-                    current_user.email,
-                    current_user.name,
-                    current_user.picture,
-                    datetime.now(),
-                    datetime.now(),
-                ],
+        db_user = user_repo.get_user_by_email(conn, current_user.email)
+        if not db_user:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="User not found - authentication error",
             )
-        else:
-            user_id = user_result[0] if isinstance(user_result[0], UUID) else UUID(user_result[0])
+        user_id = db_user.id
+
 
         entries, total = entry_repo.get_entries(
             conn=conn,
@@ -129,18 +111,16 @@ async def get_entry(
         403: Entry belongs to different user
     """
     with get_db() as conn:
-        # Get user_id
-        user_result = conn.execute(
-            "SELECT id FROM users WHERE email = ?", [current_user.email]
-        ).fetchone()
+        # Get user from database
+        from app.repositories import user_repo
 
-        if not user_result:
+        db_user = user_repo.get_user_by_email(conn, current_user.email)
+        if not db_user:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="User not found - authentication error",
             )
-
-        user_id = user_result[0] if isinstance(user_result[0], UUID) else UUID(user_result[0])
+        user_id = db_user.id
 
         # Get entry
         entry = entry_repo.get_entry_by_id(conn, entry_id, user_id)
@@ -188,32 +168,16 @@ async def create_entry(
         Created or existing entry
     """
     with get_db() as conn:
-        # Get or create user
-        user_result = conn.execute(
-            "SELECT id FROM users WHERE email = ?", [current_user.email]
-        ).fetchone()
+        # Get user from database
+        from app.repositories import user_repo
 
-        if not user_result:
-            from uuid import uuid4
-            from datetime import datetime
-
-            user_id = uuid4()
-            conn.execute(
-                """
-                INSERT INTO users (id, email, name, picture, created_at, last_login_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                [
-                    str(user_id),
-                    current_user.email,
-                    current_user.name,
-                    current_user.picture,
-                    datetime.now(),
-                    datetime.now(),
-                ],
+        db_user = user_repo.get_user_by_email(conn, current_user.email)
+        if not db_user:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="User not found - authentication error",
             )
-        else:
-            user_id = user_result[0] if isinstance(user_result[0], UUID) else UUID(user_result[0])
+        user_id = db_user.id
 
         # Check if entry for this date already exists
         existing_entry = entry_repo.get_entry_by_date(conn, user_id, entry_data.date)
@@ -275,18 +239,16 @@ async def update_entry(
         403: Entry belongs to different user
     """
     with get_db() as conn:
-        # Get user_id
-        user_result = conn.execute(
-            "SELECT id FROM users WHERE email = ?", [current_user.email]
-        ).fetchone()
+        # Get user from database
+        from app.repositories import user_repo
 
-        if not user_result:
+        db_user = user_repo.get_user_by_email(conn, current_user.email)
+        if not db_user:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="User not found - authentication error",
             )
-
-        user_id = user_result[0] if isinstance(user_result[0], UUID) else UUID(user_result[0])
+        user_id = db_user.id
 
         # Update entry
         updated_entry = entry_repo.update_entry(conn, entry_id, user_id, entry_data)
@@ -331,18 +293,16 @@ async def get_entry_versions(
         403: Entry belongs to different user
     """
     with get_db() as conn:
-        # Get user_id
-        user_result = conn.execute(
-            "SELECT id FROM users WHERE email = ?", [current_user.email]
-        ).fetchone()
+        # Get user from database
+        from app.repositories import user_repo
 
-        if not user_result:
+        db_user = user_repo.get_user_by_email(conn, current_user.email)
+        if not db_user:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="User not found - authentication error",
             )
-
-        user_id = user_result[0] if isinstance(user_result[0], UUID) else UUID(user_result[0])
+        user_id = db_user.id
 
         # Get versions
         versions = entry_repo.get_entry_versions(conn, entry_id, user_id)

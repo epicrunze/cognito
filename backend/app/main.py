@@ -14,6 +14,7 @@ from app.config import settings
 from app.database import get_connection, init_schema
 from app.routers.auth import router as auth_router
 from app.routers.entries import router as entries_router
+from app.routers.goals import router as goals_router
 
 
 @asynccontextmanager
@@ -60,6 +61,7 @@ app.add_middleware(
 # Register routers
 app.include_router(auth_router)
 app.include_router(entries_router)
+app.include_router(goals_router)
 
 
 

@@ -188,11 +188,10 @@ Content-Type: application/json
 }
 ```
 
-**Behavior:**
-- Returns existing entry if one exists for the given date (date uniqueness)
-- Auto-creates user account on first request if needed
-
 **Response:** Created or existing entry object (HTTP 201)
+
+**Errors:**
+- `401` - Not authenticated
 
 #### Update Entry
 
@@ -222,6 +221,7 @@ All fields are optional (partial update).
 **Response:** Updated entry object
 
 **Errors:**
+- `401` - Not authenticated
 - `404` - Entry not found or not owned by user
 
 #### Get Version History
@@ -256,7 +256,118 @@ Retrieve snapshots of previous `refined_output` values.
 
 Versions are ordered newest first.
 
+**Errors:**
+- `401` - Not authenticated
+
+### Goals
+
+Manage user-defined objectives that guide notification generation.
+
+#### List Goals
+
+```http
+GET /api/goals?active=true
+```
+
+**Query Parameters:**
+- `active` (optional): Filter by active status (`true` or `false`, omit for all)
+
+**Response:**
+```json
+{
+  "goals": [
+    {
+      "id": "uuid",
+      "category": "health",
+      "description": "Exercise 3x per week",
+      "active": true,
+      "created_at": "2024-12-15T10:00:00Z",
+      "updated_at": "2024-12-15T10:00:00Z"
+    }
+  ]
+}
+```
+
+**Errors:**
+- `401` - Not authenticated
+
+#### Get Single Goal
+
+```http
+GET /api/goals/{goal_id}
+```
+
+**Response:** Single goal object (see structure above)
+
+**Errors:**
+- `401` - Not authenticated
+- `404` - Goal not found or not owned by user
+
+#### Create Goal
+
+```http
+POST /api/goals
+Content-Type: application/json
+
+{
+  "category": "health",
+  "description": "Exercise 3x per week"
+}
+```
+
+**Category examples:** `health`, `productivity`, `skills`, or any custom string
+
+**Response:** Created goal object (HTTP 201)
+
+**Errors:**
+- `401` - Not authenticated
+
+#### Update Goal
+
+```http
+PUT /api/goals/{goal_id}
+Content-Type: application/json
+
+{
+  "description": "Exercise 5x per week",
+  "active": false
+}
+```
+
+All fields are optional (partial update).
+
+**Available fields:**
+- `category` - Goal category
+- `description` - Goal description  
+- `active` - Whether goal is active (true/false)
+
+**Response:** Updated goal object
+
+**Errors:**
+- `401` - Not authenticated
+- `404` - Goal not found or not owned by user
+
+#### Delete Goal
+
+```http
+DELETE /api/goals/{goal_id}
+```
+
+Performs soft delete (sets `active=false`). Goal remains in database but is marked inactive.
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+**Errors:**
+- `401` - Not authenticated
+- `404` - Goal not found or not owned by user
+
 ## Project Structure
+
 
 ```
 backend/
@@ -267,12 +378,16 @@ backend/
 │   ├── database.py       # DuckDB connection, schema
 │   ├── models/           # Pydantic models
 │   │   ├── user.py       # User model
-│   │   └── entry.py      # Entry, Conversation models
+│   │   ├── entry.py      # Entry, Conversation models
+│   │   └── goal.py       # Goal models
 │   ├── routers/          # API route handlers
 │   │   ├── auth.py       # Authentication endpoints
-│   │   └── entries.py    # Entry CRUD endpoints
+│   │   ├── entries.py    # Entry CRUD endpoints
+│   │   └── goals.py      # Goal CRUD endpoints
 │   ├── repositories/     # Data access layer
-│   │   └── entry_repo.py # Entry database operations
+│   │   ├── entry_repo.py # Entry database operations
+│   │   ├── goal_repo.py  # Goal database operations
+│   │   └── user_repo.py  # User database operations
 │   ├── services/         # Business logic
 │   ├── jobs/             # Scheduled jobs
 │   └── auth/             # Authentication
@@ -281,6 +396,9 @@ backend/
 │   ├── conftest.py       # Pytest fixtures
 │   ├── test_auth.py      # Auth tests
 │   ├── test_entries.py   # Entry CRUD tests
-│   └── test_entry_versions.py  # Version snapshot tests
+│   ├── test_entry_versions.py  # Version snapshot tests
+│   ├── test_goals.py     # Goal CRUD tests
+│   └── test_user_repo.py # User repository tests
 └── data/                 # DuckDB database files
 ```
+

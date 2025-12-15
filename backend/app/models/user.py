@@ -6,6 +6,7 @@ Pydantic models for user data representation and JWT token payload.
 
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr
 
@@ -21,8 +22,9 @@ class User(BaseModel):
 class UserInDB(User):
     """User with database fields."""
 
+    id: "UUID"
     created_at: datetime
-    last_login: Optional[datetime] = None
+    last_login_at: Optional[datetime] = None
 
 
 class TokenData(BaseModel):

@@ -253,41 +253,6 @@ class TestCreateEntry:
         assert response.status_code == 401
 
 
-class TestUserManagement:
-    """Tests for user auto-creation and management."""
-
-    def test_user_auto_creation_on_first_request(
-        self, authenticated_client, test_db, sample_entry_data, monkeypatch
-    ):
-        """Should auto-create user on first API request if they don't exist."""
-        from contextlib import contextmanager
-
-        @contextmanager
-        def mock_get_db():
-            yield test_db
-
-        monkeypatch.setattr("app.routers.entries.get_db", mock_get_db)
-
-        # Verify user doesn't exist
-        result = test_db.execute(
-            "SELECT id FROM users WHERE email = ?", ["test@example.com"]
-        ).fetchone()
-        assert result is None
-
-        # Make first request - should auto-create user
-        entry_data = sample_entry_data()
-        response = authenticated_client.post("/api/entries", json=entry_data)
-
-        assert response.status_code == 201
-
-        # Verify user was created
-        result = test_db.execute(
-            "SELECT id, email, name FROM users WHERE email = ?", ["test@example.com"]
-        ).fetchone()
-        assert result is not None
-        assert result[1] == "test@example.com"
-        assert result[2] == "Test User"
-
 
 class TestCrossUserAccessControl:
     """Tests for cross-user access control - users cannot access each other's data."""
@@ -443,7 +408,7 @@ class TestGetEntry:
         assert data["id"] == entry_id
         assert data["date"] == entry_data["date"]
 
-    def test_get_entry_not_found(self, authenticated_client, test_db, monkeypatch):
+    def test_get_entry_not_found(self, client, test_db, test_user_id, monkeypatch):
         """Should return 404 for non-existent entry."""
         from contextlib import contextmanager
 
@@ -454,9 +419,15 @@ class TestGetEntry:
         monkeypatch.setattr("app.routers.entries.get_db", mock_get_db)
 
         fake_id = str(uuid4())
-        response = authenticated_client.get(f"/api/entries/{fake_id}")
+        response = make_authenticated_request(
+            client=client,
+            user_email="test@example.com",
+            method="get",
+            url=f"/api/entries/{fake_id}"
+        )
 
         assert response.status_code == 404
+
 
     def test_get_entry_requires_authentication(self, client):
         """Should return 401 without authentication."""
@@ -645,7 +616,7 @@ class TestUpdateEntry:
             )
             assert response.json()["version"] == i + 2
 
-    def test_update_entry_not_found(self, authenticated_client, test_db, monkeypatch):
+    def test_update_entry_not_found(self, client, test_db, test_user_id, monkeypatch):
         """Should return 404 for non-existent entry."""
         from contextlib import contextmanager
 
@@ -656,12 +627,16 @@ class TestUpdateEntry:
         monkeypatch.setattr("app.routers.entries.get_db", mock_get_db)
 
         fake_id = str(uuid4())
-        response = authenticated_client.put(
-            f"/api/entries/{fake_id}",
-            json={"refined_output": "Updated"},
+        response = make_authenticated_request(
+            client=client,
+            user_email="test@example.com",
+            method="put",
+            url=f"/api/entries/{fake_id}",
+            json={"refined_output": "Updated"}
         )
 
         assert response.status_code == 404
+
 
 
 class TestEntryVersions:
@@ -702,8 +677,8 @@ class TestEntryVersions:
         assert "versions" in data
         assert len(data["versions"]) == 2  # Two version snapshots created
 
-    def test_get_versions_not_found(self, authenticated_client, test_db, monkeypatch):
-        """Should return empty list for non-existent entry (but 404 if no user)."""
+    def test_get_versions_not_found(self, client, test_db, test_user_id, monkeypatch):
+        """Should return empty list for non-existent entry with existing user."""
         from contextlib import contextmanager
 
         @contextmanager
@@ -713,8 +688,14 @@ class TestEntryVersions:
         monkeypatch.setattr("app.routers.entries.get_db", mock_get_db)
 
         fake_id = str(uuid4())
-        response = authenticated_client.get(f"/api/entries/{fake_id}/versions")
+        response = make_authenticated_request(
+            client=client,
+            user_email="test@example.com",
+            method="get",
+            url=f"/api/entries/{fake_id}/versions"
+        )
 
-        # Will return 404 because user doesn't exist in test DB
-        # In real usage with authenticated user, would return 200 with empty versions
-        assert response.status_code == 404
+        # Returns 200 with empty versions - entry doesn't exist, but user does
+        assert response.status_code == 200
+        assert response.json()["versions"] == []
+

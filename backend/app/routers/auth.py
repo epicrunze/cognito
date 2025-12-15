@@ -104,13 +104,24 @@ async def oauth_callback(
             detail="Email not authorized",
         )
 
-    # Create user and JWT
+    # Create user object
     user = User(
         email=email,
         name=user_info.get("name", ""),
         picture=user_info.get("picture"),
     )
-    jwt_token = create_access_token(user)
+
+    # Create or update user in database
+    from app.database import get_db
+    from app.repositories import user_repo
+
+    with get_db() as conn:
+        db_user = user_repo.create_user(conn, user)
+        # Update last login timestamp
+        user_repo.update_last_login(conn, db_user.id)
+
+    # Create JWT token
+    jwt_token = create_access_token(db_user)
 
     # Redirect to frontend with cookie
     response = RedirectResponse(
