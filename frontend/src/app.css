@@ -1,0 +1,76 @@
+/* Tailwind base layers */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Cognito Design System */
+:root {
+  /* Brand Colors */
+  --color-primary-dark: #1B3C53;
+  --color-primary: #234C6A;
+  --color-primary-light: #456882;
+  --color-background: #E3E3E3;
+  --color-surface: #FFFFFF;
+  --color-text-primary: #1B3C53;
+  --color-text-secondary: #456882;
+  
+  /* Semantic Colors */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+}
+
+/* Dark Mode */
+:root.dark {
+  --color-primary-dark: #456882;
+  --color-primary: #234C6A;
+  --color-primary-light: #1B3C53;
+  --color-background: #1a1a1a;
+  --color-surface: #2d2d2d;
+  --color-text-primary: #E3E3E3;
+  --color-text-secondary: #9ca3af;
+}
+
+/* Typography */
+@layer base {
+  body {
+    @apply bg-background text-text-primary;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-primary-dark dark:text-primary-light font-semibold;
+  }
+  
+  h1 {
+    @apply text-4xl mb-4;
+  }
+  
+  h2 {
+    @apply text-3xl mb-3;
+  }
+  
+  h3 {
+    @apply text-2xl mb-2;
+  }
+}
+
+/* Custom Utilities */
+@layer utilities {
+  .surface {
+    @apply bg-surface shadow-md rounded-lg p-4;
+  }
+  
+  .btn-primary {
+    @apply bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-primary-light hover:bg-primary text-white px-4 py-2 rounded-lg transition-colors;
+  }
+  
+  .input-field {
+    @apply bg-surface border border-primary-light rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary;
+  }
+}
