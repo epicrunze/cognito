@@ -16,12 +16,211 @@ uv sync
 
 ## Development
 
+### Local Development (Without Docker)
+
 ```bash
 # Start development server with hot reload
 uv run uvicorn app.main:app --reload
 
 # Server runs at http://localhost:8000
 # API docs at http://localhost:8000/docs
+```
+
+### Docker Development
+
+See the [Docker Deployment](#docker-deployment) section below for running the backend in Docker.
+
+## Docker Deployment
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) (version 20.10+)
+- [Docker Compose](https://docs.docker.com/compose/install/) (version 2.0+)
+- The `cognito-network` Docker network must exist
+
+### Quick Start
+
+```bash
+# 1. Navigate to backend directory
+cd backend
+
+# 2. Create environment file from example
+cp .env.docker.example .env.docker
+
+# 3. Edit .env.docker with your actual configuration
+# At minimum, set: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, JWT_SECRET, ALLOWED_EMAIL
+
+# 4. Build and start the container
+docker-compose up -d
+
+# 5. View logs
+docker-compose logs -f
+
+# 6. Verify health
+curl http://localhost:8000/health
+```
+
+### Environment Configuration for Docker
+
+Edit `.env.docker` with your configuration:
+
+```bash
+# Required: Database (uses Docker volume)
+DATABASE_URL=duckdb:///./data/journal.duckdb
+
+# Required: Google OAuth credentials
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+
+# Required: JWT Secret (generate with: openssl rand -hex 32)
+JWT_SECRET=your-secure-random-string
+
+# Required: Allowed user email
+ALLOWED_EMAIL=your.email@gmail.com
+
+# Frontend URL (update for production)
+FRONTEND_URL=http://localhost:5173
+
+# Cookie security (False for local HTTP, True for production HTTPS)
+COOKIE_SECURE=False
+
+# Optional: LLM integration
+GEMINI_API_KEY=your-gemini-key
+OLLAMA_URL=http://localhost:11434  # or http://ollama:11434 if on cognito-network
+```
+
+### Network Configuration
+
+The backend connects to the existing `cognito-network` Docker bridge network. This allows other services on the same network to communicate with the backend using the service name:
+
+```bash
+# From another container on cognito-network:
+http://cognito-backend:8000
+```
+
+If the network doesn't exist, create it:
+
+```bash
+docker network create cognito-network
+```
+
+### Data Persistence
+
+The DuckDB database is stored in a Docker volume named `cognito-data`, which persists across container restarts:
+
+```bash
+# View volume details
+docker volume inspect cognito-data
+
+# Backup the database
+docker cp cognito-backend:/app/data/journal.duckdb ./backup.duckdb
+
+# Restore the database
+docker cp ./backup.duckdb cognito-backend:/app/data/journal.duckdb
+```
+
+### Docker Management Commands
+
+```bash
+# Start services
+docker-compose up -d
+
+# Stop services
+docker-compose stop
+
+# Restart services
+docker-compose restart
+
+# View logs (all)
+docker-compose logs -f
+
+# View logs (last 100 lines)
+docker-compose logs --tail=100 -f
+
+# Execute commands in container
+docker-compose exec cognito-backend /bin/bash
+
+# Stop and remove containers (keeps volumes)
+docker-compose down
+
+# Stop and remove containers AND volumes (deletes data!)
+docker-compose down -v
+
+# Rebuild image after code changes
+docker-compose build
+docker-compose up -d
+```
+
+### Health Checks
+
+The container includes automatic health checks that monitor the `/health` endpoint:
+
+```bash
+# Check container health status
+docker-compose ps
+
+# Manual health check
+curl http://localhost:8000/health
+# Expected: {"status":"healthy"}
+
+# Check from another container on cognito-network
+docker run --rm --network cognito-network curlimages/curl:latest \
+  curl http://cognito-backend:8000/health
+```
+
+### Troubleshooting
+
+#### Container won't start
+
+```bash
+# Check logs for errors
+docker-compose logs
+
+# Verify environment file exists
+ls -la .env.docker
+
+# Validate docker-compose configuration
+docker-compose config
+```
+
+#### Database permission errors
+
+```bash
+# The container runs as non-root user (uid 1000)
+# If you have permission issues, check volume permissions:
+docker-compose exec cognito-backend ls -la /app/data/
+```
+
+#### Network connectivity issues
+
+```bash
+# Verify container is on cognito-network
+docker network inspect cognito-network
+
+# Should show cognito-backend in Containers section
+
+# If network doesn't exist:
+docker network create cognito-network
+# Then restart container:
+docker-compose down && docker-compose up -d
+```
+
+#### OAuth redirect URI issues
+
+When running in Docker, ensure your Google OAuth redirect URIs include:
+- Development: `http://localhost:5173/auth/callback`
+- Production: `https://your-domain.com/auth/callback`
+
+#### Port conflicts
+
+If port 8000 is already in use:
+
+```bash
+# Option 1: Stop the conflicting service
+sudo lsof -i :8000
+
+# Option 2: Change the port in docker-compose.yml
+# Edit ports section: "8001:8000" (maps host 8001 to container 8000)
 ```
 
 ## Testing
