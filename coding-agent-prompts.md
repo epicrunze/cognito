@@ -245,7 +245,8 @@ Create a SvelteKit PWA frontend for Cognito with offline-first architecture.
 
 2. Dependencies:
    - dexie (IndexedDB wrapper)
-   - Add any CSS framework setup (or vanilla CSS with custom properties)
+   - tailwindcss v4 with @tailwindcss/vite plugin
+   - @skeletonlabs/skeleton v4
 
 3. Dexie Database (src/lib/db/index.ts):
    - Define schema matching backend: entries, goals, pendingChanges, settings

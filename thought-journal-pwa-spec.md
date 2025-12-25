@@ -23,7 +23,7 @@ A Progressive Web Application for conversational thought journaling with LLM int
 
 ### 1.2 Technical Stack
 
-- **Frontend:** SvelteKit PWA with IndexedDB (Dexie.js)
+- **Frontend:** SvelteKit PWA with IndexedDB (Dexie.js), Tailwind CSS v4, Skeleton UI v4
 - **Backend:** FastAPI on Ubuntu with nginx reverse proxy
 - **Database:** DuckDB
 - **LLM:** Gemini API (primary), self-hosted Ollama (confidential data)
