@@ -8,7 +8,7 @@ SvelteKit PWA frontend for Cognito thought journal with offline-first architectu
 - 📱 **Progressive Web App** - Installable, works offline
 - 💾 **Offline-First** - IndexedDB with Dexie.js for local storage
 - 🔄 **Smart Sync** - Automatic synchronization when online
-- 🎨 **Modern Design** - Skeleton UI with Cognito brand colors
+- 🎨 **Modern Design** - Skeleton UI v4 with Tailwind CSS v4
 - ⚡ **TypeScript** - Full type safety
 - ✅ **Tested** - Vitest with fake-indexeddb
 
@@ -92,9 +92,12 @@ Authentication errors (e.g., email not authorized, access denied) are displayed 
 
 ## Design System
 
+Cognito uses **Tailwind CSS v4** with **Skeleton UI v4** for styling. The design system is configured in `app.css` using the `@theme` directive.
+
 ### Brand Colors
 
 ```css
+/* Defined in app.css @theme block */
 --color-primary-dark: #1B3C53;   /* Headers, primary buttons */
 --color-primary: #234C6A;         /* Interactive elements */
 --color-primary-light: #456882;   /* Secondary elements */
@@ -283,6 +286,16 @@ Manifest: `static/manifest.json`
 - Check browser DevTools > Application > IndexedDB
 - Clear database: `await db.delete()`
 - Fake-indexeddb used for tests automatically
+
+## Tech Stack
+
+| Technology | Version | Purpose |
+|------------|---------|----------|
+| SvelteKit | 2.x | Framework |
+| Tailwind CSS | 4.x | Styling via `@tailwindcss/vite` |
+| Skeleton UI | 4.x | Component library |
+| Dexie.js | 4.x | IndexedDB wrapper |
+| Vitest | 4.x | Testing |
 
 ## License
 
