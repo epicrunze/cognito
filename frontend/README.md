@@ -46,6 +46,8 @@ npm run preview
 ```
 src/
 ├── lib/
+│   ├── components/        # Reusable components
+│   │   └── EntryCard.svelte
 │   ├── db/               # Dexie.js database
 │   │   ├── index.ts      # Schema and types
 │   │   ├── entries.ts    # Entry CRUD
@@ -62,10 +64,31 @@ src/
 ├── routes/               # SvelteKit pages
 │   ├── +layout.svelte    # Root layout
 │   ├── +page.svelte      # Journal list
-│   └── login/            # Login page
+│   ├── login/            # Login page
+│   └── auth/callback/    # OAuth callback
 ├── app.css               # Global styles
 └── service-worker.ts     # PWA service worker
 ```
+
+## Authentication Flow
+
+Cognito uses Google OAuth 2.0 for authentication:
+
+1. **Login**: User clicks "Sign in with Google" on `/login`
+2. **OAuth Redirect**: Redirects to Google's consent screen
+3. **Callback**: Google redirects to `/auth/callback` with auth code
+4. **Token Exchange**: Backend exchanges code for user info and issues JWT
+5. **Session**: JWT stored in HttpOnly cookie for secure access
+
+### Protected Routes
+
+All routes except `/login` and `/auth/callback` require authentication. Unauthenticated users are automatically redirected to the login page.
+
+### Error Handling
+
+Authentication errors (e.g., email not authorized, access denied) are displayed on the login page via URL parameters:
+- `/login?error=not_authorized` - Email not in allowed list
+- `/login?error=access_denied` - User cancelled login
 
 ## Design System
 
@@ -112,6 +135,44 @@ src/
 }
 ```
 
+## Components
+
+### EntryCard
+
+Reusable card component for displaying journal entries.
+
+**Props:**
+- `entry: Entry` - Entry object to display
+- `onClick?: () => void` - Optional click handler
+
+**Features:**
+- Smart date formatting:
+  - "Today" / "Yesterday" for recent dates (timezone-aware)
+  - "December 24" for current year
+  - "December 24, 2023" for past years
+- Preview text truncation (150 chars max)
+- Conversation count badge
+- Interaction count display
+- Status badge (active/archived) with color coding
+- Relevance indicator (colored dot: green ≥0.8, yellow ≥0.5, gray <0.5)
+- Relative time for last interaction ("1h ago", "2d ago")
+- Click/keyboard navigation support
+
+> **Timezone Fix**: Date strings are parsed as local dates to ensure "Today"/"Yesterday" work correctly across all timezones.
+
+**Usage:**
+```svelte
+<script>
+  import EntryCard from '$lib/components/EntryCard.svelte';
+  
+  function handleClick() {
+    console.log('Entry clicked');
+  }
+</script>
+
+<EntryCard {entry} onClick={handleClick} />
+```
+
 ### PendingChange
 
 Queue for offline changes to sync:
@@ -148,10 +209,22 @@ npm run test:watch
 npm run test:coverage
 ```
 
-### Test Files
+### Test Files (44 tests passing)
 
-- `tests/lib/db.test.ts` - Database CRUD operations
-- `tests/lib/stores.test.ts` - Store reactivity
+- `tests/lib/db.test.ts` - Database CRUD operations (12 tests)
+- `tests/lib/stores.test.ts` - Store reactivity (8 tests)
+- `tests/lib/entrycard-utils.test.ts` - EntryCard utility functions (15 tests)
+  - Date formatting with timezone handling
+  - Relative time calculations  
+  - Text truncation
+  - Relevance color mapping
+- `tests/lib/auth-logic.test.ts` - Authentication logic (9 tests)
+  - Error message handling
+  - OAuth callback state parsing
+
+All tests use vitest directly without component mounting, focusing on business logic and utility functions.
+
+> **Note**: Component rendering tests will be added using E2E testing with Playwright in a future phase. Current tests focus on business logic and utility functions.
 
 ## Offline Support
 
