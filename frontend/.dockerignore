@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.svelte-kit/
+build/
+
+# Version control
+.git/
+.gitignore
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Tests
+tests/
+*.test.ts
+*.spec.ts
+coverage/
+
+# Documentation (keep README for reference)
+*.md
+!README.md
+
+# Environment (will be baked in at build time)
+.env
+.env.*
+!.env.docker
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Prettier config (not needed for build)
+.prettierrc
+.prettierignore
+.npmrc
+

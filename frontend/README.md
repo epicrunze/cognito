@@ -297,6 +297,41 @@ Manifest: `static/manifest.json`
 | Dexie.js | 4.x | IndexedDB wrapper |
 | Vitest | 4.x | Testing |
 
+## Docker Deployment
+
+### Prerequisites
+
+- Docker and Docker Compose
+- `cognito-network` Docker network (create with: `docker network create cognito-network`)
+
+### Build and Run
+
+```bash
+# Build the image
+docker compose build
+
+# Start the container
+docker compose up -d
+
+# Check status
+docker ps | grep cognito-frontend
+
+# View logs
+docker compose logs -f
+```
+
+### Environment Variables
+
+Environment variables are baked into the build. Configure in `.env` before building:
+
+```bash
+VITE_PUBLIC_API_URL=https://api-cognito.epicrunze.com/api
+```
+
+### Integration with Reverse Proxy
+
+The container exposes port 3000 internally and connects to `cognito-network`. The nginx reverse proxy routes `cognito.epicrunze.com` to `cognito-frontend:3000`.
+
 ## License
 
 Private project for Cognito
