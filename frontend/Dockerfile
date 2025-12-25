@@ -14,6 +14,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Use .env.docker for build (Vite bakes env vars at build time)
+RUN if [ -f .env.docker ]; then cp .env.docker .env; fi
+
 # Sync SvelteKit and build the static site
 RUN npm run prepare && npm run build
 

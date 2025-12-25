@@ -45,7 +45,8 @@ def get_google_auth_url(state: str | None = None) -> str:
     Returns:
         Full URL to redirect user to Google's OAuth consent screen
     """
-    redirect_uri = f"{settings.frontend_url}/auth/callback"
+    # OAuth callback goes to backend, which then redirects to frontend
+    redirect_uri = f"{settings.backend_url}/api/auth/callback"
 
     params = {
         "client_id": settings.google_client_id,
@@ -75,7 +76,7 @@ async def exchange_code_for_token(code: str) -> dict:
     Raises:
         OAuthCodeExchangeError: If token exchange fails
     """
-    redirect_uri = f"{settings.frontend_url}/auth/callback"
+    redirect_uri = f"{settings.backend_url}/api/auth/callback"
 
     async with httpx.AsyncClient() as client:
         try:

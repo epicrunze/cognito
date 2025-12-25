@@ -131,14 +131,18 @@ async def oauth_callback(
 
     # Set HttpOnly cookie with JWT
     max_age = settings.jwt_expiry_hours * 3600  # Convert hours to seconds
-    response.set_cookie(
-        key=AUTH_COOKIE_NAME,
-        value=jwt_token,
-        max_age=max_age,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="strict",
-    )
+    cookie_kwargs = {
+        "key": AUTH_COOKIE_NAME,
+        "value": jwt_token,
+        "max_age": max_age,
+        "httponly": True,
+        "secure": settings.cookie_secure,
+        "samesite": settings.cookie_samesite,
+    }
+    # Add domain only if configured (for subdomain sharing)
+    if settings.cookie_domain:
+        cookie_kwargs["domain"] = settings.cookie_domain
+    response.set_cookie(**cookie_kwargs)
 
     return response
 
@@ -168,11 +172,14 @@ async def logout() -> RedirectResponse:
     )
 
     # Clear the auth cookie
-    response.delete_cookie(
-        key=AUTH_COOKIE_NAME,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="strict",
-    )
+    delete_kwargs = {
+        "key": AUTH_COOKIE_NAME,
+        "httponly": True,
+        "secure": settings.cookie_secure,
+        "samesite": settings.cookie_samesite,
+    }
+    if settings.cookie_domain:
+        delete_kwargs["domain"] = settings.cookie_domain
+    response.delete_cookie(**delete_kwargs)
 
     return response

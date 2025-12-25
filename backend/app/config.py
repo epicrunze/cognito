@@ -29,12 +29,17 @@ class Settings(BaseSettings):
 
     # Cookie Settings
     cookie_secure: bool = True  # Set to False for localhost development
+    cookie_domain: str = ""  # Set to ".epicrunze.com" for subdomain cookie sharing
+    cookie_samesite: str = "lax"  # Use "none" for cross-subdomain requests
 
     # User Authorization
     allowed_email: str = ""
 
-    # Frontend URL for CORS
+    # Frontend URL for CORS and redirects
     frontend_url: str = "http://localhost:5173"
+
+    # Backend URL for OAuth callback (Google redirects here, not frontend)
+    backend_url: str = "http://localhost:8000"
 
     # LLM Configuration
     gemini_api_key: str = ""
