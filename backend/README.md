@@ -458,6 +458,92 @@ Versions are ordered newest first.
 **Errors:**
 - `401` - Not authenticated
 
+### Chat
+
+Conversational journaling with LLM integration. Supports both Gemini API and local Ollama.
+
+#### Send Message
+
+```http
+POST /api/chat
+Content-Type: application/json
+
+{
+  "entry_id": "uuid",
+  "conversation_id": "uuid",  // Optional - omit to start new conversation
+  "message": "I had a great day today",
+  "use_local_model": false    // Optional - use Ollama instead of Gemini
+}
+```
+
+**Behavior:**
+- Creates new conversation if `conversation_id` is not provided
+- Stores user message and assistant response in the entry
+- Uses Gemini API by default, or Ollama if `use_local_model` is true
+
+**Response:**
+```json
+{
+  "response": "That's wonderful! What made it great?",
+  "conversation_id": "uuid",
+  "entry_id": "uuid"
+}
+```
+
+**Errors:**
+- `401` - Not authenticated
+- `404` - Entry or conversation not found
+- `503` - LLM service unavailable
+
+#### Refine Entry
+
+```http
+POST /api/chat/refine
+Content-Type: application/json
+
+{
+  "entry_id": "uuid",
+  "use_local_model": false  // Optional
+}
+```
+
+Synthesizes all conversations in an entry into a coherent journal summary.
+
+**Response:**
+```json
+{
+  "refined_output": "# Today's Reflection\n\nI had a productive day...",
+  "entry_id": "uuid"
+}
+```
+
+**Errors:**
+- `401` - Not authenticated
+- `400` - No conversations to refine
+- `404` - Entry not found
+- `503` - LLM service unavailable
+
+#### LLM Configuration
+
+Set the following environment variables:
+
+```bash
+# Gemini API (primary)
+GEMINI_API_KEY=your-gemini-api-key
+
+# Ollama (local fallback)
+OLLAMA_URL=http://localhost:11434  # Default model: llama3.2
+```
+
+**System Prompts:**
+
+The LLM uses two system prompts defined in `app/services/llm.py`:
+
+- `CHAT_SYSTEM_PROMPT`: Guides the LLM to be a thoughtful journaling companion that asks follow-up questions
+- `REFINE_SYSTEM_PROMPT`: Instructs the LLM to synthesize conversations into a coherent first-person journal entry
+
+To customize the prompts, edit the constants in `app/services/llm.py`.
+
 ### Goals
 
 Manage user-defined objectives that guide notification generation.

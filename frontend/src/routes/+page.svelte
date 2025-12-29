@@ -12,13 +12,11 @@
 	}
 
 	function createNewEntry() {
-		// TODO: Navigate to new entry page when implemented
-		console.log('Create new entry - to be implemented');
+		goto('/entry/new');
 	}
 
 	function openEntry(entryId: string) {
-		// TODO: Navigate to entry detail page when implemented
-		console.log('Open entry:', entryId);
+		goto(`/entry/${entryId}`);
 	}
 
 	// Pull-to-refresh state
