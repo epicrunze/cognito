@@ -67,10 +67,12 @@
 	}
 </script>
 
-<div class="chat-container flex flex-col h-full">
+<div class="chat-container flex flex-col h-full bg-white">
 	<!-- Offline Queue Indicator -->
 	{#if $offlineQueueCount > 0}
-		<div class="offline-indicator bg-warning/20 text-warning px-4 py-2 text-sm flex items-center gap-2">
+		<div
+			class="offline-indicator bg-warning/20 text-warning px-4 py-2 text-sm flex items-center gap-2"
+		>
 			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path
 					stroke-linecap="round"
@@ -113,9 +115,7 @@
 			</div>
 		{:else}
 			{#each $chatMessages as message (message.timestamp)}
-				<div
-					class="message {message.role === 'user' ? 'message-user' : 'message-assistant'}"
-				>
+				<div class="message {message.role === 'user' ? 'message-user' : 'message-assistant'}">
 					<div
 						class="message-bubble {message.role === 'user'
 							? 'bg-primary text-white ml-auto'
@@ -191,7 +191,7 @@
 	}
 
 	.messages-area {
-		background: linear-gradient(to bottom, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+		background-color: #f8fafc;
 	}
 
 	.message {

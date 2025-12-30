@@ -336,7 +336,7 @@
 	{#if showChat && entry}
 		<div class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
 			<div
-				class="bg-bg-primary w-full sm:max-w-2xl sm:mx-4 sm:rounded-t-2xl sm:rounded-b-2xl rounded-t-2xl max-h-[90vh] flex flex-col"
+				class="bg-surface w-full sm:max-w-2xl sm:mx-4 sm:rounded-t-2xl sm:rounded-b-2xl rounded-t-2xl max-h-[90vh] flex flex-col"
 			>
 				<!-- Chat Header -->
 				<div class="flex items-center justify-between p-4 border-b border-primary-light/20">
@@ -348,15 +348,10 @@
 					</div>
 					<button
 						on:click={closeChat}
-						class="p-2 hover:bg-primary-light/10 rounded-lg transition-colors"
+						class="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-primary-light/10 hover:bg-primary-light/20 text-primary-dark rounded-lg transition-colors"
 						aria-label="Close chat"
 					>
-						<svg
-							class="w-5 h-5 text-text-secondary"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
@@ -364,6 +359,7 @@
 								d="M6 18L18 6M6 6l12 12"
 							/>
 						</svg>
+						Close
 					</button>
 				</div>
 

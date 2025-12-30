@@ -140,8 +140,37 @@
 			</div>
 
 			<!-- Chat Interface -->
-			<div class="surface overflow-hidden" style="height: 500px;">
-				<Chat entryId={entry.id} existingConversation={null} />
+			<div
+				class="chat-wrapper surface overflow-hidden rounded-2xl shadow-lg"
+				style="height: 500px;"
+			>
+				<!-- Chat Header -->
+				<div
+					class="flex items-center justify-between p-4 border-b border-primary-light/20 bg-surface"
+				>
+					<div>
+						<h3 class="font-semibold text-primary-dark">New Conversation</h3>
+						<p class="text-sm text-text-secondary">{formatToday()}</p>
+					</div>
+					<button
+						on:click={() => goto('/')}
+						class="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-primary-light/10 hover:bg-primary-light/20 text-primary-dark rounded-lg transition-colors"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
+							/>
+						</svg>
+						Close
+					</button>
+				</div>
+				<!-- Chat Content -->
+				<div class="chat-content bg-white" style="height: calc(500px - 73px);">
+					<Chat entryId={entry.id} existingConversation={null} />
+				</div>
 			</div>
 		{/if}
 	</div>

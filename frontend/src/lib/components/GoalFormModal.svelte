@@ -71,7 +71,7 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- Modal Content -->
 	<div
-		class="bg-bg-primary rounded-2xl shadow-2xl w-full max-w-md"
+		class="bg-surface rounded-2xl shadow-2xl w-full max-w-md"
 		on:click|stopPropagation
 		on:keydown|stopPropagation
 	>
