@@ -38,6 +38,8 @@ def mock_settings():
             settings.jwt_expiry_hours = 24
             settings.allowed_email = "allowed@example.com"
             settings.cookie_secure = False
+            settings.cookie_samesite = "lax"
+            settings.cookie_domain = ""
         
         yield {
             "oauth": oauth_settings,

@@ -1,23 +1,29 @@
 <script lang="ts">
 	import '../app.css';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { checkAuth, authLoading, isAuthenticated, user, clearAuth } from '$lib/stores/auth';
-	import { initSync, isOnline, syncIndicator } from '$lib/stores/sync';
+	import { isOnline } from '$lib/stores/sync';
 	import { loadEntries } from '$lib/stores/entries';
 	import { logout } from '$lib/api/auth';
+	import { setupBackgroundSync, cleanupBackgroundSync } from '$lib/sync';
+	import SyncIndicator from '$lib/components/SyncIndicator.svelte';
 
 	onMount(async () => {
 		// Check authentication status
 		await checkAuth();
 
-		// Initialize sync store
-		await initSync();
+		// Setup background sync (initializes sync store and sets up triggers)
+		setupBackgroundSync();
 
 		// Load entries if authenticated
 		if ($isAuthenticated) {
 			await loadEntries();
 		}
+	});
+
+	onDestroy(() => {
+		cleanupBackgroundSync();
 	});
 
 	async function handleLogout() {
@@ -52,10 +58,8 @@
 				<h1 class="text-2xl font-bold">Cognito</h1>
 
 				<div class="flex items-center gap-4">
-					<!-- Sync Indicator -->
-					<div class="text-sm">
-						{$syncIndicator}
-					</div>
+					<!-- Sync Indicator Component -->
+					<SyncIndicator />
 
 					<!-- Navigation and User Info -->
 					{#if $isAuthenticated}

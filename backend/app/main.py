@@ -16,6 +16,7 @@ from app.routers.auth import router as auth_router
 from app.routers.entries import router as entries_router
 from app.routers.goals import router as goals_router
 from app.routers.chat import router as chat_router
+from app.routers.sync import router as sync_router
 
 
 @asynccontextmanager
@@ -64,6 +65,7 @@ app.include_router(auth_router)
 app.include_router(entries_router)
 app.include_router(goals_router)
 app.include_router(chat_router)
+app.include_router(sync_router)
 
 
 

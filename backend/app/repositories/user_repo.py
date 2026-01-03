@@ -4,13 +4,14 @@ User repository for database operations.
 Handles user CRUD operations with race condition safety.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
 import duckdb
 
 from app.models.user import User, UserInDB
+from app.utils.timestamp import utc_now, ensure_utc
 
 
 def get_user_by_email(
@@ -40,8 +41,8 @@ def get_user_by_email(
         email=result[1],
         name=result[2],
         picture=result[3],
-        created_at=result[4],
-        last_login_at=result[5],
+        created_at=ensure_utc(result[4]),
+        last_login_at=ensure_utc(result[5]),
     )
 
 
@@ -63,7 +64,7 @@ def create_user(
         Created or existing user with database fields
     """
     user_id = uuid4()
-    now = datetime.now()
+    now = utc_now()
 
     try:
         conn.execute(
@@ -81,14 +82,14 @@ def create_user(
             ],
         )
 
-        # Successfully created, return new user
+        # Successfully created, return new user with timezone-aware datetimes
         return UserInDB(
             id=user_id,
             email=user.email,
             name=user.name,
             picture=user.picture,
-            created_at=now,
-            last_login_at=now,
+            created_at=ensure_utc(now),
+            last_login_at=ensure_utc(now),
         )
 
     except Exception:
@@ -116,5 +117,5 @@ def update_last_login(
     """
     conn.execute(
         "UPDATE users SET last_login_at = ? WHERE id = ?",
-        [datetime.now(), str(user_id)],
+        [utc_now(), str(user_id)],
     )

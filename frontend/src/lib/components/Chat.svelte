@@ -4,7 +4,7 @@
 		chatMessages,
 		chatLoading,
 		chatError,
-		offlineQueueCount,
+		hasPendingMessages,
 		sendMessage,
 		clearChat,
 		initializeChat
@@ -68,8 +68,8 @@
 </script>
 
 <div class="chat-container flex flex-col h-full bg-white">
-	<!-- Offline Queue Indicator -->
-	{#if $offlineQueueCount > 0}
+	<!-- Pending Messages Indicator -->
+	{#if $hasPendingMessages}
 		<div
 			class="offline-indicator bg-warning/20 text-warning px-4 py-2 text-sm flex items-center gap-2"
 		>
@@ -81,7 +81,7 @@
 					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
 				/>
 			</svg>
-			<span>{$offlineQueueCount} message{$offlineQueueCount > 1 ? 's' : ''} queued offline</span>
+			<span>Messages pending - response will arrive when synced</span>
 		</div>
 	{/if}
 
@@ -119,11 +119,15 @@
 					<div
 						class="message-bubble {message.role === 'user'
 							? 'bg-primary text-white ml-auto'
-							: 'bg-surface-alt text-text-primary mr-auto'}"
+							: 'bg-surface-alt text-text-primary mr-auto'}
+							{message.pending_response ? 'pending-message' : ''}"
 					>
 						<p class="message-content whitespace-pre-wrap">{message.content}</p>
 						<span class="message-time text-xs opacity-70 mt-1 block">
 							{formatTime(message.timestamp)}
+							{#if message.pending_response}
+								<span class="pending-badge">⏳ Awaiting response</span>
+							{/if}
 						</span>
 					</div>
 				</div>
@@ -250,5 +254,32 @@
 	textarea {
 		min-height: 48px;
 		max-height: 150px;
+	}
+
+	/* Pending message styling */
+	.pending-message {
+		opacity: 0.85;
+		border: 1px dashed rgba(217, 119, 6, 0.5);
+	}
+
+	.pending-badge {
+		display: inline-block;
+		margin-left: 0.5rem;
+		padding: 0.125rem 0.375rem;
+		background: rgba(217, 119, 6, 0.2);
+		color: #d97706;
+		border-radius: 0.25rem;
+		font-size: 0.65rem;
+		animation: pulse 2s infinite;
+	}
+
+	@keyframes pulse {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.6;
+		}
 	}
 </style>

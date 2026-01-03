@@ -12,6 +12,7 @@ export interface Message {
     role: 'user' | 'assistant';
     content: string;
     timestamp: string; // ISO 8601
+    pending_response?: boolean; // True when awaiting LLM response (offline message)
 }
 
 export interface Conversation {

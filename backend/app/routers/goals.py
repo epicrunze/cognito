@@ -144,7 +144,7 @@ async def create_goal(
         user_id = db_user.id
 
         # Create new goal
-        new_goal = goal_repo.create_goal(conn, user_id, goal_data)
+        new_goal = goal_repo.create_goal(conn, goal_data, user_id)
 
         return Goal(
             id=new_goal.id,

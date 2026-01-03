@@ -199,7 +199,7 @@ async def create_entry(
             )
 
         # Create new entry
-        new_entry = entry_repo.create_entry(conn, user_id, entry_data)
+        new_entry = entry_repo.create_entry(conn, entry_data, user_id)
 
         return Entry(
             id=new_entry.id,

@@ -18,6 +18,7 @@ from app.models.entry import Conversation, Message
 from app.models.user import User
 from app.repositories import entry_repo, user_repo
 from app.services.llm import llm_router
+from app.utils.timestamp import utc_now
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -166,7 +167,7 @@ async def send_message(
         assistant_message = Message(
             role="assistant",
             content=response_text,
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
         )
         current_conversation.messages.append(assistant_message)
 

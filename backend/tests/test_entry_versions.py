@@ -61,7 +61,7 @@ def sample_entry(test_db, test_user_id):
         refined_output="Original content",
     )
 
-    entry = entry_repo.create_entry(test_db, test_user_id, entry_data)
+    entry = entry_repo.create_entry(test_db, entry_data, test_user_id)
     return entry
 
 

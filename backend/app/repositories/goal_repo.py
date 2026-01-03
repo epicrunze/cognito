@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import duckdb
 
 from app.models.goal import GoalCreate, GoalInDB, GoalUpdate
+from app.utils.timestamp import utc_now
 
 
 def get_goals(
@@ -94,22 +95,25 @@ def get_goal_by_id(
 
 def create_goal(
     conn: duckdb.DuckDBPyConnection,
-    user_id: UUID,
     goal_data: GoalCreate,
+    user_id: UUID,
+    goal_id: Optional[UUID] = None,
 ) -> GoalInDB:
     """
     Create a new goal.
 
     Args:
         conn: DuckDB connection
-        user_id: User ID
         goal_data: Goal creation data
+        user_id: User ID
+        goal_id: Optional goal ID (for sync with client-generated UUIDs)
 
     Returns:
         Created goal
     """
-    goal_id = uuid4()
-    now = datetime.now()
+    if goal_id is None:
+        goal_id = uuid4()
+    now = utc_now()
 
     conn.execute(
         """
@@ -183,7 +187,7 @@ def update_goal(
 
     # Always update updated_at
     updates.append("updated_at = ?")
-    params.append(datetime.now())
+    params.append(utc_now())
 
     # Add WHERE clause params
     params.extend([str(goal_id), str(user_id)])
@@ -222,7 +226,7 @@ def delete_goal(
         # Soft delete: set active to false
         conn.execute(
             "UPDATE goals SET active = ?, updated_at = ? WHERE id = ? AND user_id = ?",
-            [False, datetime.now(), str(goal_id), str(user_id)],
+            [False, utc_now(), str(goal_id), str(user_id)],
         )
     else:
         # Hard delete: remove from database
@@ -232,3 +236,50 @@ def delete_goal(
         )
 
     return True
+
+
+def get_goals_since(
+    conn: duckdb.DuckDBPyConnection,
+    user_id: UUID,
+    since: Optional[datetime] = None,
+) -> list[GoalInDB]:
+    """
+    Get goals modified since a given timestamp.
+
+    Args:
+        conn: DuckDB connection
+        user_id: User ID
+        since: Get goals updated after this timestamp (None for all)
+
+    Returns:
+        List of goals
+    """
+    if since:
+        query = """
+            SELECT * FROM goals
+            WHERE user_id = ? AND updated_at > ?
+            ORDER BY updated_at DESC
+        """
+        results = conn.execute(query, [str(user_id), since]).fetchall()
+    else:
+        query = """
+            SELECT * FROM goals
+            WHERE user_id = ?
+            ORDER BY updated_at DESC
+        """
+        results = conn.execute(query, [str(user_id)]).fetchall()
+
+    goals = []
+    for row in results:
+        goals.append(GoalInDB(
+            id=row[0] if isinstance(row[0], UUID) else UUID(row[0]),
+            user_id=row[1] if isinstance(row[1], UUID) else UUID(row[1]),
+            category=row[2],
+            description=row[3],
+            active=row[4],
+            created_at=row[5],
+            updated_at=row[6],
+        ))
+
+    return goals
+

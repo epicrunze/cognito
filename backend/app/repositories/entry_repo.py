@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 import duckdb
 
 from app.models.entry import EntryCreate, EntryInDB, EntryUpdate, EntryVersion
+from app.utils.timestamp import utc_now
 
 
 def get_entries(
@@ -221,22 +222,25 @@ def get_entry_by_date(
 
 def create_entry(
     conn: duckdb.DuckDBPyConnection,
-    user_id: UUID,
     entry_data: EntryCreate,
+    user_id: UUID,
+    entry_id: Optional[UUID] = None,
 ) -> EntryInDB:
     """
     Create a new entry.
 
     Args:
         conn: DuckDB connection
-        user_id: User ID
         entry_data: Entry creation data
+        user_id: User ID
+        entry_id: Optional entry ID (for sync with client-generated UUIDs)
 
     Returns:
         Created entry
     """
-    entry_id = uuid4()
-    now = datetime.now()
+    if entry_id is None:
+        entry_id = uuid4()
+    now = utc_now()
 
     # Convert conversations to JSON
     conversations_json = json.dumps(
@@ -344,7 +348,7 @@ def update_entry(
     # Always increment version and update timestamp
     update_fields.append("version = version + 1")
     update_fields.append("updated_at = ?")
-    params.append(datetime.now())
+    params.append(utc_now())
 
     # Add WHERE clause params
     params.extend([str(entry_id), str(user_id)])
@@ -380,7 +384,7 @@ def update_last_interacted_at(
         WHERE id = ?
     """
 
-    conn.execute(query, [datetime.now(), str(entry_id)])
+    conn.execute(query, [utc_now(), str(entry_id)])
 
 
 def get_entry_versions(
@@ -460,6 +464,121 @@ def create_entry_version(
             str(entry_id),
             version,
             content_snapshot,
-            datetime.now(),
+            utc_now(),
         ],
     )
+
+
+def get_entries_since(
+    conn: duckdb.DuckDBPyConnection,
+    user_id: UUID,
+    since: Optional[datetime] = None,
+) -> list[EntryInDB]:
+    """
+    Get entries modified since a given timestamp.
+
+    Args:
+        conn: DuckDB connection
+        user_id: User ID
+        since: Get entries updated after this timestamp (None for all)
+
+    Returns:
+        List of entries
+    """
+    if since:
+        query = """
+            SELECT 
+                id, user_id, date, conversations, refined_output,
+                relevance_score, last_interacted_at, interaction_count,
+                status, version, created_at, updated_at
+            FROM entries
+            WHERE user_id = ? AND updated_at > ?
+            ORDER BY updated_at DESC
+        """
+        results = conn.execute(query, [str(user_id), since]).fetchall()
+    else:
+        query = """
+            SELECT 
+                id, user_id, date, conversations, refined_output,
+                relevance_score, last_interacted_at, interaction_count,
+                status, version, created_at, updated_at
+            FROM entries
+            WHERE user_id = ?
+            ORDER BY updated_at DESC
+        """
+        results = conn.execute(query, [str(user_id)]).fetchall()
+
+    entries = []
+    for row in results:
+        conversations = json.loads(row[3]) if row[3] else []
+        entry_id = row[0] if isinstance(row[0], UUID) else UUID(row[0])
+        uid = row[1] if isinstance(row[1], UUID) else UUID(row[1])
+
+        entries.append(EntryInDB(
+            id=entry_id,
+            user_id=uid,
+            date=str(row[2]),
+            conversations=conversations,
+            refined_output=row[4] or "",
+            relevance_score=row[5],
+            last_interacted_at=row[6],
+            interaction_count=row[7],
+            status=row[8],
+            version=row[9],
+            created_at=row[10],
+            updated_at=row[11],
+        ))
+
+    return entries
+
+
+def list_entries(
+    conn: duckdb.DuckDBPyConnection,
+    user_id: UUID,
+    status: str = "active",
+) -> list[EntryInDB]:
+    """
+    List all entries for a user with optional status filter.
+
+    Args:
+        conn: DuckDB connection
+        user_id: User ID
+        status: Filter by status (default: active)
+
+    Returns:
+        List of entries
+    """
+    query = """
+        SELECT 
+            id, user_id, date, conversations, refined_output,
+            relevance_score, last_interacted_at, interaction_count,
+            status, version, created_at, updated_at
+        FROM entries
+        WHERE user_id = ? AND status = ?
+        ORDER BY date DESC
+    """
+    results = conn.execute(query, [str(user_id), status]).fetchall()
+
+    entries = []
+    for row in results:
+        conversations = json.loads(row[3]) if row[3] else []
+        entry_id = row[0] if isinstance(row[0], UUID) else UUID(row[0])
+        uid = row[1] if isinstance(row[1], UUID) else UUID(row[1])
+
+        entries.append(EntryInDB(
+            id=entry_id,
+            user_id=uid,
+            date=str(row[2]),
+            conversations=conversations,
+            refined_output=row[4] or "",
+            relevance_score=row[5],
+            last_interacted_at=row[6],
+            interaction_count=row[7],
+            status=row[8],
+            version=row[9],
+            created_at=row[10],
+            updated_at=row[11],
+        ))
+
+    return entries
+
