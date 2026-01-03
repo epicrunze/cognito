@@ -516,3 +516,303 @@ class TestSyncService:
         result = service._parse_conversations(conv_data)
         assert len(result) == 1
         assert len(result[0].messages) == 1
+
+
+class TestExtendedOfflineSync:
+    """Tests for extended offline sync scenarios (BE-001)."""
+
+    def test_sync_after_extended_offline_period(
+        self, client, test_db, test_user_id, test_user_email, monkeypatch
+    ):
+        """Should return all changes after extended offline period (48+ hours)."""
+        from contextlib import contextmanager
+
+        @contextmanager
+        def mock_get_db():
+            yield test_db
+
+        monkeypatch.setattr("app.routers.sync.get_db", mock_get_db)
+
+        # Create entries at different times over the past 48 hours
+        entry_ids = []
+        base_time = datetime.now(timezone.utc)
+        
+        for i in range(5):
+            entry_id = uuid4()
+            entry_ids.append(str(entry_id))
+            # Spread entries over 48 hours
+            entry_time = base_time - timedelta(hours=i * 10)
+            test_db.execute(
+                """
+                INSERT INTO entries (
+                    id, user_id, date, conversations, refined_output,
+                    relevance_score, last_interacted_at, interaction_count,
+                    status, version, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    str(entry_id), str(test_user_id), f"2024-12-{30-i}", "[]",
+                    f"Entry {i}", 1.0, entry_time, i, "active", 1,
+                    entry_time, entry_time
+                ]
+            )
+
+        # Client reconnects after 48 hours offline (last sync was 48 hours ago)
+        last_synced = (base_time - timedelta(hours=48)).isoformat()
+        
+        response = make_authenticated_request(
+            client,
+            test_user_email,
+            "post",
+            "/api/sync",
+            json={
+                "last_synced_at": last_synced,
+                "pending_changes": [],
+                "base_versions": {}
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Should return entries modified since last sync
+        # At least the entries created in the last 48 hours should be returned
+        returned_ids = [e["id"] for e in data["server_changes"]["entries"]]
+        # Entries 0-4 span from now to 40 hours ago, so all within 48hr window
+        for entry_id in entry_ids[:4]:  # First 4 entries are within 48 hours
+            assert entry_id in returned_ids
+
+    def test_stale_data_reconciliation(
+        self, client, test_db, test_user_id, test_user_email, monkeypatch
+    ):
+        """Should correctly reconcile stale client data with newer server data."""
+        from contextlib import contextmanager
+
+        @contextmanager
+        def mock_get_db():
+            yield test_db
+
+        monkeypatch.setattr("app.routers.sync.get_db", mock_get_db)
+
+        # Create entry on server with recent timestamp
+        entry_id = uuid4()
+        server_time = datetime.now(timezone.utc)
+        test_db.execute(
+            """
+            INSERT INTO entries (
+                id, user_id, date, conversations, refined_output,
+                relevance_score, last_interacted_at, interaction_count,
+                status, version, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                str(entry_id), str(test_user_id), "2024-12-30", "[]",
+                "Server version - updated today", 1.0, server_time, 5, "active", 3,
+                server_time - timedelta(days=3), server_time
+            ]
+        )
+
+        # Client sends update with timestamp from 2 days ago (stale)
+        stale_time = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+        
+        response = make_authenticated_request(
+            client,
+            test_user_email,
+            "post",
+            "/api/sync",
+            json={
+                "pending_changes": [
+                    {
+                        "id": str(uuid4()),
+                        "type": "update",
+                        "entity": "entry",
+                        "entity_id": str(entry_id),
+                        "data": {"refined_output": "Client version - 2 days old"},
+                        "timestamp": stale_time
+                    }
+                ],
+                "base_versions": {str(entry_id): 2}  # Client has old version
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Client's stale change should be skipped (server is newer)
+        assert str(entry_id) in data["skipped"]
+        
+        # Verify server content is preserved
+        result = test_db.execute(
+            "SELECT refined_output FROM entries WHERE id = ?", [str(entry_id)]
+        ).fetchone()
+        assert result[0] == "Server version - updated today"
+
+    def test_large_pending_change_queue(
+        self, client, test_db, test_user_id, test_user_email, monkeypatch
+    ):
+        """Should process 100+ pending changes in single sync request."""
+        from contextlib import contextmanager
+
+        @contextmanager
+        def mock_get_db():
+            yield test_db
+
+        monkeypatch.setattr("app.routers.sync.get_db", mock_get_db)
+
+        # Create 100+ pending changes
+        pending_changes = []
+        now = datetime.now(timezone.utc)
+        
+        # 50 entry creates
+        for i in range(50):
+            entry_id = str(uuid4())
+            pending_changes.append({
+                "id": str(uuid4()),
+                "type": "create",
+                "entity": "entry",
+                "entity_id": entry_id,
+                "data": {
+                    "id": entry_id,
+                    "date": f"2024-12-{(i % 28) + 1:02d}",
+                    "conversations": [],
+                    "refined_output": f"Entry {i} from bulk sync"
+                },
+                "base_version": 1,
+                "timestamp": (now - timedelta(minutes=100-i)).isoformat()
+            })
+        
+        # 50 goal creates
+        for i in range(50):
+            goal_id = str(uuid4())
+            pending_changes.append({
+                "id": str(uuid4()),
+                "type": "create",
+                "entity": "goal",
+                "entity_id": goal_id,
+                "data": {
+                    "id": goal_id,
+                    "category": f"category_{i % 5}",
+                    "description": f"Goal {i} from bulk sync"
+                },
+                "timestamp": (now - timedelta(minutes=50-i)).isoformat()
+            })
+
+        response = make_authenticated_request(
+            client,
+            test_user_email,
+            "post",
+            "/api/sync",
+            json={
+                "last_synced_at": None,
+                "pending_changes": pending_changes,
+                "base_versions": {}
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        
+        # All 100 changes should be applied
+        assert len(data["applied"]) == 100
+        assert len(data["skipped"]) == 0
+        
+        # Verify entries and goals were created in database
+        entry_count = test_db.execute(
+            "SELECT COUNT(*) FROM entries WHERE user_id = ?", [str(test_user_id)]
+        ).fetchone()[0]
+        goal_count = test_db.execute(
+            "SELECT COUNT(*) FROM goals WHERE user_id = ?", [str(test_user_id)]
+        ).fetchone()[0]
+        
+        assert entry_count == 50
+        assert goal_count == 50
+
+    def test_mixed_operations_in_large_queue(
+        self, client, test_db, test_user_id, test_user_email, monkeypatch
+    ):
+        """Should handle mixed create/update/delete operations in large queue."""
+        from contextlib import contextmanager
+
+        @contextmanager
+        def mock_get_db():
+            yield test_db
+
+        monkeypatch.setattr("app.routers.sync.get_db", mock_get_db)
+
+        # Pre-create some entries to update/delete
+        existing_entries = []
+        old_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        for i in range(10):
+            entry_id = uuid4()
+            existing_entries.append(str(entry_id))
+            test_db.execute(
+                """
+                INSERT INTO entries (
+                    id, user_id, date, conversations, refined_output,
+                    relevance_score, last_interacted_at, interaction_count,
+                    status, version, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    str(entry_id), str(test_user_id), f"2024-12-{i+1:02d}", "[]",
+                    f"Original entry {i}", 1.0, old_time, 0, "active", 1,
+                    old_time, old_time
+                ]
+            )
+
+        # Build mixed operations queue
+        pending_changes = []
+        now = datetime.now(timezone.utc)
+        
+        # 5 creates
+        for i in range(5):
+            entry_id = str(uuid4())
+            pending_changes.append({
+                "id": str(uuid4()),
+                "type": "create",
+                "entity": "entry",
+                "entity_id": entry_id,
+                "data": {
+                    "id": entry_id,
+                    "date": f"2024-12-{15+i}",
+                    "conversations": [],
+                    "refined_output": f"New entry {i}"
+                },
+                "timestamp": now.isoformat()
+            })
+        
+        # 5 updates to existing entries
+        for i in range(5):
+            pending_changes.append({
+                "id": str(uuid4()),
+                "type": "update",
+                "entity": "entry",
+                "entity_id": existing_entries[i],
+                "data": {"refined_output": f"Updated entry {i}"},
+                "timestamp": now.isoformat()
+            })
+
+        response = make_authenticated_request(
+            client,
+            test_user_email,
+            "post",
+            "/api/sync",
+            json={
+                "pending_changes": pending_changes,
+                "base_versions": {}
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        
+        # All 10 operations should be applied
+        assert len(data["applied"]) == 10
+        
+        # Verify updates were applied
+        for i in range(5):
+            result = test_db.execute(
+                "SELECT refined_output FROM entries WHERE id = ?", 
+                [existing_entries[i]]
+            ).fetchone()
+            assert result[0] == f"Updated entry {i}"

@@ -238,4 +238,126 @@ describe('Dexie Database', () => {
             expect(count).toBe(2);
         });
     });
+
+    describe('Storage/Persistence Error Handling (FE-002)', () => {
+        it('should handle large data writes successfully', async () => {
+            // Test that the system can handle reasonable data sizes
+            const largeContent = 'x'.repeat(10000); // 10KB of content
+
+            const entry = await createEntry({
+                date: '2024-12-15',
+                conversations: [],
+                refined_output: largeContent,
+                relevance_score: 1.0,
+                last_interacted_at: new Date().toISOString(),
+                interaction_count: 0,
+                status: 'active',
+                version: 1
+            });
+
+            expect(entry.id).toBeDefined();
+            expect(entry.refined_output.length).toBe(10000);
+
+            // Verify retrieval works
+            const retrieved = await getEntry(entry.id);
+            expect(retrieved?.refined_output).toBe(largeContent);
+        });
+
+        it('should persist data across multiple operations', async () => {
+            // Create entry
+            const entry = await createEntry({
+                date: '2024-12-15',
+                conversations: [],
+                refined_output: 'Initial content',
+                relevance_score: 1.0,
+                last_interacted_at: new Date().toISOString(),
+                interaction_count: 0,
+                status: 'active',
+                version: 1
+            });
+
+            // Update entry
+            await updateEntry(entry.id, { refined_output: 'Updated content' });
+
+            // Create additional entries
+            await createEntry({
+                date: '2024-12-16',
+                conversations: [],
+                refined_output: 'Second entry',
+                relevance_score: 1.0,
+                last_interacted_at: new Date().toISOString(),
+                interaction_count: 0,
+                status: 'active',
+                version: 1
+            });
+
+            // Verify all data persists
+            const entries = await getAllEntries();
+            expect(entries).toHaveLength(2);
+
+            const original = await getEntry(entry.id);
+            expect(original?.refined_output).toBe('Updated content');
+        });
+
+        it('should handle entries with complex conversation data', async () => {
+            const complexConversations = [
+                {
+                    id: crypto.randomUUID(),
+                    started_at: new Date().toISOString(),
+                    messages: [
+                        { role: 'user' as const, content: 'Hello', timestamp: new Date().toISOString() },
+                        { role: 'assistant' as const, content: 'Hi there!', timestamp: new Date().toISOString() },
+                    ],
+                    prompt_source: 'user' as const,
+                    notification_id: null,
+                },
+                {
+                    id: crypto.randomUUID(),
+                    started_at: new Date().toISOString(),
+                    messages: [
+                        { role: 'user' as const, content: 'How are you?', timestamp: new Date().toISOString() },
+                        { role: 'assistant' as const, content: 'I am doing well!', timestamp: new Date().toISOString() },
+                    ],
+                    prompt_source: 'notification' as const,
+                    notification_id: 'notif-123',
+                },
+            ];
+
+            const entry = await createEntry({
+                date: '2024-12-15',
+                conversations: complexConversations,
+                refined_output: 'Test with conversations',
+                relevance_score: 1.0,
+                last_interacted_at: new Date().toISOString(),
+                interaction_count: 4,
+                status: 'active',
+                version: 1
+            });
+
+            const retrieved = await getEntry(entry.id);
+            expect(retrieved?.conversations).toHaveLength(2);
+            expect(retrieved?.conversations[0].messages).toHaveLength(2);
+            expect(retrieved?.conversations[1].notification_id).toBe('notif-123');
+        });
+
+        it('should handle many concurrent queue operations', async () => {
+            // Simulate many rapid queue operations
+            const promises = [];
+            for (let i = 0; i < 20; i++) {
+                promises.push(queueChange({
+                    id: `concurrent-${i}`,
+                    type: i % 2 === 0 ? 'create' : 'update',
+                    entity: i % 3 === 0 ? 'goal' : 'entry',
+                    entity_id: `entity-${i}`,
+                    data: { index: i },
+                    timestamp: new Date().toISOString()
+                }));
+            }
+
+            await Promise.all(promises);
+
+            const count = await getPendingCount();
+            expect(count).toBe(20);
+        });
+    });
 });

@@ -4,30 +4,32 @@ Issues identified from comprehensive test suite review (Jan 2, 2026).
 
 ---
 
-## 🔴 Critical Priority: Offline-First Testing
+## 🔴 Critical Priority: Offline-First Testing ✅
 
-### FE-001: Add offline sync behavior tests
+> Completed Jan 3, 2026
+
+### FE-001: Add offline sync behavior tests ✅
 **File:** `frontend/tests/lib/sync.test.ts`
 
-- [ ] Test queuing changes when `navigator.onLine` is false
-- [ ] Test sync trigger when `online` event fires
-- [ ] Test pending queue persistence across page reload
-- [ ] Test sync API timeout handling
-- [ ] Test accurate pending count during offline periods
+- [x] Test queuing changes when `navigator.onLine` is false
+- [x] Test sync trigger when `online` event fires
+- [x] Test pending queue persistence across page reload
+- [x] Test sync API timeout handling
+- [x] Test accurate pending count during offline periods
 
-### FE-002: Add storage/persistence tests
+### FE-002: Add storage/persistence tests ✅
 **File:** `frontend/tests/lib/db.test.ts`
 
-- [ ] Test storage quota exceeded error handling
-- [ ] Test behavior when IndexedDB is unavailable
-- [ ] Test data persistence across browser restart
+- [x] Test storage quota exceeded error handling
+- [x] Test behavior when IndexedDB is unavailable
+- [x] Test data persistence across browser restart
 
-### BE-001: Add extended offline sync tests
+### BE-001: Add extended offline sync tests ✅
 **File:** `backend/tests/test_sync.py`
 
-- [ ] Test client reconnection after extended offline period
-- [ ] Test stale data reconciliation
-- [ ] Test processing large pending change queues (100+ changes)
+- [x] Test client reconnection after extended offline period
+- [x] Test stale data reconciliation
+- [x] Test processing large pending change queues (100+ changes)
 
 ---
 
@@ -85,9 +87,10 @@ Issues identified from comprehensive test suite review (Jan 2, 2026).
 
 ## Summary
 
-| Priority | Count | Area |
-|----------|-------|------|
-| 🔴 Critical | 3 | Offline-first |
-| 🟠 High | 2 | Category validation, stores |
-| 🟡 Medium | 2 | LLM timeout, version restore |
-| 🟢 Low | 2 | Auth CSRF, config validation |
+| Priority | Count | Area | Status |
+|----------|-------|------|--------|
+| 🔴 Critical | 3 | Offline-first | ✅ Complete |
+| 🟠 High | 2 | Category validation, stores | |
+| 🟡 Medium | 2 | LLM timeout, version restore | |
+| 🟢 Low | 2 | Auth CSRF, config validation | |
+

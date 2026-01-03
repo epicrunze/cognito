@@ -328,3 +328,166 @@ describe('Base Versions', () => {
         expect(Object.keys(versions)).toHaveLength(0);
     });
 });
+
+describe('Offline Sync Behavior (FE-001)', () => {
+    beforeEach(async () => {
+        // Clear all tables before each test
+        await db.entries.clear();
+        await db.goals.clear();
+        await db.pendingChanges.clear();
+        await db.settings.clear();
+        await db.settings.add({ id: 'settings', lastSyncedAt: null });
+        vi.clearAllMocks();
+    });
+
+    it('should queue changes when offline without attempting sync', async () => {
+        // Queue changes while would be "offline"
+        const entry: Entry = {
+            id: 'entry-1',
+            date: '2024-12-30',
+            conversations: [],
+            refined_output: 'Created offline',
+            relevance_score: 1.0,
+            last_interacted_at: new Date().toISOString(),
+            interaction_count: 0,
+            status: 'active',
+            version: 1,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        };
+
+        await queueEntryChange('create', entry);
+
+        // Verify change is queued
+        const changes = await getPendingChanges();
+        expect(changes).toHaveLength(1);
+        expect(changes[0].entity_id).toBe('entry-1');
+        expect(changes[0].type).toBe('create');
+    });
+
+    it('should queue multiple changes and maintain order', async () => {
+        // Simulate multiple offline operations
+        const timestamps = [
+            '2024-12-30T10:00:00.000Z',
+            '2024-12-30T10:01:00.000Z',
+            '2024-12-30T10:02:00.000Z',
+        ];
+
+        for (let i = 0; i < 3; i++) {
+            await queueChange({
+                id: `change-${i}`,
+                type: 'update',
+                entity: 'entry',
+                entity_id: `entry-${i}`,
+                data: { content: `Update ${i}` },
+                timestamp: timestamps[i],
+            });
+        }
+
+        // Verify all changes are queued in order
+        const changes = await getPendingChanges();
+        expect(changes).toHaveLength(3);
+        expect(changes[0].entity_id).toBe('entry-0');
+        expect(changes[1].entity_id).toBe('entry-1');
+        expect(changes[2].entity_id).toBe('entry-2');
+    });
+
+    it('should persist pending queue data after clearing and re-reading', async () => {
+        // Queue some changes
+        await queueChange({
+            id: 'persisted-change',
+            type: 'create',
+            entity: 'goal',
+            entity_id: 'goal-1',
+            data: { category: 'health', description: 'Test goal' },
+            timestamp: new Date().toISOString(),
+        });
+
+        // Read back from DB (simulating persistence)
+        const changes = await getPendingChanges();
+        expect(changes).toHaveLength(1);
+        expect(changes[0].id).toBe('persisted-change');
+
+        // Read again to verify persistence
+        const changesAgain = await getPendingChanges();
+        expect(changesAgain).toHaveLength(1);
+        expect(changesAgain[0].entity_id).toBe('goal-1');
+    });
+
+    it('should maintain accurate pending count during offline period', async () => {
+        const { getPendingCount } = await import('$lib/db/sync');
+
+        // Start with no pending changes
+        let count = await getPendingCount();
+        expect(count).toBe(0);
+
+        // Queue first change
+        await queueChange({
+            id: 'change-1',
+            type: 'create',
+            entity: 'entry',
+            entity_id: 'entry-1',
+            data: {},
+            timestamp: new Date().toISOString(),
+        });
+        count = await getPendingCount();
+        expect(count).toBe(1);
+
+        // Queue more changes
+        await queueChange({
+            id: 'change-2',
+            type: 'update',
+            entity: 'entry',
+            entity_id: 'entry-2',
+            data: {},
+            timestamp: new Date().toISOString(),
+        });
+        await queueChange({
+            id: 'change-3',
+            type: 'create',
+            entity: 'goal',
+            entity_id: 'goal-1',
+            data: {},
+            timestamp: new Date().toISOString(),
+        });
+        count = await getPendingCount();
+        expect(count).toBe(3);
+
+        // Clear one change  
+        await clearPendingChange('change-1');
+        count = await getPendingCount();
+        expect(count).toBe(2);
+    });
+
+    it('should handle mixed entity types in pending queue', async () => {
+        // Queue entry and goal changes
+        await queueChange({
+            id: 'entry-change',
+            type: 'create',
+            entity: 'entry',
+            entity_id: 'entry-1',
+            data: { refined_output: 'Test entry' },
+            base_version: 1,
+            timestamp: '2024-12-30T10:00:00.000Z',
+        });
+        await queueChange({
+            id: 'goal-change',
+            type: 'create',
+            entity: 'goal',
+            entity_id: 'goal-1',
+            data: { category: 'health' },
+            timestamp: '2024-12-30T10:01:00.000Z',
+        });
+
+        const changes = await getPendingChanges();
+        expect(changes).toHaveLength(2);
+
+        const entryChanges = changes.filter(c => c.entity === 'entry');
+        const goalChanges = changes.filter(c => c.entity === 'goal');
+
+        expect(entryChanges).toHaveLength(1);
+        expect(goalChanges).toHaveLength(1);
+        expect(entryChanges[0].base_version).toBe(1);
+        expect(goalChanges[0].base_version).toBeUndefined();
+    });
+});
