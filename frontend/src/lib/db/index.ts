@@ -61,12 +61,21 @@ export interface Settings {
     lastSyncedAt: string | null; // ISO 8601
 }
 
+export interface AuthProfile {
+    id: string;           // Always 'current' (single record)
+    email: string;
+    name: string;
+    picture: string;
+    cachedAt: string;     // ISO 8601 - when cached
+}
+
 // Dexie database class
 export class CognitoDB extends Dexie {
     entries!: EntityTable<Entry, 'id'>;
     goals!: EntityTable<Goal, 'id'>;
     pendingChanges!: EntityTable<PendingChange, 'id'>;
     settings!: EntityTable<Settings, 'id'>;
+    authProfile!: EntityTable<AuthProfile, 'id'>;
 
     constructor() {
         super('CognitoDB');
@@ -76,6 +85,15 @@ export class CognitoDB extends Dexie {
             goals: 'id, category, active',
             pendingChanges: 'id, timestamp, entity, entity_id',
             settings: 'id'
+        });
+
+        // v2: Add auth profile caching for offline support
+        this.version(2).stores({
+            entries: 'id, date, status, last_interacted_at, relevance_score',
+            goals: 'id, category, active',
+            pendingChanges: 'id, timestamp, entity, entity_id',
+            settings: 'id',
+            authProfile: 'id'
         });
     }
 }

@@ -2,12 +2,20 @@
 	import '../app.css';
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { checkAuth, authLoading, isAuthenticated, user, clearAuth } from '$lib/stores/auth';
+	import {
+		checkAuth,
+		authLoading,
+		isAuthenticated,
+		user,
+		clearAuth,
+		authSource
+	} from '$lib/stores/auth';
 	import { isOnline } from '$lib/stores/sync';
 	import { loadEntries } from '$lib/stores/entries';
 	import { logout } from '$lib/api/auth';
 	import { setupBackgroundSync, cleanupBackgroundSync } from '$lib/sync';
 	import SyncIndicator from '$lib/components/SyncIndicator.svelte';
+	import AuthStatusBadge from '$lib/components/AuthStatusBadge.svelte';
 
 	onMount(async () => {
 		// Check authentication status
@@ -29,10 +37,13 @@
 	async function handleLogout() {
 		try {
 			await logout();
-			clearAuth();
+			await clearAuth();
 			goto('/login');
 		} catch (error) {
 			console.error('Logout failed:', error);
+			// Still clear local auth on API failure
+			await clearAuth();
+			goto('/login');
 		}
 	}
 </script>
@@ -45,10 +56,15 @@
 	</div>
 {:else}
 	<div class="min-h-screen flex flex-col">
-		<!-- Offline Indicator -->
+		<!-- Enhanced Offline Banner -->
 		{#if !$isOnline}
-			<div class="bg-warning text-white px-4 py-2 text-center">
-				You are offline. Changes will be saved locally and synced when back online.
+			<div class="bg-warning/90 text-white px-4 py-2 text-center text-sm">
+				<span class="font-medium">📡 You're offline</span>
+				{#if $authSource === 'stale'}
+					— Using cached session. Some features may be limited.
+				{:else}
+					— Changes will sync when back online.
+				{/if}
 			</div>
 		{/if}
 
@@ -58,6 +74,9 @@
 				<h1 class="text-2xl font-bold">Cognito</h1>
 
 				<div class="flex items-center gap-4">
+					<!-- Auth Status Badge -->
+					<AuthStatusBadge />
+
 					<!-- Sync Indicator Component -->
 					<SyncIndicator />
 
