@@ -23,7 +23,7 @@ class TestGeminiClient:
         """Test client initialization with explicit API key."""
         client = GeminiClient(api_key="test-key")
         assert client.api_key == "test-key"
-        assert client.model == "gemini-2.0-flash"
+        assert client.model == "gemini-2.5-flash-lite"
 
     def test_init_with_custom_model(self):
         """Test client initialization with custom model."""

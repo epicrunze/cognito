@@ -66,14 +66,14 @@ class GeminiClient(LLMClient):
     """Client for Google Gemini API using httpx."""
 
     API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-    DEFAULT_MODEL = "gemini-2.0-flash"
+    DEFAULT_MODEL = "gemini-2.5-flash-lite"
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         """Initialize Gemini client.
 
         Args:
             api_key: Gemini API key. Defaults to settings.gemini_api_key.
-            model: Model to use. Defaults to gemini-2.0-flash.
+            model: Model to use. Defaults to gemini-2.5-flash-lite.
         """
         self.api_key = api_key or settings.gemini_api_key
         self.model = model or self.DEFAULT_MODEL
