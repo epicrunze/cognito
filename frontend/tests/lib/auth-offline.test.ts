@@ -13,6 +13,7 @@ import {
     clearCachedAuth,
     isAuthCacheStale,
     isAuthCacheExpired,
+    needsProactiveRefresh,
 } from '$lib/db/auth';
 import type { AuthProfile } from '$lib/db';
 
@@ -155,5 +156,83 @@ describe('Offline Auth Scenarios', () => {
         expect(cached).not.toBeNull();
         expect(isAuthCacheExpired(cached!)).toBe(true);
         // Expired - when online, must verify with backend
+    });
+});
+
+describe('Proactive Token Refresh', () => {
+    beforeEach(async () => {
+        await db.authProfile.clear();
+    });
+
+    // Helper to create a profile with specific JWT expiry time
+    function createProfileWithJwtExpiry(hoursUntilExpiry: number): AuthProfile {
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + hoursUntilExpiry * 60 * 60 * 1000);
+        return {
+            id: 'current',
+            email: 'test@example.com',
+            name: 'Test User',
+            picture: 'https://example.com/photo.jpg',
+            cachedAt: now.toISOString(),
+            jwtExpiresAt: expiresAt.toISOString(),
+        };
+    }
+
+    it('should not need refresh when JWT expires in more than 1 day', async () => {
+        const profile = createProfileWithJwtExpiry(48); // 2 days until expiry
+        await db.authProfile.put(profile);
+
+        const cached = await getCachedAuthProfile();
+        expect(cached).not.toBeNull();
+        expect(needsProactiveRefresh(cached!)).toBe(false);
+    });
+
+    it('should need refresh when JWT expires within 1 day', async () => {
+        const profile = createProfileWithJwtExpiry(12); // 12 hours until expiry
+        await db.authProfile.put(profile);
+
+        const cached = await getCachedAuthProfile();
+        expect(cached).not.toBeNull();
+        expect(needsProactiveRefresh(cached!)).toBe(true);
+    });
+
+    it('should not need refresh when JWT already expired', async () => {
+        const profile = createProfileWithJwtExpiry(-1); // Already expired
+        await db.authProfile.put(profile);
+
+        const cached = await getCachedAuthProfile();
+        expect(cached).not.toBeNull();
+        expect(needsProactiveRefresh(cached!)).toBe(false);
+    });
+
+    it('should not need refresh when no jwtExpiresAt is set', async () => {
+        const profile: AuthProfile = {
+            id: 'current',
+            email: 'test@example.com',
+            name: 'Test User',
+            picture: 'https://example.com/photo.jpg',
+            cachedAt: new Date().toISOString(),
+            // No jwtExpiresAt
+        };
+        await db.authProfile.put(profile);
+
+        const cached = await getCachedAuthProfile();
+        expect(cached).not.toBeNull();
+        expect(needsProactiveRefresh(cached!)).toBe(false);
+    });
+
+    it('should store jwtExpiresAt when caching profile', async () => {
+        const user = {
+            email: 'test@example.com',
+            name: 'Test User',
+            picture: 'https://example.com/photo.jpg',
+        };
+        const expiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+        await cacheAuthProfile(user, expiry);
+
+        const cached = await getCachedAuthProfile();
+        expect(cached).not.toBeNull();
+        expect(cached?.jwtExpiresAt).toBe(expiry);
     });
 });

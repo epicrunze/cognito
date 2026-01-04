@@ -61,10 +61,23 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
             email VARCHAR UNIQUE NOT NULL,
             name VARCHAR,
             picture VARCHAR,
+            refresh_token VARCHAR,
+            refresh_token_expires_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT now(),
             last_login_at TIMESTAMP
         )
     """)
+
+    # Add columns for existing databases (DuckDB doesn't have IF NOT EXISTS for columns)
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN refresh_token VARCHAR")
+    except Exception:
+        pass  # Column already exists
+
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN refresh_token_expires_at TIMESTAMP")
+    except Exception:
+        pass  # Column already exists
 
     # Entries table
     conn.execute("""

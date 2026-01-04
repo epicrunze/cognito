@@ -67,6 +67,7 @@ export interface AuthProfile {
     name: string;
     picture: string;
     cachedAt: string;     // ISO 8601 - when cached
+    jwtExpiresAt?: string; // ISO 8601 - when JWT expires (for proactive refresh)
 }
 
 // Dexie database class

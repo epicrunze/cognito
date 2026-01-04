@@ -138,9 +138,24 @@ class TestCallbackEndpoint:
         }
 
         with patch("app.routers.auth.exchange_code_for_token", new_callable=AsyncMock) as mock_exchange, \
-             patch("app.routers.auth.get_user_info", new_callable=AsyncMock) as mock_user:
+             patch("app.routers.auth.get_user_info", new_callable=AsyncMock) as mock_user, \
+             patch("app.routers.auth.get_db") as mock_get_db, \
+             patch("app.routers.auth.user_repo") as mock_user_repo:
+            from app.models.user import UserInDB
+            from datetime import datetime, timezone
+            from uuid import uuid4
+            
             mock_exchange.return_value = mock_token_response
             mock_user.return_value = mock_user_info
+            
+            # Mock database operations
+            mock_user_repo.create_user.return_value = UserInDB(
+                id=uuid4(),
+                email="allowed@example.com",
+                name="Allowed User",
+                picture="https://example.com/photo.jpg",
+                created_at=datetime.now(timezone.utc),
+            )
 
             response = client.get(
                 "/api/auth/callback",
@@ -250,22 +265,32 @@ class TestLogoutEndpoint:
 
     def test_clears_cookie(self, client: TestClient, valid_token: str, mock_settings):
         """Should clear auth cookie on logout."""
-        client.cookies.set(AUTH_COOKIE_NAME, valid_token)
-        response = client.post(
-            "/api/auth/logout",
-            follow_redirects=False,
-        )
+        with patch("app.routers.auth.decode_token") as mock_decode, \
+             patch("app.routers.auth.get_db") as mock_get_db, \
+             patch("app.routers.auth.user_repo") as mock_user_repo:
+            from app.models.user import TokenData
+            
+            mock_decode.return_value = TokenData(
+                email="allowed@example.com",
+                name="Test User",
+                picture="https://example.com/photo.jpg",
+            )
+            mock_user_repo.get_user_by_email.return_value = None  # No user found, that's fine
+            
+            client.cookies.set(AUTH_COOKIE_NAME, valid_token)
+            response = client.post("/api/auth/logout")
 
-        assert response.status_code == 302
-        # Cookie should be deleted (set with empty value or max-age=0)
-        assert AUTH_COOKIE_NAME in response.headers.get("set-cookie", "").lower()
+            assert response.status_code == 200
+            assert response.json() == {"success": True}
+            # Cookie should be deleted (set with empty value or max-age=0)
+            assert AUTH_COOKIE_NAME in response.headers.get("set-cookie", "").lower()
 
-    def test_redirects_to_login(self, client: TestClient, mock_settings):
-        """Should redirect to login page after logout."""
-        response = client.post("/api/auth/logout", follow_redirects=False)
+    def test_returns_success_json(self, client: TestClient, mock_settings):
+        """Should return success JSON on logout."""
+        response = client.post("/api/auth/logout")
 
-        assert response.status_code == 302
-        assert "/login" in response.headers["location"]
+        assert response.status_code == 200
+        assert response.json() == {"success": True}
 
 
 class TestAllowedEmailCaseInsensitive:
@@ -286,9 +311,24 @@ class TestAllowedEmailCaseInsensitive:
         }
 
         with patch("app.routers.auth.exchange_code_for_token", new_callable=AsyncMock) as mock_exchange, \
-             patch("app.routers.auth.get_user_info", new_callable=AsyncMock) as mock_user:
+             patch("app.routers.auth.get_user_info", new_callable=AsyncMock) as mock_user, \
+             patch("app.routers.auth.get_db") as mock_get_db, \
+             patch("app.routers.auth.user_repo") as mock_user_repo:
+            from app.models.user import UserInDB
+            from datetime import datetime, timezone
+            from uuid import uuid4
+            
             mock_exchange.return_value = mock_token_response
             mock_user.return_value = mock_user_info
+            
+            # Mock database operations
+            mock_user_repo.create_user.return_value = UserInDB(
+                id=uuid4(),
+                email="ALLOWED@EXAMPLE.COM",
+                name="Allowed User",
+                picture=None,
+                created_at=datetime.now(timezone.utc),
+            )
 
             response = client.get(
                 "/api/auth/callback",
@@ -299,3 +339,104 @@ class TestAllowedEmailCaseInsensitive:
             # Should succeed (302 redirect) not 403
             assert response.status_code == 302
             assert AUTH_COOKIE_NAME in response.cookies
+
+
+class TestRefreshEndpoint:
+    """Tests for POST /api/auth/refresh."""
+
+    def test_returns_401_without_token(self, client: TestClient, mock_settings):
+        """Should return 401 when no auth cookie present."""
+        response = client.post("/api/auth/refresh")
+
+        assert response.status_code == 401
+        assert "No authentication token" in response.json()["detail"]
+
+    def test_returns_401_with_invalid_token(self, client: TestClient, mock_settings):
+        """Should return 401 when token is invalid."""
+        with patch("app.auth.jwt.settings") as jwt_settings:
+            jwt_settings.jwt_secret = "test-jwt-secret"
+
+            client.cookies.set(AUTH_COOKIE_NAME, "invalid-token")
+            response = client.post("/api/auth/refresh")
+
+            assert response.status_code == 401
+            assert "Invalid token" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_returns_401_when_no_refresh_token_stored(
+        self, client: TestClient, valid_token: str, mock_settings
+    ):
+        """Should return 401 when user has no stored refresh token."""
+        with patch("app.routers.auth.decode_token") as mock_decode, \
+             patch("app.routers.auth.get_db") as mock_get_db, \
+             patch("app.routers.auth.user_repo") as mock_user_repo:
+            from app.models.user import TokenData, UserInDB
+            from datetime import datetime, timezone
+            from uuid import uuid4
+
+            mock_decode.return_value = TokenData(
+                email="allowed@example.com",
+                name="Test User",
+                picture="https://example.com/photo.jpg",
+            )
+            
+            # User exists but has no refresh token
+            mock_user_repo.get_user_by_email.return_value = UserInDB(
+                id=uuid4(),
+                email="allowed@example.com",
+                name="Test User",
+                picture="https://example.com/photo.jpg",
+                created_at=datetime.now(timezone.utc),
+                refresh_token=None,
+            )
+
+            client.cookies.set(AUTH_COOKIE_NAME, valid_token)
+            response = client.post("/api/auth/refresh")
+
+            assert response.status_code == 401
+            assert "No refresh token available" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_successful_refresh_sets_new_cookie(
+        self, client: TestClient, valid_token: str, mock_settings
+    ):
+        """Should set new JWT cookie on successful refresh."""
+        with patch("app.routers.auth.decode_token") as mock_decode, \
+             patch("app.routers.auth.get_db") as mock_get_db, \
+             patch("app.routers.auth.user_repo") as mock_user_repo, \
+             patch("app.routers.auth.refresh_access_token", new_callable=AsyncMock) as mock_refresh, \
+             patch("app.routers.auth.get_user_info", new_callable=AsyncMock) as mock_user_info, \
+             patch("app.routers.auth.create_access_token") as mock_create_token:
+            from app.models.user import TokenData, UserInDB
+            from datetime import datetime, timezone
+            from uuid import uuid4
+
+            mock_decode.return_value = TokenData(
+                email="allowed@example.com",
+                name="Test User",
+                picture="https://example.com/photo.jpg",
+            )
+            
+            mock_user_repo.get_user_by_email.return_value = UserInDB(
+                id=uuid4(),
+                email="allowed@example.com",
+                name="Test User",
+                picture="https://example.com/photo.jpg",
+                created_at=datetime.now(timezone.utc),
+                refresh_token="stored-refresh-token",
+            )
+
+            mock_refresh.return_value = {"access_token": "new-google-access-token"}
+            mock_user_info.return_value = {
+                "email": "allowed@example.com",
+                "name": "Test User",
+                "picture": "https://example.com/photo.jpg",
+            }
+            mock_create_token.return_value = "new-jwt-token"
+
+            client.cookies.set(AUTH_COOKIE_NAME, valid_token)
+            response = client.post("/api/auth/refresh")
+
+            assert response.status_code == 200
+            assert response.json() == {"success": True}
+            assert AUTH_COOKIE_NAME in response.headers.get("set-cookie", "").lower()

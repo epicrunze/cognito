@@ -1,5 +1,5 @@
 /**
- * Base API client with offline detection and request queuing
+ * Base API client with offline detection, request queuing, and automatic token refresh
  */
 
 // API base URL from environment variable
@@ -17,12 +17,46 @@ export function isOnline(): boolean {
     return navigator.onLine;
 }
 
+// Track if a refresh is in progress to prevent multiple simultaneous refreshes
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
 /**
- * Base fetch wrapper with credentials and error handling
+ * Attempt to refresh the authentication token
+ * Prevents multiple simultaneous refresh attempts
+ */
+async function attemptTokenRefresh(): Promise<boolean> {
+    if (isRefreshing && refreshPromise) {
+        return refreshPromise;
+    }
+
+    isRefreshing = true;
+    refreshPromise = (async () => {
+        try {
+            const response = await fetch(`${API_URL}/auth/refresh`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            return response.ok;
+        } catch {
+            return false;
+        } finally {
+            isRefreshing = false;
+            refreshPromise = null;
+        }
+    })();
+
+    return refreshPromise;
+}
+
+/**
+ * Base fetch wrapper with credentials, error handling, and 401 retry
  */
 export async function apiClient<T>(
     endpoint: string,
-    options?: RequestInit
+    options?: RequestInit,
+    isRetry = false
 ): Promise<T> {
     if (!isOnline()) {
         throw {
@@ -40,6 +74,19 @@ export async function apiClient<T>(
             ...options?.headers
         }
     });
+
+    // Handle 401 - attempt refresh and retry once
+    if (response.status === 401 && !isRetry && !endpoint.includes('/auth/')) {
+        console.log('🔄 Token expired, attempting refresh...');
+        const refreshed = await attemptTokenRefresh();
+
+        if (refreshed) {
+            console.log('✅ Token refreshed, retrying request');
+            return apiClient<T>(endpoint, options, true);
+        } else {
+            console.log('❌ Token refresh failed');
+        }
+    }
 
     if (!response.ok) {
         const errorText = await response.text();

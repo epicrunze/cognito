@@ -25,6 +25,8 @@ class UserInDB(User):
     id: "UUID"
     created_at: datetime
     last_login_at: Optional[datetime] = None
+    refresh_token: Optional[str] = None
+    refresh_token_expires_at: Optional[datetime] = None
 
 
 class TokenData(BaseModel):

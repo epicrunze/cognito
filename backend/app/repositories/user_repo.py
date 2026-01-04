@@ -29,7 +29,9 @@ def get_user_by_email(
         User if found, None otherwise
     """
     result = conn.execute(
-        "SELECT id, email, name, picture, created_at, last_login_at FROM users WHERE email = ?",
+        """SELECT id, email, name, picture, created_at, last_login_at,
+                  refresh_token, refresh_token_expires_at
+           FROM users WHERE email = ?""",
         [email],
     ).fetchone()
 
@@ -43,6 +45,8 @@ def get_user_by_email(
         picture=result[3],
         created_at=ensure_utc(result[4]),
         last_login_at=ensure_utc(result[5]),
+        refresh_token=result[6],
+        refresh_token_expires_at=ensure_utc(result[7]) if result[7] else None,
     )
 
 
@@ -118,4 +122,82 @@ def update_last_login(
     conn.execute(
         "UPDATE users SET last_login_at = ? WHERE id = ?",
         [utc_now(), str(user_id)],
+    )
+
+
+def update_refresh_token(
+    conn: duckdb.DuckDBPyConnection,
+    user_id: UUID,
+    refresh_token: str,
+    expires_at: datetime,
+) -> None:
+    """
+    Store refresh token for a user.
+
+    Args:
+        conn: DuckDB connection
+        user_id: User ID to update
+        refresh_token: Google OAuth refresh token
+        expires_at: Token expiration timestamp
+    """
+    conn.execute(
+        """UPDATE users 
+           SET refresh_token = ?, refresh_token_expires_at = ? 
+           WHERE id = ?""",
+        [refresh_token, expires_at, str(user_id)],
+    )
+
+
+def get_user_by_id(
+    conn: duckdb.DuckDBPyConnection,
+    user_id: UUID,
+) -> Optional[UserInDB]:
+    """
+    Get user by ID.
+
+    Args:
+        conn: DuckDB connection
+        user_id: User UUID
+
+    Returns:
+        User if found, None otherwise
+    """
+    result = conn.execute(
+        """SELECT id, email, name, picture, created_at, last_login_at,
+                  refresh_token, refresh_token_expires_at
+           FROM users WHERE id = ?""",
+        [str(user_id)],
+    ).fetchone()
+
+    if not result:
+        return None
+
+    return UserInDB(
+        id=result[0] if isinstance(result[0], UUID) else UUID(result[0]),
+        email=result[1],
+        name=result[2],
+        picture=result[3],
+        created_at=ensure_utc(result[4]),
+        last_login_at=ensure_utc(result[5]),
+        refresh_token=result[6],
+        refresh_token_expires_at=ensure_utc(result[7]) if result[7] else None,
+    )
+
+
+def clear_refresh_token(
+    conn: duckdb.DuckDBPyConnection,
+    user_id: UUID,
+) -> None:
+    """
+    Clear refresh token for a user (used on logout).
+
+    Args:
+        conn: DuckDB connection
+        user_id: User ID to update
+    """
+    conn.execute(
+        """UPDATE users 
+           SET refresh_token = NULL, refresh_token_expires_at = NULL 
+           WHERE id = ?""",
+        [str(user_id)],
     )

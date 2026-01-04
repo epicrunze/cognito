@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     # JWT Authentication
     jwt_secret: str = "CHANGE_ME_IN_PRODUCTION"
-    jwt_expiry_hours: int = 24
+    jwt_expiry_hours: int = 168  # 7 days for offline-first support
 
     # Google OAuth
     google_client_id: str = ""

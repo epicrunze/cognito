@@ -131,3 +131,45 @@ async def get_user_info(access_token: str) -> dict:
 
         except httpx.RequestError as e:
             raise OAuthUserInfoError(f"Network error fetching user info: {e}")
+
+
+class OAuthRefreshError(OAuthError):
+    """Failed to refresh access token."""
+
+    pass
+
+
+async def refresh_access_token(refresh_token: str) -> dict:
+    """
+    Use Google refresh token to get new access token.
+
+    Args:
+        refresh_token: Google OAuth refresh token
+
+    Returns:
+        Token response containing access_token (and possibly new refresh_token)
+
+    Raises:
+        OAuthRefreshError: If token refresh fails
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                GOOGLE_TOKEN_URL,
+                data={
+                    "client_id": settings.google_client_id,
+                    "client_secret": settings.google_client_secret,
+                    "refresh_token": refresh_token,
+                    "grant_type": "refresh_token",
+                },
+            )
+
+            if response.status_code != 200:
+                raise OAuthRefreshError(
+                    f"Token refresh failed: {response.status_code} {response.text}"
+                )
+
+            return response.json()
+
+        except httpx.RequestError as e:
+            raise OAuthRefreshError(f"Network error during token refresh: {e}")

@@ -47,3 +47,18 @@ export async function getMe(): Promise<User | null> {
         throw error;
     }
 }
+
+/**
+ * Silent token refresh - calls backend /auth/refresh to get new JWT
+ * 
+ * @returns true if refresh successful, false otherwise
+ */
+export async function refreshToken(): Promise<boolean> {
+    try {
+        await api.post('/auth/refresh');
+        return true;
+    } catch (error) {
+        console.error('Token refresh failed:', error);
+        return false;
+    }
+}

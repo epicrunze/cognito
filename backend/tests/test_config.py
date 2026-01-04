@@ -19,7 +19,7 @@ class TestConfigDefaults:
         )
         
         assert settings.database_url == "duckdb:///./data/journal.duckdb"
-        assert settings.jwt_expiry_hours == 24
+        assert settings.jwt_expiry_hours == 168  # 7 days for offline-first support
         assert settings.frontend_url == "http://localhost:5173"
         assert settings.ollama_url == "http://localhost:11434"
 
