@@ -178,6 +178,30 @@
 
 ---
 
+### FE-005: Journal entries not syncing from other devices
+**Files:** `frontend/src/lib/stores/entries.ts`, `frontend/src/lib/api/entries.ts`, `frontend/src/lib/sync/`
+
+**Problem:** After reopening the app, journal entries created on another device do not appear in the entries list. Goals sync correctly, indicating the sync mechanism works but entries are not being pulled/merged properly.
+
+**Observed Behavior:**
+- Entries created on Device A are visible on backend
+- Goals sync correctly between devices
+- After reopening app on Device B, new entries from Device A don't appear
+
+**Investigation Areas:**
+- [ ] Verify entries sync endpoint returns all user entries (not just local)
+- [ ] Check if entries store merges server data correctly on app init
+- [ ] Confirm `lastSyncTimestamp` for entries is being used correctly
+- [ ] Compare entries sync logic vs goals sync logic for differences
+- [ ] Check if entries are filtered incorrectly (e.g., by `device_id` or `local_id`)
+
+**Potential Fixes:**
+- [ ] Ensure full entries fetch on app startup (not delta-only)
+- [ ] Fix merge logic to add server-only entries to local store
+- [ ] Add logging to debug sync flow for entries
+
+---
+
 ## Summary
 
 | Priority | Count | Area | Status |
