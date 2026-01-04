@@ -76,7 +76,8 @@ def get_entries(
         SELECT 
             id, user_id, date, conversations, refined_output,
             relevance_score, last_interacted_at, interaction_count,
-            status, version, created_at, updated_at
+            status, pending_refine, refine_status, refine_error,
+            version, created_at, updated_at
         FROM entries
         WHERE {where_sql}
         ORDER BY {field} {direction}
@@ -105,9 +106,12 @@ def get_entries(
             last_interacted_at=row[6],
             interaction_count=row[7],
             status=row[8],
-            version=row[9],
-            created_at=row[10],
-            updated_at=row[11],
+            pending_refine=row[9] or False,
+            refine_status=row[10] or "idle",
+            refine_error=row[11],
+            version=row[12],
+            created_at=row[13],
+            updated_at=row[14],
         )
         entries.append(entry)
 
@@ -134,7 +138,8 @@ def get_entry_by_id(
         SELECT 
             id, user_id, date, conversations, refined_output,
             relevance_score, last_interacted_at, interaction_count,
-            status, version, created_at, updated_at
+            status, pending_refine, refine_status, refine_error,
+            version, created_at, updated_at
         FROM entries
         WHERE id = ? AND user_id = ?
     """
@@ -161,9 +166,12 @@ def get_entry_by_id(
         last_interacted_at=result[6],
         interaction_count=result[7],
         status=result[8],
-        version=result[9],
-        created_at=result[10],
-        updated_at=result[11],
+        pending_refine=result[9] or False,
+        refine_status=result[10] or "idle",
+        refine_error=result[11],
+        version=result[12],
+        created_at=result[13],
+        updated_at=result[14],
     )
 
 
@@ -187,7 +195,8 @@ def get_entry_by_date(
         SELECT 
             id, user_id, date, conversations, refined_output,
             relevance_score, last_interacted_at, interaction_count,
-            status, version, created_at, updated_at
+            status, pending_refine, refine_status, refine_error,
+            version, created_at, updated_at
         FROM entries
         WHERE user_id = ? AND date = ?
     """
@@ -214,9 +223,12 @@ def get_entry_by_date(
         last_interacted_at=result[6],
         interaction_count=result[7],
         status=result[8],
-        version=result[9],
-        created_at=result[10],
-        updated_at=result[11],
+        pending_refine=result[9] or False,
+        refine_status=result[10] or "idle",
+        refine_error=result[11],
+        version=result[12],
+        created_at=result[13],
+        updated_at=result[14],
     )
 
 
@@ -344,6 +356,18 @@ def update_entry(
     if entry_data.status is not None:
         update_fields.append("status = ?")
         params.append(entry_data.status)
+
+    if entry_data.pending_refine is not None:
+        update_fields.append("pending_refine = ?")
+        params.append(entry_data.pending_refine)
+
+    if entry_data.refine_status is not None:
+        update_fields.append("refine_status = ?")
+        params.append(entry_data.refine_status)
+
+    if entry_data.refine_error is not None:
+        update_fields.append("refine_error = ?")
+        params.append(entry_data.refine_error)
 
     # Always increment version and update timestamp
     update_fields.append("version = version + 1")
@@ -490,7 +514,8 @@ def get_entries_since(
             SELECT 
                 id, user_id, date, conversations, refined_output,
                 relevance_score, last_interacted_at, interaction_count,
-                status, version, created_at, updated_at
+                status, pending_refine, refine_status, refine_error,
+                version, created_at, updated_at
             FROM entries
             WHERE user_id = ? AND updated_at > ?
             ORDER BY updated_at DESC
@@ -501,7 +526,8 @@ def get_entries_since(
             SELECT 
                 id, user_id, date, conversations, refined_output,
                 relevance_score, last_interacted_at, interaction_count,
-                status, version, created_at, updated_at
+                status, pending_refine, refine_status, refine_error,
+                version, created_at, updated_at
             FROM entries
             WHERE user_id = ?
             ORDER BY updated_at DESC
@@ -524,9 +550,12 @@ def get_entries_since(
             last_interacted_at=row[6],
             interaction_count=row[7],
             status=row[8],
-            version=row[9],
-            created_at=row[10],
-            updated_at=row[11],
+            pending_refine=row[9] or False,
+            refine_status=row[10] or "idle",
+            refine_error=row[11],
+            version=row[12],
+            created_at=row[13],
+            updated_at=row[14],
         ))
 
     return entries
@@ -552,7 +581,8 @@ def list_entries(
         SELECT 
             id, user_id, date, conversations, refined_output,
             relevance_score, last_interacted_at, interaction_count,
-            status, version, created_at, updated_at
+            status, pending_refine, refine_status, refine_error,
+            version, created_at, updated_at
         FROM entries
         WHERE user_id = ? AND status = ?
         ORDER BY date DESC
@@ -575,10 +605,161 @@ def list_entries(
             last_interacted_at=row[6],
             interaction_count=row[7],
             status=row[8],
-            version=row[9],
-            created_at=row[10],
-            updated_at=row[11],
+            pending_refine=row[9] or False,
+            refine_status=row[10] or "idle",
+            refine_error=row[11],
+            version=row[12],
+            created_at=row[13],
+            updated_at=row[14],
         ))
 
     return entries
+
+
+def get_entries_pending_refine(
+    conn: duckdb.DuckDBPyConnection,
+    user_id: UUID,
+    limit: int = 5,
+) -> list[EntryInDB]:
+    """
+    Get entries queued for refinement.
+
+    Args:
+        conn: DuckDB connection
+        user_id: User ID
+        limit: Maximum number of entries to return
+
+    Returns:
+        List of entries with pending_refine=True
+    """
+    query = """
+        SELECT 
+            id, user_id, date, conversations, refined_output,
+            relevance_score, last_interacted_at, interaction_count,
+            status, pending_refine, refine_status, refine_error,
+            version, created_at, updated_at
+        FROM entries
+        WHERE user_id = ? AND pending_refine = TRUE AND refine_status != 'processing'
+        ORDER BY updated_at ASC
+        LIMIT ?
+    """
+    results = conn.execute(query, [str(user_id), limit]).fetchall()
+
+    entries = []
+    for row in results:
+        conversations = json.loads(row[3]) if row[3] else []
+        entry_id = row[0] if isinstance(row[0], UUID) else UUID(row[0])
+        uid = row[1] if isinstance(row[1], UUID) else UUID(row[1])
+
+        entries.append(EntryInDB(
+            id=entry_id,
+            user_id=uid,
+            date=str(row[2]),
+            conversations=conversations,
+            refined_output=row[4] or "",
+            relevance_score=row[5],
+            last_interacted_at=row[6],
+            interaction_count=row[7],
+            status=row[8],
+            pending_refine=row[9] or False,
+            refine_status=row[10] or "idle",
+            refine_error=row[11],
+            version=row[12],
+            created_at=row[13],
+            updated_at=row[14],
+        ))
+
+    return entries
+
+
+def update_entry_refine_status(
+    conn: duckdb.DuckDBPyConnection,
+    entry_id: UUID,
+    user_id: UUID,
+    status: str,
+    error: Optional[str] = None,
+) -> None:
+    """
+    Update the refine status of an entry.
+
+    Args:
+        conn: DuckDB connection
+        entry_id: Entry ID
+        user_id: User ID for ownership check
+        status: New refine status
+        error: Optional error message
+    """
+    query = """
+        UPDATE entries
+        SET refine_status = ?, refine_error = ?, updated_at = ?
+        WHERE id = ? AND user_id = ?
+    """
+    conn.execute(query, [status, error, utc_now(), str(entry_id), str(user_id)])
+
+
+def clear_pending_refine(
+    conn: duckdb.DuckDBPyConnection,
+    entry_id: UUID,
+    user_id: UUID,
+) -> None:
+    """
+    Clear the pending_refine flag for an entry.
+
+    Args:
+        conn: DuckDB connection
+        entry_id: Entry ID
+        user_id: User ID for ownership check
+    """
+    query = """
+        UPDATE entries
+        SET pending_refine = FALSE, updated_at = ?
+        WHERE id = ? AND user_id = ?
+    """
+    conn.execute(query, [utc_now(), str(entry_id), str(user_id)])
+
+
+def set_pending_refine(
+    conn: duckdb.DuckDBPyConnection,
+    entry_id: UUID,
+    user_id: UUID,
+) -> bool:
+    """
+    Set the pending_refine flag for an entry.
+
+    Only sets if not already pending or processing.
+
+    Args:
+        conn: DuckDB connection
+        entry_id: Entry ID
+        user_id: User ID for ownership check
+
+    Returns:
+        True if flag was set, False if already pending/processing
+    """
+    # Check current status
+    check_query = """
+        SELECT pending_refine, refine_status 
+        FROM entries 
+        WHERE id = ? AND user_id = ?
+    """
+    result = conn.execute(check_query, [str(entry_id), str(user_id)]).fetchone()
+    
+    if not result:
+        return False
+    
+    pending_refine, refine_status = result
+    
+    # Don't double-queue
+    if pending_refine or refine_status == "processing":
+        return False
+    
+    # Set pending_refine flag
+    query = """
+        UPDATE entries
+        SET pending_refine = TRUE, refine_status = 'idle', refine_error = NULL, updated_at = ?
+        WHERE id = ? AND user_id = ?
+    """
+    conn.execute(query, [utc_now(), str(entry_id), str(user_id)])
+    return True
+
 

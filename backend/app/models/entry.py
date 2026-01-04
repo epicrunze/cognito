@@ -44,6 +44,9 @@ class EntryUpdate(BaseModel):
     refined_output: Optional[str] = None
     relevance_score: Optional[float] = None
     status: Optional[Literal["active", "archived"]] = None
+    pending_refine: Optional[bool] = None
+    refine_status: Optional[Literal["idle", "processing", "completed", "failed"]] = None
+    refine_error: Optional[str] = None
 
 
 class Entry(BaseModel):
@@ -57,6 +60,9 @@ class Entry(BaseModel):
     last_interacted_at: datetime
     interaction_count: int = 0
     status: Literal["active", "archived"] = "active"
+    pending_refine: bool = False
+    refine_status: Literal["idle", "processing", "completed", "failed"] = "idle"
+    refine_error: Optional[str] = None
     version: int = 1
     created_at: datetime
     updated_at: datetime

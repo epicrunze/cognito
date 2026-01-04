@@ -78,6 +78,9 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
             last_interacted_at TIMESTAMP DEFAULT now(),
             interaction_count INTEGER DEFAULT 0,
             status VARCHAR DEFAULT 'active',
+            pending_refine BOOLEAN DEFAULT FALSE,
+            refine_status VARCHAR DEFAULT 'idle',
+            refine_error TEXT,
             version INTEGER DEFAULT 1,
             created_at TIMESTAMP DEFAULT now(),
             updated_at TIMESTAMP DEFAULT now()

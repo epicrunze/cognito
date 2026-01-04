@@ -159,7 +159,7 @@ class TestChatEndpoint:
             mock_get_db.return_value.__enter__ = MagicMock(return_value=conn)
             mock_get_db.return_value.__exit__ = MagicMock(return_value=None)
 
-            with patch("app.routers.chat.llm_router") as mock_llm:
+            with patch("app.services.chat.llm_router") as mock_llm:
                 mock_llm.chat = AsyncMock(return_value="Hello! How are you feeling today?")
 
                 response = client.post(
@@ -225,7 +225,7 @@ class TestChatEndpoint:
             mock_get_db.return_value.__enter__ = MagicMock(return_value=conn)
             mock_get_db.return_value.__exit__ = MagicMock(return_value=None)
 
-            with patch("app.routers.chat.llm_router") as mock_llm:
+            with patch("app.services.chat.llm_router") as mock_llm:
                 mock_llm.chat = AsyncMock(return_value="I'm doing well, thanks for asking!")
 
                 response = client.post(
@@ -289,7 +289,7 @@ class TestChatEndpoint:
             mock_get_db.return_value.__enter__ = MagicMock(return_value=conn)
             mock_get_db.return_value.__exit__ = MagicMock(return_value=None)
 
-            with patch("app.routers.chat.llm_router") as mock_llm:
+            with patch("app.services.chat.llm_router") as mock_llm:
                 mock_llm.chat = AsyncMock(side_effect=Exception("API error"))
 
                 response = client.post(
@@ -409,7 +409,7 @@ class TestRefineEndpoint:
             mock_get_db.return_value.__enter__ = MagicMock(return_value=conn)
             mock_get_db.return_value.__exit__ = MagicMock(return_value=None)
 
-            with patch("app.routers.chat.llm_router") as mock_llm:
+            with patch("app.services.chat.llm_router") as mock_llm:
                 mock_llm.refine = AsyncMock(
                     return_value="# Today's Reflection\n\nI had a productive day and felt accomplished."
                 )
@@ -471,7 +471,7 @@ class TestRefineEndpoint:
             mock_get_db.return_value.__enter__ = MagicMock(return_value=conn)
             mock_get_db.return_value.__exit__ = MagicMock(return_value=None)
 
-            with patch("app.routers.chat.llm_router") as mock_llm:
+            with patch("app.services.chat.llm_router") as mock_llm:
                 mock_llm.refine = AsyncMock(side_effect=Exception("API error"))
 
                 response = client.post(

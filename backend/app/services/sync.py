@@ -13,7 +13,7 @@ from app.logging import get_logger, info, debug, warning, error
 from app.models.entry import Entry, EntryCreate, EntryUpdate, Conversation, Message
 from app.models.goal import Goal, GoalCreate, GoalUpdate
 from app.repositories import entry_repo, goal_repo
-from app.services.llm import llm_router
+from app.services.chat import ChatService
 from app.utils.timestamp import utc_now, compare_timestamps, parse_iso_timestamp
 
 logger = get_logger("sync")
@@ -323,81 +323,46 @@ class SyncService:
         """
         Process entries with pending messages that need LLM responses.
         
-        Scans all user entries for messages with pending_response=True,
-        generates LLM responses, and updates the entries.
+        Delegates to ChatService for unified LLM handling.
         
         Returns:
             List of entry IDs that were processed
         """
         processed_entries: list[str] = []
+        chat_service = ChatService(self.conn, self.user_id)
         
         # Get all active entries for user
         entries = entry_repo.list_entries(self.conn, self.user_id)
         
         for entry in entries:
-            conversations_data = entry.conversations
-            if isinstance(conversations_data, str):
-                conversations_data = json.loads(conversations_data)
-            
-            modified = False
-            conversations = []
-            
-            for conv_data in conversations_data:
-                if isinstance(conv_data, dict):
-                    messages = conv_data.get("messages", [])
-                    new_messages = []
-                    
-                    for i, msg in enumerate(messages):
-                        new_messages.append(msg)
-                        
-                        # Check if this message needs a response
-                        if msg.get("pending_response") and msg.get("role") == "user":
-                            debug(f"Processing pending message in entry {entry.id}")
-                            
-                            # Build context from conversation
-                            context_messages = [
-                                {"role": m.get("role"), "content": m.get("content")}
-                                for m in new_messages
-                            ]
-                            
-                            try:
-                                # Get LLM response
-                                response_text = await llm_router.chat(
-                                    messages=context_messages,
-                                    use_local_model=False
-                                )
-                                
-                                # Add assistant response
-                                assistant_msg = {
-                                    "role": "assistant",
-                                    "content": response_text,
-                                    "timestamp": utc_now().isoformat()
-                                }
-                                new_messages.append(assistant_msg)
-                                
-                                # Remove pending flag from original message
-                                new_messages[-2]["pending_response"] = False
-                                
-                                modified = True
-                                info(f"Added LLM response for entry {entry.id}")
-                                
-                            except Exception as e:
-                                error(f"LLM error for entry {entry.id}: {e}")
-                                # Keep pending flag for retry
-                    
-                    conv_data["messages"] = new_messages
-                
-                conversations.append(conv_data)
-            
-            if modified:
-                # Update entry with new conversations
-                from app.models.entry import EntryUpdate
-                update_data = EntryUpdate(
-                    conversations=self._parse_conversations(conversations)
-                )
-                entry_repo.update_entry(self.conn, entry.id, self.user_id, update_data)
+            if await chat_service.process_pending_chat(entry):
                 processed_entries.append(str(entry.id))
         
+        return processed_entries
+    
+    async def process_pending_refines(self, limit: int = 5) -> list[str]:
+        """
+        Process entries queued for refinement.
+        
+        Processes entries with pending_refine=True using ChatService.
+        
+        Args:
+            limit: Maximum entries to process per call
+        
+        Returns:
+            List of entry IDs that were processed
+        """
+        processed_entries: list[str] = []
+        chat_service = ChatService(self.conn, self.user_id)
+        
+        # Get entries pending refine
+        entries = entry_repo.get_entries_pending_refine(self.conn, self.user_id, limit)
+        
+        for entry in entries:
+            if await chat_service.process_pending_refine(entry):
+                processed_entries.append(str(entry.id))
+        
+        info(f"Processed {len(processed_entries)} pending refines")
         return processed_entries
     
     def _entry_to_dict(self, entry: Entry) -> dict:
@@ -411,6 +376,9 @@ class SyncService:
             "last_interacted_at": entry.last_interacted_at.isoformat() if entry.last_interacted_at else None,
             "interaction_count": entry.interaction_count,
             "status": entry.status,
+            "pending_refine": entry.pending_refine,
+            "refine_status": entry.refine_status,
+            "refine_error": entry.refine_error,
             "version": entry.version,
             "created_at": entry.created_at.isoformat() if entry.created_at else None,
             "updated_at": entry.updated_at.isoformat() if entry.updated_at else None

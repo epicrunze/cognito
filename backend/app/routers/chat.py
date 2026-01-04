@@ -4,12 +4,11 @@ Chat router.
 Handles chat endpoints for conversational journaling with LLM integration.
 """
 
-import json
-from datetime import datetime
 from typing import Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.database import get_db
@@ -17,10 +16,37 @@ from app.models.chat import ChatRequest, ChatResponse, RefineRequest, RefineResp
 from app.models.entry import Conversation, Message
 from app.models.user import User
 from app.repositories import entry_repo, user_repo
-from app.services.llm import llm_router
-from app.utils.timestamp import utc_now
+from app.services.chat import (
+    ChatService,
+    ChatServiceError,
+    EntryNotFoundError,
+    ConversationNotFoundError,
+    NoConversationsError,
+    LLMError,
+)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
+
+
+# Request/Response models for new endpoints
+class QueueRefineRequest(BaseModel):
+    """Request model for queuing an entry for refinement."""
+    entry_id: UUID
+
+
+class RefineQueueResponse(BaseModel):
+    """Response model for queue refine operation."""
+    queued: bool
+    entry_id: UUID
+    message: str
+
+
+class RefineStatusResponse(BaseModel):
+    """Response model for refine status."""
+    entry_id: UUID
+    pending_refine: bool
+    refine_status: str
+    refine_error: Optional[str] = None
 
 
 def _get_user_id(conn, current_user: User) -> UUID:
@@ -89,104 +115,35 @@ async def send_message(
     """
     with get_db() as conn:
         user_id = _get_user_id(conn, current_user)
+        chat_service = ChatService(conn, user_id)
 
-        # Get the entry
-        entry = entry_repo.get_entry_by_id(conn, request.entry_id, user_id)
-        if not entry:
+        try:
+            result = await chat_service.send_message(
+                entry_id=request.entry_id,
+                message=request.message,
+                conversation_id=request.conversation_id,
+                use_local_model=request.use_local_model,
+            )
+            return ChatResponse(
+                response=result["response"],
+                conversation_id=result["conversation_id"],
+                entry_id=result["entry_id"],
+            )
+        except EntryNotFoundError:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Entry not found",
             )
-
-        # Parse existing conversations
-        conversations_data = entry.conversations
-        if isinstance(conversations_data, str):
-            conversations_data = json.loads(conversations_data)
-
-        conversations = [
-            Conversation(**c) if isinstance(c, dict) else c
-            for c in conversations_data
-        ]
-
-        # Find or create conversation
-        conversation_id = request.conversation_id
-        current_conversation: Optional[Conversation] = None
-
-        if conversation_id:
-            # Find existing conversation
-            for conv in conversations:
-                if conv.id == conversation_id:
-                    current_conversation = conv
-                    break
-
-            if not current_conversation:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Conversation not found",
-                )
-        else:
-            # Create new conversation
-            conversation_id = uuid4()
-            current_conversation = Conversation(
-                id=conversation_id,
-                started_at=datetime.utcnow(),
-                messages=[],
-                prompt_source="user",
-                notification_id=None,
+        except ConversationNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversation not found",
             )
-            conversations.append(current_conversation)
-
-        # Add user message
-        now = datetime.utcnow()
-        user_message = Message(
-            role="user",
-            content=request.message,
-            timestamp=now,
-        )
-        current_conversation.messages.append(user_message)
-
-        # Build context from all messages in this conversation
-        context_messages = [
-            {"role": msg.role, "content": msg.content}
-            for msg in current_conversation.messages
-        ]
-
-        # Get LLM response
-        try:
-            response_text = await llm_router.chat(
-                messages=context_messages,
-                use_local_model=request.use_local_model,
-            )
-        except Exception as e:
+        except LLMError as e:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"LLM service error: {str(e)}",
             )
-
-        # Add assistant message
-        assistant_message = Message(
-            role="assistant",
-            content=response_text,
-            timestamp=utc_now(),
-        )
-        current_conversation.messages.append(assistant_message)
-
-        # Update entry with modified conversations
-        conversations_list = [
-            conv.model_dump(mode="json") for conv in conversations
-        ]
-
-        from app.models.entry import EntryUpdate
-        update_data = EntryUpdate(
-            conversations=conversations,
-        )
-        entry_repo.update_entry(conn, request.entry_id, user_id, update_data)
-
-        return ChatResponse(
-            response=response_text,
-            conversation_id=conversation_id,
-            entry_id=request.entry_id,
-        )
 
 
 @router.post("/refine", response_model=RefineResponse)
@@ -212,8 +169,55 @@ async def refine_entry(
     """
     with get_db() as conn:
         user_id = _get_user_id(conn, current_user)
+        chat_service = ChatService(conn, user_id)
 
-        # Get the entry
+        try:
+            result = await chat_service.refine_entry(
+                entry_id=request.entry_id,
+                use_local_model=request.use_local_model,
+            )
+            return RefineResponse(
+                refined_output=result["refined_output"],
+                entry_id=result["entry_id"],
+            )
+        except EntryNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Entry not found",
+            )
+        except NoConversationsError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No conversations to refine",
+            )
+        except LLMError as e:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"LLM service error: {str(e)}",
+            )
+
+
+@router.post("/refine/queue", response_model=RefineQueueResponse)
+async def queue_refine(
+    request: QueueRefineRequest,
+    current_user: User = Depends(get_current_user),
+) -> RefineQueueResponse:
+    """
+    Queue an entry for refinement.
+
+    Sets pending_refine=True if not already pending or processing.
+    The entry will be refined by the background sync process.
+
+    Args:
+        request: Queue refine request with entry_id
+
+    Returns:
+        RefineQueueResponse indicating if queued successfully
+    """
+    with get_db() as conn:
+        user_id = _get_user_id(conn, current_user)
+
+        # Check entry exists
         entry = entry_repo.get_entry_by_id(conn, request.entry_id, user_id)
         if not entry:
             raise HTTPException(
@@ -221,43 +225,50 @@ async def refine_entry(
                 detail="Entry not found",
             )
 
-        # Parse conversations
-        conversations_data = entry.conversations
-        if isinstance(conversations_data, str):
-            conversations_data = json.loads(conversations_data)
+        # Try to set pending_refine flag
+        queued = entry_repo.set_pending_refine(conn, request.entry_id, user_id)
 
-        conversations = [
-            Conversation(**c) if isinstance(c, dict) else c
-            for c in conversations_data
-        ]
+        if queued:
+            return RefineQueueResponse(
+                queued=True,
+                entry_id=request.entry_id,
+                message="Entry queued for refinement",
+            )
+        else:
+            return RefineQueueResponse(
+                queued=False,
+                entry_id=request.entry_id,
+                message="Entry is already pending or processing refinement",
+            )
 
-        if not conversations:
+
+@router.get("/refine/status", response_model=RefineStatusResponse)
+async def get_refine_status(
+    entry_id: UUID = Query(..., description="Entry ID to check status for"),
+    current_user: User = Depends(get_current_user),
+) -> RefineStatusResponse:
+    """
+    Get refinement status for an entry.
+
+    Args:
+        entry_id: Entry ID to check
+
+    Returns:
+        RefineStatusResponse with current status
+    """
+    with get_db() as conn:
+        user_id = _get_user_id(conn, current_user)
+
+        entry = entry_repo.get_entry_by_id(conn, entry_id, user_id)
+        if not entry:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No conversations to refine",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Entry not found",
             )
 
-        # Format conversations for the refine prompt
-        conversations_text = _format_conversations_for_refine(conversations)
-
-        # Get refined output from LLM
-        try:
-            refined_output = await llm_router.refine(
-                conversations_text=conversations_text,
-                use_local_model=request.use_local_model,
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"LLM service error: {str(e)}",
-            )
-
-        # Update entry with refined output
-        from app.models.entry import EntryUpdate
-        update_data = EntryUpdate(refined_output=refined_output)
-        entry_repo.update_entry(conn, request.entry_id, user_id, update_data)
-
-        return RefineResponse(
-            refined_output=refined_output,
-            entry_id=request.entry_id,
+        return RefineStatusResponse(
+            entry_id=entry_id,
+            pending_refine=entry.pending_refine,
+            refine_status=entry.refine_status,
+            refine_error=entry.refine_error,
         )
