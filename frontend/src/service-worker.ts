@@ -64,36 +64,53 @@ sw.addEventListener('fetch', (event) => {
     if (request.url.includes('/api/')) return;
 
     event.respondWith(
-        caches.match(request).then((cachedResponse) => {
+        caches.match(request).then(async (cachedResponse) => {
             if (cachedResponse) {
                 return cachedResponse;
             }
 
-            return fetch(request).then((networkResponse) => {
+            try {
+                const networkResponse = await fetch(request);
                 // Cache successful responses
                 if (networkResponse.ok) {
                     const responseClone = networkResponse.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(request, responseClone);
-                    });
+                    const cache = await caches.open(CACHE_NAME);
+                    cache.put(request, responseClone);
                 }
                 return networkResponse;
-            }).catch(() => {
+            } catch {
                 // Return offline fallback if available
-                return caches.match('/offline.html') || new Response('Offline', { status: 503 });
-            });
+                const fallback = await caches.match('/offline.html');
+                return fallback || new Response('Offline', { status: 503 });
+            }
         })
     );
 });
 
 /**
+ * Message event - handle skip waiting command from the app
+ */
+sw.addEventListener('message', (event) => {
+    if (event.data?.type === 'SKIP_WAITING') {
+        console.log('SW: Received SKIP_WAITING, activating immediately');
+        sw.skipWaiting();
+    }
+});
+
+/**
  * Background sync registration (for future enhancement)
  */
-sw.addEventListener('sync', (event) => {
-    if (event.tag === 'sync-data') {
-        event.waitUntil(
+sw.addEventListener('sync', (event: Event) => {
+    const syncEvent = event as SyncEvent;
+    if (syncEvent.tag === 'sync-data') {
+        syncEvent.waitUntil(
             // Trigger sync logic (to be implemented)
             Promise.resolve()
         );
     }
 });
+
+// Type declaration for SyncEvent (not in standard DOM types)
+interface SyncEvent extends ExtendableEvent {
+    tag: string;
+}

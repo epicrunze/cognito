@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, afterUpdate, tick } from 'svelte';
+	import { onMount, afterUpdate } from 'svelte';
 	import {
 		chatMessages,
 		chatLoading,
@@ -33,8 +33,7 @@
 	});
 
 	// Scroll to bottom when messages change
-	afterUpdate(async () => {
-		await tick();
+	afterUpdate(() => {
 		if (messagesContainer) {
 			messagesContainer.scrollTop = messagesContainer.scrollHeight;
 		}
@@ -200,6 +199,7 @@
 
 	.messages-area {
 		background-color: #f8fafc;
+		overscroll-behavior: contain;
 	}
 
 	.message {

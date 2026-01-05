@@ -91,11 +91,15 @@
 	function openChat(conversation?: Conversation) {
 		currentConversation = conversation || null;
 		showChat = true;
+		// Lock body scroll when modal is open
+		document.body.style.overflow = 'hidden';
 	}
 
 	async function closeChat() {
 		showChat = false;
 		currentConversation = null;
+		// Restore body scroll
+		document.body.style.overflow = '';
 		// Reload entry to get updated conversations
 		await loadEntry();
 	}

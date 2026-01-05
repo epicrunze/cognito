@@ -14,10 +14,14 @@
 	import { loadEntries } from '$lib/stores/entries';
 	import { logout } from '$lib/api/auth';
 	import { setupBackgroundSync, cleanupBackgroundSync } from '$lib/sync';
+	import { registerServiceWorker, updateApplying } from '$lib/sw-registration';
 	import SyncIndicator from '$lib/components/SyncIndicator.svelte';
 	import AuthStatusBadge from '$lib/components/AuthStatusBadge.svelte';
 
 	onMount(async () => {
+		// Register service worker and set up update detection
+		registerServiceWorker();
+
 		// Check authentication status
 		await checkAuth();
 
@@ -48,7 +52,18 @@
 	}
 </script>
 
-{#if $authLoading}
+{#if $updateApplying}
+	<!-- Update Overlay -->
+	<div class="fixed inset-0 bg-primary-dark/90 flex items-center justify-center z-50">
+		<div class="text-center text-white">
+			<div
+				class="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"
+			></div>
+			<p class="text-lg font-medium">Updating to new version...</p>
+			<p class="text-sm text-white/70 mt-1">Please wait</p>
+		</div>
+	</div>
+{:else if $authLoading}
 	<div class="flex items-center justify-center min-h-screen">
 		<div class="text-center">
 			<p class="text-lg">Loading...</p>
