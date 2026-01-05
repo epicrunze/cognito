@@ -202,6 +202,105 @@
 
 ---
 
+### FE-006: Chat modal scroll and conversation update issues
+**Files:** `frontend/src/lib/components/Chat.svelte`, `frontend/src/routes/entry/[id]/+page.svelte`
+
+**Problem:** The chat modal has several UX issues that make it difficult to use:
+
+1. **Chat window doesn't autoscroll:** When new messages are sent or received, the chat doesn't scroll to show the latest message. Users have to manually scroll (if possible) to see responses.
+
+2. **No way to scroll the message area:** The chat modal's message container is unscrollable or scroll is broken. The modal wrapper div uses `overflow-hidden` which may be preventing scroll propagation.
+
+3. **Conversations don't update after closing:** After chatting and closing the modal, the conversation list on the entry page doesn't reflect the new messages until a full page refresh.
+
+**Root Cause Analysis:**
+
+**Autoscroll issue:**
+- `Chat.svelte` uses `afterUpdate` to scroll (lines 36-40), but the `messagesContainer` may not have proper height constraints
+- The modal container at line 367 in `+page.svelte` uses `overflow-hidden` which may interfere with scroll behavior
+- The Chat component's `flex-1` sizing inside the modal may not be working correctly
+
+**Scroll issue:**
+- The modal's Chat container has `class="flex-1 overflow-hidden"` (line 367) which explicitly hides overflow
+- This should likely be `overflow-auto` or the Chat component's internal scroll should be allowed to work
+
+**Conversation update issue:**
+- `closeChat()` (lines 96-101) calls `loadEntry()` but this is async
+- The entry may not have the latest conversations if they haven't been persisted to IndexedDB yet
+- May need to await the loadEntry() call or trigger a re-render
+
+**Proposed Fixes:**
+
+- [ ] Change modal Chat container from `overflow-hidden` to `overflow-auto` or remove it
+- [ ] Ensure Chat component's `messages-area` has proper height constraints (`min-h-0` for flex child)
+- [ ] Verify `afterUpdate` scroll logic is triggering correctly
+- [ ] Add `await` to `loadEntry()` call in `closeChat()` if not already awaited
+- [ ] Consider adding a small delay or force re-fetch from IndexedDB after save
+- [ ] Test on mobile viewports to ensure scroll works on touch devices
+
+---
+
+### FE-007: Improve sync timing - trigger on changes instead of fixed intervals
+**Files:** `frontend/src/lib/sync.ts`, `frontend/src/lib/stores/sync.ts`, `backend/app/routers/sync.py`
+
+**Problem:** The frontend sync mechanism uses inefficient polling-based timing instead of change-driven triggers:
+
+**Current Behavior:**
+- Syncs every 5 minutes via `setInterval` (line 27 in `sync.ts`: `PERIODIC_SYNC_INTERVAL_MS = 5 * 60 * 1000`)
+- Syncs on window focus (user returns to tab)
+- Syncs when coming back online
+- Uses 1-second debounce for manual `triggerSync()` calls
+
+**Issues with this approach:**
+1. **Delayed server changes:** If another device creates an entry, the current device won't see it for up to 5 minutes
+2. **Wasted requests:** Periodic sync runs even when there are no changes on either side
+3. **Delayed client changes:** Local changes aren't pushed until the next periodic sync unless manually triggered
+4. **No server push capability:** Server has no way to notify client of new changes
+
+**Proposed Solutions:**
+
+**Option A: Reactive client-side sync (minimal backend changes)**
+- [ ] Watch `pendingCount` store - trigger sync immediately when count goes from 0 → N
+- [ ] After successful sync, check if `server_changes` contained items → schedule shorter interval sync
+- [ ] Implement exponential backoff: 5s → 10s → 30s → 60s → 5min when no changes detected
+- [ ] Reset to short interval (5s) when user makes a change
+
+**Option B: Server-Sent Events (SSE) for push notifications**
+- [ ] Add SSE endpoint `GET /api/sync/events` on backend
+- [ ] Server emits `sync-needed` event when any user data changes
+- [ ] Frontend subscribes to SSE stream, triggers sync on event
+- [ ] Fallback to Option A polling when SSE connection fails
+
+**Option C: WebSocket-based sync (full duplex)**
+- [ ] Implement WebSocket connection for real-time sync
+- [ ] Server pushes changes immediately to connected clients
+- [ ] Client sends changes over WebSocket instead of HTTP
+- [ ] Most responsive but requires significant architecture changes
+
+**Recommended Approach:** Start with **Option A** for quick wins, then implement **Option B** for server push capability.
+
+**Quick Wins (Option A implementation):**
+```typescript
+// Watch pending count and trigger immediate sync
+pendingCount.subscribe(($count) => {
+  if ($count > 0) {
+    triggerSync(); // Push changes immediately
+  }
+});
+
+// After sync, check if server had changes and schedule faster re-sync
+if (response.server_changes.entries.length > 0 || response.server_changes.goals.length > 0) {
+  scheduleQuickResync(); // Check again in 5-10 seconds
+}
+```
+
+**Benefits:**
+- Changes pushed/pulled within seconds instead of minutes
+- Reduced unnecessary sync requests during idle periods
+- Better UX with near-instant multi-device sync
+
+---
+
 ## Summary
 
 | Priority | Count | Area | Status |

@@ -100,6 +100,22 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
         )
     """)
 
+    # Add columns for existing entries tables (DuckDB doesn't have IF NOT EXISTS for columns)
+    try:
+        conn.execute("ALTER TABLE entries ADD COLUMN pending_refine BOOLEAN DEFAULT FALSE")
+    except Exception:
+        pass  # Column already exists
+
+    try:
+        conn.execute("ALTER TABLE entries ADD COLUMN refine_status VARCHAR DEFAULT 'idle'")
+    except Exception:
+        pass  # Column already exists
+
+    try:
+        conn.execute("ALTER TABLE entries ADD COLUMN refine_error TEXT")
+    except Exception:
+        pass  # Column already exists
+
     # Entry versions table (for conflict resolution)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS entry_versions (
