@@ -93,11 +93,11 @@
 		showChat = true;
 	}
 
-	function closeChat() {
+	async function closeChat() {
 		showChat = false;
 		currentConversation = null;
 		// Reload entry to get updated conversations
-		loadEntry();
+		await loadEntry();
 	}
 
 	// Handle refine action
@@ -364,7 +364,7 @@
 				</div>
 
 				<!-- Chat Component -->
-				<div class="flex-1 overflow-hidden">
+				<div class="flex-1 min-h-0">
 					<Chat entryId={entry.id} existingConversation={currentConversation} />
 				</div>
 			</div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, afterUpdate } from 'svelte';
+	import { onMount, afterUpdate, tick } from 'svelte';
 	import {
 		chatMessages,
 		chatLoading,
@@ -33,7 +33,8 @@
 	});
 
 	// Scroll to bottom when messages change
-	afterUpdate(() => {
+	afterUpdate(async () => {
+		await tick();
 		if (messagesContainer) {
 			messagesContainer.scrollTop = messagesContainer.scrollHeight;
 		}
@@ -67,7 +68,7 @@
 	}
 </script>
 
-<div class="chat-container flex flex-col h-full bg-white">
+<div class="chat-container flex flex-col h-full min-h-0 bg-white">
 	<!-- Pending Messages Indicator -->
 	{#if $hasPendingMessages}
 		<div
@@ -93,7 +94,10 @@
 	{/if}
 
 	<!-- Messages Area -->
-	<div bind:this={messagesContainer} class="messages-area flex-1 overflow-y-auto p-4 space-y-4">
+	<div
+		bind:this={messagesContainer}
+		class="messages-area flex-1 min-h-0 overflow-y-auto p-4 space-y-4"
+	>
 		{#if $chatMessages.length === 0}
 			<!-- Empty state -->
 			<div class="empty-state text-center py-12 text-text-secondary">

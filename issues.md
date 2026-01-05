@@ -202,41 +202,17 @@
 
 ---
 
-### FE-006: Chat modal scroll and conversation update issues
-**Files:** `frontend/src/lib/components/Chat.svelte`, `frontend/src/routes/entry/[id]/+page.svelte`
+### ✅ FE-006: Chat modal scroll and conversation update issues
+**Status:** COMPLETE (2026-01-04)
 
-**Problem:** The chat modal has several UX issues that make it difficult to use:
+**Files Changed:**
+- `frontend/src/lib/components/Chat.svelte` - Added `tick` import, `min-h-0` flex constraints, async scroll logic
+- `frontend/src/routes/entry/[id]/+page.svelte` - Changed `overflow-hidden` to `min-h-0`, made `closeChat` async
 
-1. **Chat window doesn't autoscroll:** When new messages are sent or received, the chat doesn't scroll to show the latest message. Users have to manually scroll (if possible) to see responses.
-
-2. **No way to scroll the message area:** The chat modal's message container is unscrollable or scroll is broken. The modal wrapper div uses `overflow-hidden` which may be preventing scroll propagation.
-
-3. **Conversations don't update after closing:** After chatting and closing the modal, the conversation list on the entry page doesn't reflect the new messages until a full page refresh.
-
-**Root Cause Analysis:**
-
-**Autoscroll issue:**
-- `Chat.svelte` uses `afterUpdate` to scroll (lines 36-40), but the `messagesContainer` may not have proper height constraints
-- The modal container at line 367 in `+page.svelte` uses `overflow-hidden` which may interfere with scroll behavior
-- The Chat component's `flex-1` sizing inside the modal may not be working correctly
-
-**Scroll issue:**
-- The modal's Chat container has `class="flex-1 overflow-hidden"` (line 367) which explicitly hides overflow
-- This should likely be `overflow-auto` or the Chat component's internal scroll should be allowed to work
-
-**Conversation update issue:**
-- `closeChat()` (lines 96-101) calls `loadEntry()` but this is async
-- The entry may not have the latest conversations if they haven't been persisted to IndexedDB yet
-- May need to await the loadEntry() call or trigger a re-render
-
-**Proposed Fixes:**
-
-- [ ] Change modal Chat container from `overflow-hidden` to `overflow-auto` or remove it
-- [ ] Ensure Chat component's `messages-area` has proper height constraints (`min-h-0` for flex child)
-- [ ] Verify `afterUpdate` scroll logic is triggering correctly
-- [ ] Add `await` to `loadEntry()` call in `closeChat()` if not already awaited
-- [ ] Consider adding a small delay or force re-fetch from IndexedDB after save
-- [ ] Test on mobile viewports to ensure scroll works on touch devices
+**Fixed:**
+- [x] Chat window now autoscrolls when new messages arrive
+- [x] Messages area is scrollable (removed `overflow-hidden` blocker)
+- [x] Conversations refresh properly after closing modal
 
 ---
 
