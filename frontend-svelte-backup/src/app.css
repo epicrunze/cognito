@@ -1,0 +1,303 @@
+/* Tailwind v4 + Skeleton UI v4 */
+@import 'tailwindcss';
+
+/* Skeleton UI v4 base styles */
+@import '@skeletonlabs/skeleton';
+
+/* Skeleton theme - Cerberus as base */
+@import '@skeletonlabs/skeleton/themes/cerberus';
+
+/* Cognito Brand Color Overrides */
+:root {
+	/* Primary - Deep Teal Brand */
+	--color-primary-50: 232 240 245;
+	--color-primary-100: 197 217 229;
+	--color-primary-200: 159 193 212;
+	--color-primary-300: 120 159 195;
+	--color-primary-400: 69 104 130;
+	--color-primary-500: 35 76 106;
+	/* #234C6A - Main brand */
+	--color-primary-600: 27 60 83;
+	/* #1B3C53 - Dark variant */
+	--color-primary-700: 21 48 69;
+	--color-primary-800: 16 36 54;
+	--color-primary-900: 10 24 39;
+
+	/* Surface - Clean whites/grays */
+	--color-surface-50: 255 255 255;
+	--color-surface-100: 248 250 252;
+	--color-surface-200: 241 245 249;
+	--color-surface-300: 226 232 240;
+	--color-surface-400: 148 163 184;
+	--color-surface-500: 100 116 139;
+	--color-surface-600: 71 85 105;
+	--color-surface-700: 51 65 85;
+	--color-surface-800: 30 41 59;
+	--color-surface-900: 15 23 42;
+
+	/* Semantic Colors */
+	--color-success-500: 16 185 129;
+	--color-warning-500: 245 158 11;
+	--color-error-500: 239 68 68;
+
+	/* Border radius - Hinge-style rounded */
+	--radius-base: 0.5rem;
+	--radius-container: 1rem;
+}
+
+/* Dark Mode Overrides */
+.dark {
+	--color-surface-50: 15 23 42;
+	--color-surface-100: 30 41 59;
+	--color-surface-200: 51 65 85;
+	--color-surface-300: 71 85 105;
+	--color-surface-400: 100 116 139;
+	--color-surface-500: 148 163 184;
+	--color-surface-600: 226 232 240;
+	--color-surface-700: 241 245 249;
+	--color-surface-800: 248 250 252;
+	--color-surface-900: 255 255 255;
+}
+
+/* Base Typography and Background */
+body {
+	font-family: 'Inter', system-ui, -apple-system, sans-serif;
+	background-color: rgb(241 245 249);
+	/* surface-200 - light gray background */
+	color: rgb(15 23 42);
+	/* surface-900 - dark text */
+}
+
+.dark body {
+	background-color: rgb(15 23 42);
+	/* surface-900 */
+	color: rgb(248 250 252);
+	/* surface-100 */
+}
+
+/* ============================================
+   BACKWARDS COMPATIBILITY UTILITIES
+   (To ease migration of existing components)
+   ============================================ */
+
+.surface {
+	background-color: rgb(var(--color-surface-50));
+	box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+	border-radius: var(--radius-container);
+	padding: 1rem;
+}
+
+.dark .surface {
+	background-color: rgb(var(--color-surface-900));
+}
+
+.btn-primary {
+	background-color: rgb(var(--color-primary-500));
+	color: white;
+	padding: 0.5rem 1rem;
+	border-radius: var(--radius-base);
+	transition: background-color 0.15s;
+}
+
+.btn-primary:hover {
+	background-color: rgb(var(--color-primary-600));
+}
+
+.btn-secondary {
+	background-color: rgb(var(--color-primary-400));
+	color: white;
+	padding: 0.5rem 1rem;
+	border-radius: var(--radius-base);
+	transition: background-color 0.15s;
+}
+
+.btn-secondary:hover {
+	background-color: rgb(var(--color-primary-500));
+}
+
+.input-field {
+	background-color: rgb(var(--color-surface-50));
+	border: 1px solid rgb(var(--color-primary-400) / 0.3);
+	border-radius: var(--radius-base);
+	padding: 0.5rem 0.75rem;
+}
+
+.input-field:focus {
+	outline: none;
+	box-shadow: 0 0 0 2px rgb(var(--color-primary-500));
+}
+
+/* Semantic color utilities */
+.bg-primary-dark {
+	background-color: rgb(var(--color-primary-600));
+}
+
+.bg-primary {
+	background-color: rgb(var(--color-primary-500));
+}
+
+.bg-primary-light {
+	background-color: rgb(var(--color-primary-400));
+}
+
+.bg-background {
+	background-color: rgb(var(--color-surface-200));
+}
+
+.bg-surface {
+	background-color: rgb(var(--color-surface-50));
+}
+
+.bg-success {
+	background-color: rgb(var(--color-success-500));
+}
+
+.bg-warning {
+	background-color: rgb(var(--color-warning-500));
+}
+
+.bg-error {
+	background-color: rgb(var(--color-error-500));
+}
+
+.text-primary-dark {
+	color: rgb(var(--color-primary-600));
+}
+
+.text-primary {
+	color: rgb(var(--color-primary-500));
+}
+
+.text-primary-light {
+	color: rgb(var(--color-primary-400));
+}
+
+.text-text-primary {
+	color: rgb(var(--color-surface-900));
+}
+
+.dark .text-text-primary {
+	color: rgb(var(--color-surface-50));
+}
+
+.text-text-secondary {
+	color: rgb(var(--color-surface-500));
+}
+
+.dark .text-text-secondary {
+	color: rgb(var(--color-surface-400));
+}
+
+.text-success {
+	color: rgb(var(--color-success-500));
+}
+
+.text-warning {
+	color: rgb(var(--color-warning-500));
+}
+
+.text-error {
+	color: rgb(var(--color-error-500));
+}
+
+.border-primary-light {
+	border-color: rgb(var(--color-primary-400));
+}
+
+.hover\:bg-primary-dark:hover {
+	background-color: rgb(var(--color-primary-600));
+}
+
+.hover\:bg-primary:hover {
+	background-color: rgb(var(--color-primary-500));
+}
+
+.hover\:text-primary-light:hover {
+	color: rgb(var(--color-primary-400));
+}
+
+/* ============================================
+   CUSTOM LAYOUT COMPONENTS
+   ============================================ */
+
+/* Bottom Sheet (custom drawer for chat) */
+.bottom-sheet {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background-color: rgb(var(--color-surface-50));
+	border-top-left-radius: var(--radius-container);
+	border-top-right-radius: var(--radius-container);
+	box-shadow: 0 -4px 20px rgb(0 0 0 / 0.15);
+	transform: translateY(100%);
+	transition: transform 0.3s ease-out;
+	z-index: 50;
+}
+
+.bottom-sheet.open {
+	transform: translateY(0);
+}
+
+.dark .bottom-sheet {
+	background-color: rgb(var(--color-surface-900));
+}
+
+/* Bottom Navigation */
+.bottom-nav {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background-color: rgb(var(--color-surface-50));
+	border-top: 1px solid rgb(var(--color-surface-300));
+	padding: 0.5rem;
+	z-index: 40;
+}
+
+.dark .bottom-nav {
+	background-color: rgb(var(--color-surface-900));
+	border-color: rgb(var(--color-surface-700));
+}
+
+/* Collapsible Sidebar */
+.sidebar {
+	position: fixed;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	background-color: rgb(var(--color-surface-100));
+	border-right: 1px solid rgb(var(--color-surface-300));
+	transition: width 0.2s ease;
+	z-index: 30;
+	overflow: hidden;
+}
+
+.sidebar.collapsed {
+	width: 4rem;
+}
+
+.sidebar.expanded {
+	width: 16rem;
+}
+
+.dark .sidebar {
+	background-color: rgb(var(--color-surface-800));
+	border-color: rgb(var(--color-surface-700));
+}
+
+/* Safe area for bottom nav on mobile */
+.has-bottom-nav {
+	padding-bottom: 5rem;
+}
+
+/* Safe area for sidebar on desktop */
+@media (min-width: 1024px) {
+	.has-sidebar {
+		margin-left: 4rem;
+	}
+
+	.has-sidebar.sidebar-expanded {
+		margin-left: 16rem;
+	}
+}

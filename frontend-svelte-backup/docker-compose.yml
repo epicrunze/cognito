@@ -24,7 +24,7 @@ services:
     # Labels for organization
     labels:
       com.cognito.service: "frontend"
-      com.cognito.description: "Cognito Ionic React Frontend"
+      com.cognito.description: "Cognito SvelteKit Frontend"
 
 # External network (must already exist)
 networks:

@@ -2,7 +2,6 @@
 node_modules/
 
 # Build outputs
-dist/
 .svelte-kit/
 build/
 
@@ -18,9 +17,7 @@ build/
 
 # Tests
 tests/
-cypress/
 *.test.ts
-*.test.tsx
 *.spec.ts
 coverage/
 
@@ -40,9 +37,8 @@ Thumbs.db
 # Logs
 *.log
 
-# Config files not needed for build
+# Prettier config (not needed for build)
 .prettierrc
 .prettierignore
 .npmrc
-eslint.config.js
-cypress.config.ts
+

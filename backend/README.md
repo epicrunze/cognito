@@ -291,6 +291,99 @@ All Entry API endpoints require authentication via the `cognito_auth` cookie.
 - `GET /api/auth/callback` - OAuth callback handler
 - `GET /api/auth/me` - Get current user info
 - `POST /api/auth/logout` - Clear auth cookie
+- `POST /api/auth/refresh` - Silent token refresh
+
+#### Silent Token Refresh
+
+```http
+POST /api/auth/refresh
+```
+
+Uses stored Google refresh token to issue a new JWT without requiring user interaction.
+
+**Behavior:**
+- Reads existing `cognito_auth` cookie to identify user
+- Retrieves stored Google refresh token from database
+- Requests new access token from Google
+- Issues new JWT and sets updated cookie
+
+**Response:**
+```json
+{
+  "success": true,
+  "email": "user@example.com"
+}
+```
+
+**Errors:**
+- `401` - No auth cookie or refresh token not found
+- `503` - Google token refresh failed
+
+### Sync
+
+Offline-first synchronization for client data.
+
+#### Synchronize Changes
+
+```http
+POST /api/sync
+Content-Type: application/json
+
+{
+  "last_synced_at": "2024-12-10T10:00:00Z",
+  "pending_changes": [
+    {
+      "id": "change-uuid",
+      "type": "create",
+      "entity": "entry",
+      "entity_id": "entry-uuid",
+      "data": { /* entity data */ },
+      "timestamp": "2024-12-10T10:00:00Z"
+    }
+  ],
+  "base_versions": {
+    "entry-uuid": 1
+  }
+}
+```
+
+**Request Fields:**
+- `last_synced_at` (optional): ISO 8601 timestamp of last sync, null for first sync
+- `pending_changes`: Array of local changes to push
+  - `id`: Unique change identifier
+  - `type`: `create`, `update`, or `delete`
+  - `entity`: `entry` or `goal`
+  - `entity_id`: Entity UUID
+  - `data`: Entity data (for create/update)
+  - `base_version` (optional): Expected server version for conflict detection
+  - `timestamp`: When the change was made
+- `base_versions`: Map of entity_id to version for conflict detection
+
+**Response:**
+```json
+{
+  "applied": ["change-uuid-1", "change-uuid-2"],
+  "skipped": ["change-uuid-3"],
+  "server_changes": {
+    "entries": [/* entries modified since last_synced_at */],
+    "goals": [/* goals modified since last_synced_at */]
+  },
+  "sync_timestamp": "2024-12-10T10:05:00Z",
+  "pending_messages_processed": ["entry-uuid"]
+}
+```
+
+**Behavior:**
+- Uses last-write-wins conflict resolution
+- Returns server changes since `last_synced_at`
+- Processes any pending chat messages needing LLM responses
+- `applied`: Changes successfully applied to server
+- `skipped`: Changes rejected (server version was newer)
+- `pending_messages_processed`: Entries where LLM responses were added
+
+**Errors:**
+- `401` - Not authenticated
+- `500` - User not found (authentication error)
 
 ### Entries
 
@@ -523,6 +616,69 @@ Synthesizes all conversations in an entry into a coherent journal summary.
 - `404` - Entry not found
 - `503` - LLM service unavailable
 
+#### Queue Entry for Refinement
+
+```http
+POST /api/chat/refine/queue
+Content-Type: application/json
+
+{
+  "entry_id": "uuid"
+}
+```
+
+Queues an entry for background refinement. The sync process will process queued entries.
+
+**Response:**
+```json
+{
+  "queued": true,
+  "entry_id": "uuid",
+  "message": "Entry queued for refinement"
+}
+```
+
+If already queued or processing:
+```json
+{
+  "queued": false,
+  "entry_id": "uuid",
+  "message": "Entry is already pending or processing refinement"
+}
+```
+
+**Errors:**
+- `401` - Not authenticated
+- `404` - Entry not found
+
+#### Get Refinement Status
+
+```http
+GET /api/chat/refine/status?entry_id=uuid
+```
+
+Check the current refinement status of an entry.
+
+**Response:**
+```json
+{
+  "entry_id": "uuid",
+  "pending_refine": true,
+  "refine_status": "pending",
+  "refine_error": null
+}
+```
+
+**Status Values:**
+- `pending` - Waiting to be processed
+- `processing` - Currently being refined
+- `completed` - Refinement finished successfully
+- `error` - Refinement failed (see `refine_error`)
+
+**Errors:**
+- `401` - Not authenticated
+- `404` - Entry not found
+
 #### LLM Configuration
 
 Set the following environment variables:
@@ -661,19 +817,28 @@ backend/
 │   ├── main.py           # FastAPI app, CORS, middleware
 │   ├── config.py         # Settings, environment variables
 │   ├── database.py       # DuckDB connection, schema
+│   ├── logging.py        # Structured logging utilities
 │   ├── models/           # Pydantic models
 │   │   ├── user.py       # User model
 │   │   ├── entry.py      # Entry, Conversation models
-│   │   └── goal.py       # Goal models
+│   │   ├── goal.py       # Goal models
+│   │   └── chat.py       # Chat request/response models
 │   ├── routers/          # API route handlers
 │   │   ├── auth.py       # Authentication endpoints
 │   │   ├── entries.py    # Entry CRUD endpoints
-│   │   └── goals.py      # Goal CRUD endpoints
+│   │   ├── goals.py      # Goal CRUD endpoints
+│   │   ├── chat.py       # Chat and refine endpoints
+│   │   └── sync.py       # Offline sync endpoints
 │   ├── repositories/     # Data access layer
 │   │   ├── entry_repo.py # Entry database operations
 │   │   ├── goal_repo.py  # Goal database operations
 │   │   └── user_repo.py  # User database operations
 │   ├── services/         # Business logic
+│   │   ├── llm.py        # LLM router (Gemini/Ollama)
+│   │   ├── chat.py       # Chat service for messaging
+│   │   └── sync.py       # Sync service for offline-first
+│   ├── utils/            # Utility modules
+│   │   └── timestamp.py  # UTC timestamp utilities
 │   ├── jobs/             # Scheduled jobs
 │   └── auth/             # Authentication
 │       └── dependencies.py

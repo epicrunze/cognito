@@ -1,12 +1,84 @@
 <script lang="ts">
+	import { createEventDispatcher } from 'svelte';
 	import type { Entry } from '$lib/db';
 
-	export let entry: Entry;
-	export let onClick: (() => void) | undefined = undefined;
+	// Props using Svelte 5 $props() syntax
+	interface Props {
+		entry: Entry;
+		onClick?: () => void;
+	}
+	let { entry, onClick }: Props = $props();
+
+	const dispatch = createEventDispatcher<{
+		swipeChat: Entry;
+		swipeArchive: Entry;
+		longPress: Entry;
+	}>();
+
+	// Swipe gesture state
+	let startX = $state(0);
+	let currentX = $state(0);
+	let isSwiping = $state(false);
+	let swipeOffset = $state(0);
+
+	// Long press state
+	let isPressed = $state(false);
+	let pressTimer: ReturnType<typeof setTimeout> | null = $state(null);
+
+	const MIN_SWIPE_DISTANCE = 60;
+
+	// Handle touch/pointer events for swipe
+	function handlePointerDown(event: PointerEvent) {
+		startX = event.clientX;
+		currentX = event.clientX;
+		isSwiping = true;
+		isPressed = true;
+
+		// Long press detection
+		pressTimer = setTimeout(() => {
+			if (isPressed && Math.abs(currentX - startX) < 10) {
+				dispatch('longPress', entry);
+				isSwiping = false;
+			}
+		}, 500);
+	}
+
+	function handlePointerMove(event: PointerEvent) {
+		if (!isSwiping) return;
+		currentX = event.clientX;
+		swipeOffset = Math.max(-100, Math.min(100, currentX - startX));
+	}
+
+	function handlePointerUp() {
+		if (pressTimer) {
+			clearTimeout(pressTimer);
+			pressTimer = null;
+		}
+		isPressed = false;
+
+		if (isSwiping) {
+			const distance = currentX - startX;
+
+			if (distance > MIN_SWIPE_DISTANCE) {
+				dispatch('swipeChat', entry);
+			} else if (distance < -MIN_SWIPE_DISTANCE) {
+				dispatch('swipeArchive', entry);
+			}
+
+			isSwiping = false;
+			swipeOffset = 0;
+		}
+	}
+
+	function handleClick() {
+		// Only trigger click if not swiping
+		if (Math.abs(swipeOffset) < 10 && onClick) {
+			onClick();
+		}
+	}
 
 	// Format date nicely
 	function formatDate(dateStr: string): string {
-		// Parse as local date, not UTC
 		const [year, month, day] = dateStr.split('-').map(Number);
 		const date = new Date(year, month - 1, day);
 
@@ -14,7 +86,6 @@
 		const yesterday = new Date(today);
 		yesterday.setDate(yesterday.getDate() - 1);
 
-		// Reset time for comparison
 		const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 		const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 		const yesterdayOnly = new Date(
@@ -73,13 +144,33 @@
 	}
 </script>
 
+<!-- Card with swipe gesture -->
 <div
-	class="surface hover:shadow-lg transition-shadow cursor-pointer"
-	on:click={onClick}
-	on:keydown={(e) => e.key === 'Enter' && onClick?.()}
+	class="surface hover:shadow-lg transition-all cursor-pointer relative overflow-hidden touch-pan-y"
+	style="transform: translateX({swipeOffset}px); transition: {isSwiping
+		? 'none'
+		: 'transform 0.2s ease-out'}"
+	onpointerdown={handlePointerDown}
+	onpointermove={handlePointerMove}
+	onpointerup={handlePointerUp}
+	onpointerleave={handlePointerUp}
+	onclick={handleClick}
+	onkeydown={(e) => e.key === 'Enter' && onClick?.()}
 	role="button"
 	tabindex="0"
 >
+	<!-- Swipe action hints -->
+	{#if swipeOffset > 30}
+		<div class="absolute left-2 top-1/2 -translate-y-1/2 text-primary text-sm font-medium">
+			💬 Chat
+		</div>
+	{/if}
+	{#if swipeOffset < -30}
+		<div class="absolute right-2 top-1/2 -translate-y-1/2 text-warning text-sm font-medium">
+			Archive 📦
+		</div>
+	{/if}
+
 	<!-- Header -->
 	<div class="flex justify-between items-start mb-3">
 		<div class="flex items-center gap-2">
