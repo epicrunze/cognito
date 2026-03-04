@@ -1,81 +1,67 @@
 <script lang="ts">
-  import '../app.css';
-  import { onMount } from 'svelte';
-  import { getMe, loginUrl } from '$lib/api';
-  import { appState } from '$lib/stores.svelte';
+  import ToastContainer from '../components/ui/ToastContainer.svelte';
+  import Sidebar from '../components/features/Sidebar.svelte';
+  import Button from '../components/ui/Button.svelte';
+  import Input from '../components/ui/Input.svelte';
+  import Kbd from '../components/ui/Kbd.svelte';
+  import { shortcuts } from '$lib/shortcuts';
+  import type { Snippet } from 'svelte';
 
-  let { children } = $props();
+  let { children }: { children: Snippet } = $props();
 
-  onMount(async () => {
-    try {
-      const me = await getMe();
-      appState.user = me;
-    } catch {
-      appState.user = null;
-    } finally {
-      appState.authChecked = true;
-    }
+  let searchQuery = $state('');
+  let searchWrapper: HTMLDivElement | undefined = $state();
+
+  shortcuts.register('/', () => {
+    searchWrapper?.querySelector('input')?.focus();
+  });
+  shortcuts.register('n', () => {
+    // placeholder — wired up in T-019
+  });
+  shortcuts.register('Escape', () => {
+    // placeholder — close panel when panels exist
   });
 </script>
 
-<div class="min-h-screen flex flex-col">
-  <!-- Top navigation bar -->
-  <header class="border-b border-surface-800 bg-surface-900/80 backdrop-blur-sm sticky top-0 z-50">
-    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center">
-          <span class="text-white font-bold text-sm">C</span>
+<svelte:window onkeydown={shortcuts.handleKeydown} />
+
+<div class="flex h-screen overflow-hidden bg-base">
+  <Sidebar />
+
+  <div class="flex-1 flex flex-col min-w-0">
+    <!-- Header Bar -->
+    <header class="h-[52px] bg-surface border-b border-default flex items-center justify-between px-4 shrink-0">
+      <div bind:this={searchWrapper} class="relative w-80 max-w-full">
+        <Input
+          bind:value={searchQuery}
+          placeholder="Search tasks..."
+          class="pr-10"
+        />
+        <div class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+          <Kbd>/</Kbd>
         </div>
-        <h1 class="text-surface-100 font-semibold text-lg tracking-tight">Cognito</h1>
-        <span class="text-surface-600 text-sm hidden sm:block">Task Agent</span>
       </div>
 
-      <nav class="flex items-center gap-2">
-        <a
-          href="http://localhost:3456"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="btn-ghost text-sm"
-          title="Open Vikunja">
-          Vikunja ↗
-        </a>
-
-        {#if appState.authChecked}
-          {#if appState.user}
-            <div class="flex items-center gap-2">
-              {#if appState.user.picture}
-                <img
-                  src={appState.user.picture}
-                  alt={appState.user.name}
-                  class="w-7 h-7 rounded-full ring-1 ring-surface-700"
-                />
-              {/if}
-              <span class="text-surface-400 text-sm hidden sm:block">{appState.user.name}</span>
-            </div>
-          {:else}
-            <a href={loginUrl()} class="btn-primary text-sm py-1.5">Sign in</a>
-          {/if}
-        {/if}
-      </nav>
-    </div>
-  </header>
-
-  <!-- Main content -->
-  <main class="flex-1 max-w-4xl mx-auto w-full px-4 py-6">
-    {#if !appState.authChecked}
-      <div class="flex items-center justify-center h-64">
-        <div class="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+      <div class="flex items-center gap-2">
+        <Button variant="outline" size="sm">
+          New
+          <Kbd>N</Kbd>
+        </Button>
+        <Button variant="ghost" size="sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="color: var(--ai-accent);" aria-hidden="true">
+            <path d="M12 2l1.5 4.6H18l-3.9 2.8 1.5 4.6L12 11.2l-3.6 2.8 1.5-4.6L6 6.6h4.5L12 2z" fill="var(--ai-accent)"/>
+            <path d="M19 14l.8 2.4H22l-2 1.5.8 2.4L19 19l-1.8 1.3.8-2.4L16 16.4h2.2L19 14z" fill="var(--ai-accent)" opacity="0.7"/>
+          </svg>
+          AI
+        </Button>
       </div>
-    {:else if !appState.user}
-      <div class="flex flex-col items-center justify-center h-64 gap-4">
-        <div class="text-6xl">🔐</div>
-        <p class="text-surface-400 text-center max-w-sm">
-          Sign in with your Google account to start extracting tasks.
-        </p>
-        <a href={loginUrl()} class="btn-primary">Sign in with Google</a>
-      </div>
-    {:else}
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto p-6">
       {@render children()}
-    {/if}
-  </main>
+    </main>
+  </div>
 </div>
+
+<ToastContainer />
