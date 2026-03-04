@@ -1,0 +1,26 @@
+[project]
+name = "cognito-backend"
+version = "1.0.0"
+description = "Task Agent backend — AI integration layer for Vikunja"
+requires-python = ">=3.10"
+dependencies = [
+    "duckdb>=1.2.0",
+    "email-validator>=2.3.0",
+    "fastapi>=0.124.0",
+    "httpx>=0.28.0",
+    "pydantic-settings>=2.12.0",
+    "python-jose[cryptography]>=3.5.0",
+    "python-multipart>=0.0.20",
+    "sse-starlette>=2.3.0",
+    "uvicorn[standard]>=0.34.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.25.0",
+    "respx>=0.22.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

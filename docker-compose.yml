@@ -1,0 +1,57 @@
+services:
+  vikunja:
+    image: vikunja/vikunja:2.1.0
+    volumes:
+      - ./vikunja-files:/app/vikunja/files
+      - ./vikunja-db:/db
+    environment:
+      VIKUNJA_SERVICE_JWTSECRET: ${VIKUNJA_JWT_SECRET}
+      VIKUNJA_SERVICE_PUBLICURL: ${VIKUNJA_SERVICE_PUBLICURL:-https://tasks.epicrunze.com}
+      VIKUNJA_DATABASE_PATH: /db/vikunja.db
+    networks:
+      - cognito-network
+    restart: unless-stopped
+
+  cognito-backend:
+    build: ./backend
+    volumes:
+      - ./data:/app/data          # DuckDB database file
+    environment:
+      - VIKUNJA_URL=http://vikunja:3456
+      - VIKUNJA_API_TOKEN=${VIKUNJA_API_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - ALLOWED_EMAIL=${ALLOWED_EMAIL}
+      - DATABASE_URL=duckdb:////app/data/agent.duckdb
+      - JWT_SECRET=${JWT_SECRET}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - BACKEND_URL=${BACKEND_URL}
+      - COOKIE_SECURE=true
+      - COOKIE_SAMESITE=lax
+      - COOKIE_DOMAIN=${COOKIE_DOMAIN}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux: allows reaching host Ollama
+    networks:
+      - cognito-network
+    depends_on:
+      - vikunja
+    restart: unless-stopped
+
+  cognito-frontend:
+    build:
+      context: ./frontend
+      target: production
+    environment:
+      - PUBLIC_API_URL=${BACKEND_URL}
+    networks:
+      - cognito-network
+    depends_on:
+      - cognito-backend
+    restart: unless-stopped
+
+networks:
+  cognito-network:
+    external: true

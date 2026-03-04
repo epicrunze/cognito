@@ -1,0 +1,132 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: #0d0f1c;
+    color: #f8f9fc;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+
+  /* Cards */
+  .card {
+    background-color: #141728;
+    border: 1px solid #1e2235;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply font-medium px-4 py-2 rounded-lg transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2;
+    background-color: #2b47e7;
+    color: white;
+    --tw-ring-color: #628bf8;
+    --tw-ring-offset-color: #0d0f1c;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: #3d64f3;
+  }
+
+  .btn-secondary {
+    @apply font-medium px-4 py-2 rounded-lg transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none;
+    background-color: #1e2235;
+    color: #f0f2f8;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background-color: #2a3050;
+  }
+
+  .btn-ghost {
+    @apply font-medium px-3 py-1.5 rounded-lg transition-colors duration-150 focus:outline-none;
+    color: #93b4fd;
+  }
+
+  .btn-ghost:hover {
+    color: #f0f2f8;
+    background-color: #1e2235;
+  }
+
+  .btn-danger {
+    @apply font-medium px-3 py-1.5 rounded-lg transition-colors duration-150;
+    background-color: rgba(127, 29, 29, 0.4);
+    color: #fca5a5;
+  }
+
+  .btn-danger:hover {
+    background-color: rgba(153, 27, 27, 0.6);
+  }
+
+  .btn-success {
+    @apply font-medium px-3 py-1.5 rounded-lg transition-colors duration-150;
+    background-color: rgba(6, 78, 59, 0.4);
+    color: #6ee7b7;
+  }
+
+  .btn-success:hover {
+    background-color: rgba(6, 95, 70, 0.6);
+  }
+
+  /* Inputs */
+  .input {
+    @apply rounded-lg px-3 py-2 w-full transition-colors duration-150 focus:outline-none focus:ring-2 focus:border-transparent;
+    background-color: #1e2235;
+    border: 1px solid #2a3050;
+    color: #f0f2f8;
+    --tw-ring-color: #3d64f3;
+  }
+
+  .input::placeholder {
+    color: #4a5568;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-blue {
+    @apply badge;
+    background-color: rgba(20, 28, 87, 0.6);
+    color: #93b4fd;
+    border: 1px solid #2135c9;
+  }
+
+  .badge-gray {
+    @apply badge;
+    background-color: #1e2235;
+    color: #9ca3af;
+    border: 1px solid #2a3050;
+  }
+
+  .badge-green {
+    @apply badge;
+    background-color: rgba(6, 78, 59, 0.6);
+    color: #6ee7b7;
+    border: 1px solid #065f46;
+  }
+
+  .badge-red {
+    @apply badge;
+    background-color: rgba(127, 29, 29, 0.6);
+    color: #fca5a5;
+    border: 1px solid #991b1b;
+  }
+}
