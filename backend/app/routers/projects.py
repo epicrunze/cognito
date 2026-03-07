@@ -20,7 +20,7 @@ async def list_projects(current_user: User = Depends(get_current_user)):
     """
     Return Vikunja project list.
 
-    Uses the local DuckDB cache, refreshing automatically if stale (>1 hour).
+    Uses the local SQLite cache, refreshing automatically if stale (>1 hour).
     """
     with get_db() as conn:
         # Check if cache is fresh

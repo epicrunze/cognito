@@ -1,67 +1,60 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
 
-  type Variant = 'accent' | 'outline' | 'ghost';
-  type Size = 'sm' | 'md';
-  type ButtonType = 'button' | 'submit' | 'reset';
-
   let {
-    variant = 'accent' as Variant,
-    size = 'md' as Size,
+    children,
+    variant = 'accent',
+    size = 'md',
     loading = false,
     disabled = false,
-    type = 'button' as ButtonType,
     onclick,
-    children,
-    ...restProps
+    style = '',
+    type = 'button',
   }: {
-    variant?: Variant;
-    size?: Size;
+    children: Snippet;
+    variant?: 'accent' | 'outline' | 'ghost' | 'danger' | 'toggle';
+    size?: 'sm' | 'md';
     loading?: boolean;
     disabled?: boolean;
-    type?: ButtonType;
     onclick?: (e: MouseEvent) => void;
-    children: Snippet;
-    [key: string]: unknown;
+    style?: string;
+    type?: 'button' | 'submit';
   } = $props();
 
-  const variantClasses: Record<Variant, string> = {
-    accent: 'bg-accent text-on-accent hover:bg-accent-hover',
-    outline: 'bg-transparent border border-default text-primary hover:bg-surface-hover',
-    ghost: 'bg-transparent text-secondary hover:bg-surface-hover hover:text-primary',
+  let hovering = $state(false);
+
+  const s = $derived(size === 'sm' ? { h: 34, p: '0 14px', fs: 13.5 } : { h: 40, p: '0 18px', fs: 14 });
+
+  type VariantStyle = { bg: string; bgH: string; c: string; cH: string; b: string; bH: string };
+  const variants: Record<string, VariantStyle> = {
+    accent: { bg: 'var(--accent)', bgH: 'var(--accent-hover)', c: 'var(--text-on-accent)', cH: 'var(--text-on-accent)', b: 'none', bH: 'none' },
+    outline: { bg: 'transparent', bgH: 'var(--bg-surface-hover)', c: 'var(--text-secondary)', cH: 'var(--text-primary)', b: '1px solid var(--border-default)', bH: '1px solid var(--border-strong)' },
+    ghost: { bg: 'transparent', bgH: 'var(--bg-surface-hover)', c: 'var(--text-secondary)', cH: 'var(--text-primary)', b: '1px solid transparent', bH: '1px solid transparent' },
+    danger: { bg: 'transparent', bgH: '#DC2626', c: 'var(--overdue)', cH: '#fff', b: '1px solid var(--border-strong)', bH: '1px solid #DC2626' },
+    toggle: { bg: 'var(--bg-elevated)', bgH: 'var(--bg-surface-hover)', c: 'var(--text-secondary)', cH: 'var(--text-secondary)', b: '1px solid var(--border-default)', bH: '1px solid var(--border-default)' },
   };
 
-  const sizeClasses: Record<Size, string> = {
-    sm: 'h-7 px-2 py-1 text-sm',
-    md: 'h-9 px-4 py-2 text-base',
-  };
+  const v = $derived(variants[variant]);
+  const bg = $derived(hovering && !disabled ? v.bgH : v.bg);
+  const color = $derived(hovering && !disabled ? v.cH : v.c);
+  const border = $derived(hovering && !disabled ? v.bH : v.b);
 </script>
 
 <button
   {type}
-  disabled={disabled || loading}
   {onclick}
-  class="rounded-input font-medium duration-fast inline-flex items-center justify-center gap-1.5
-    {variantClasses[variant]}
-    {sizeClasses[size]}
-    {disabled || loading ? 'opacity-50 cursor-not-allowed' : ''}"
-  {...restProps}
+  disabled={disabled || loading}
+  onmouseenter={() => hovering = true}
+  onmouseleave={() => hovering = false}
+  style="height: {s.h}px; padding: {s.p}; font-size: {s.fs}px; font-weight: 500; font-family: var(--font-sans); background: {bg}; color: {color}; border: {border}; border-radius: 8px; cursor: {disabled ? 'not-allowed' : 'pointer'}; opacity: {disabled ? 0.4 : 1}; display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; transition: all 150ms ease-out; line-height: 1; letter-spacing: -0.01em; white-space: nowrap; {style}"
 >
   {#if loading}
-    <svg
-      class="animate-spin w-4 h-4"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-      <path
-        class="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-      />
-    </svg>
+    <span style="display: inline-flex; animation: spin 0.8s linear infinite;">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.5" opacity="0.25" />
+        <path d="M13.5 7.5a6 6 0 0 0-6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+    </span>
   {/if}
   {@render children()}
 </button>

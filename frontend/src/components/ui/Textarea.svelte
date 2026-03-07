@@ -1,43 +1,24 @@
 <script lang="ts">
   let {
-    error,
-    autogrow = false,
+    placeholder = '',
     value = $bindable(''),
-    ...restProps
+    rows = 3,
+    onkeydown,
   }: {
-    error?: string;
-    autogrow?: boolean;
+    placeholder?: string;
     value?: string;
-    [key: string]: unknown;
+    rows?: number;
+    onkeydown?: (e: KeyboardEvent) => void;
   } = $props();
-
-  let textareaEl: HTMLTextAreaElement;
-
-  $effect(() => {
-    if (autogrow && textareaEl) {
-      value; // track value changes
-      textareaEl.style.height = 'auto';
-      textareaEl.style.height = textareaEl.scrollHeight + 'px';
-    }
-  });
-
-  const baseClasses =
-    'w-full px-3 py-2 text-base bg-surface border rounded-input text-primary placeholder:text-tertiary duration-fast outline-none';
-  const sizeClasses = 'min-h-[72px]';
-  const resizeClass = $derived(autogrow ? 'resize-none overflow-hidden' : 'resize-y');
-  const normalClasses = 'border-default focus:border-accent focus:ring-1 focus:ring-accent';
-  const errorStyle = 'border-color: var(--priority-urgent);';
+  let focused = $state(false);
 </script>
 
-<div class="w-full">
-  <textarea
-    bind:this={textareaEl}
-    bind:value
-    class="{baseClasses} {sizeClasses} {resizeClass} {error ? '' : normalClasses}"
-    style={error ? errorStyle : ''}
-    {...restProps}
-  ></textarea>
-  {#if error}
-    <p class="mt-1 text-xs" style="color: var(--priority-urgent);">{error}</p>
-  {/if}
-</div>
+<textarea
+  bind:value
+  {placeholder}
+  {rows}
+  onfocus={() => focused = true}
+  onblur={() => focused = false}
+  {onkeydown}
+  style="padding: 10px 14px; font-size: 15px; font-weight: 400; color: var(--text-primary); background: var(--bg-elevated); border: 1px solid {focused ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; outline: none; box-shadow: {focused ? '0 0 0 2px rgba(232,119,46,0.15)' : 'none'}; transition: all 150ms ease-out; width: 100%; resize: vertical; line-height: 1.55; font-family: var(--font-sans);"
+></textarea>

@@ -4,7 +4,6 @@ version = "1.0.0"
 description = "Task Agent backend — AI integration layer for Vikunja"
 requires-python = ">=3.10"
 dependencies = [
-    "duckdb>=1.2.0",
     "email-validator>=2.3.0",
     "fastapi>=0.124.0",
     "httpx>=0.28.0",

@@ -1,53 +1,24 @@
 <script lang="ts">
-  let {
-    date,
-    ...restProps
-  }: {
-    date: string;
-    [key: string]: unknown;
-  } = $props();
+  let { date, overdue = false }: { date: string | null; overdue?: boolean } = $props();
 
-  function formatDate(dateStr: string): { display: string; overdue: boolean } {
-    if (!dateStr) return { display: '', overdue: false };
-
-    const parsed = new Date(dateStr);
+  function formatRelative(dateStr: string | null): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
     const now = new Date();
-
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const target = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
-
-    const diffMs = target.getTime() - today.getTime();
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
-    const overdue = diffDays < 0;
-
-    let display: string;
-    if (diffDays === 0) {
-      display = 'Today';
-    } else if (diffDays === 1) {
-      display = 'Tomorrow';
-    } else if (diffDays === -1) {
-      display = 'Yesterday';
-    } else if (diffDays >= 2 && diffDays <= 6) {
-      display = target.toLocaleDateString('en-US', { weekday: 'long' });
-    } else if (target.getFullYear() === today.getFullYear()) {
-      display = target.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    } else {
-      display = target.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    }
-
-    return { display, overdue };
+    const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diffDays = Math.round((target.getTime() - today.getTime()) / 86400000);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays === -1) return 'Yesterday';
+    if (diffDays > 1 && diffDays <= 7) return `In ${diffDays} days`;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
-
-  const formatted = $derived(formatDate(date));
 </script>
 
-<time
-  datetime={date}
-  title={date}
-  class="text-sm"
-  style={formatted.overdue ? 'color: var(--overdue)' : ''}
-  {...restProps}
->
-  {formatted.display}
-</time>
+{#if date}
+  <span style="font-size: 13.5px; font-weight: 400; white-space: nowrap; color: {overdue ? 'var(--overdue)' : 'var(--text-tertiary)'};">
+    {formatRelative(date)}
+  </span>
+{/if}

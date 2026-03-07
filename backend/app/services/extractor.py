@@ -7,8 +7,11 @@ objects saved to the DuckDB proposal queue.
 """
 
 import json
+import logging
 import uuid
 from datetime import date, datetime
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.proposal import TaskProposal, TaskProposalCreate
@@ -138,11 +141,17 @@ class TaskExtractor:
 
         return {"error": f"Unknown tool: {tool_name}"}
 
+    # Map frontend model names → actual Gemini model IDs
+    MODEL_MAP = {
+        "gemini-flash": "gemini-2.0-flash",
+        "gemini-pro": "gemini-2.0-pro",
+    }
+
     async def extract(
         self,
         text: str,
         source_type: str = "notes",
-        confidential: bool = False,
+        model: str = "gemini-flash",
         project_hint: str | None = None,
     ) -> list[TaskProposal]:
         """
@@ -157,7 +166,8 @@ class TaskExtractor:
         if project_hint:
             user_message = f"[Project context: {project_hint}]\n\n{user_message}"
 
-        llm = get_llm_client(confidential=confidential)
+        resolved_model = self.MODEL_MAP.get(model, model)
+        llm = get_llm_client(model=resolved_model)
         messages = [{"role": "user", "content": user_message}]
 
         raw_output = await llm.generate_with_tools(
@@ -167,6 +177,7 @@ class TaskExtractor:
             tool_handler=self._tool_handler,
         )
 
+        logger.debug("LLM raw output: %s", raw_output)
         proposals = self._parse_output(raw_output, source_type, text)
         return self._save_proposals(proposals, source_type, text)
 
@@ -193,11 +204,14 @@ class TaskExtractor:
                 try:
                     data = json.loads(match.group())
                 except json.JSONDecodeError:
+                    logger.warning("_parse_output: JSON array found but failed to parse. raw=%r", stripped[:500])
                     return []
             else:
+                logger.warning("_parse_output: no JSON array found in LLM output. raw=%r", stripped[:500])
                 return []
 
         if not isinstance(data, list):
+            logger.warning("_parse_output: expected list, got %s. raw=%r", type(data).__name__, stripped[:200])
             return []
 
         results = []

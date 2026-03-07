@@ -72,3 +72,7 @@ vikunja-data/
 # Cursor
 .cursorignore
 .cursorindexingignore
+
+# Claude Code
+.claude/settings.local.json
+.claude/projects/

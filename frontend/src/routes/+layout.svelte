@@ -1,67 +1,105 @@
 <script lang="ts">
-  import ToastContainer from '../components/ui/ToastContainer.svelte';
-  import Sidebar from '../components/features/Sidebar.svelte';
-  import Button from '../components/ui/Button.svelte';
-  import Input from '../components/ui/Input.svelte';
-  import Kbd from '../components/ui/Kbd.svelte';
-  import { shortcuts } from '$lib/shortcuts';
+  import '../app.css';
   import type { Snippet } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { onMount } from 'svelte';
+  import { authStore, tasksStore, projectsStore, labelsStore } from '$lib/stores.svelte';
+  import { shortcuts } from '$lib/shortcuts';
+  import Sidebar from '$components/features/Sidebar.svelte';
+  import TaskCreatePanel from '$components/features/TaskCreatePanel.svelte';
+  import Input from '$components/ui/Input.svelte';
+  import Button from '$components/ui/Button.svelte';
+  import ToastContainer from '$components/ui/ToastContainer.svelte';
+  import { searchStore } from '$lib/stores/search.svelte';
 
   let { children }: { children: Snippet } = $props();
 
-  let searchQuery = $state('');
-  let searchWrapper: HTMLDivElement | undefined = $state();
+  let collapsed = $state(false);
+  let searchRef = $state<HTMLInputElement | undefined>(undefined);
+  let searchValue = $state('');
+  let createOpen = $state(false);
 
-  shortcuts.register('/', () => {
-    searchWrapper?.querySelector('input')?.focus();
+  const isLoginPage = $derived($page.url.pathname === '/login');
+
+  // Page title mapping
+  const pageTitles: Record<string, string> = {
+    '/': 'All Tasks',
+    '/upcoming': 'Upcoming',
+    '/overdue': 'Overdue',
+    '/extract': 'Extract Tasks',
+    '/settings': 'Settings',
+  };
+  const pageTitle = $derived.by(() => {
+    const path = $page.url.pathname;
+    if (path.startsWith('/project/')) return projectsStore.projects.find(p => p.id === Number(path.split('/')[2]))?.title ?? 'Project';
+    return pageTitles[path] ?? 'Cognito';
   });
-  shortcuts.register('n', () => {
-    // placeholder — wired up in T-019
+
+  onMount(async () => {
+    await authStore.check();
+    if (!authStore.authenticated && $page.url.pathname !== '/login') {
+      goto('/login');
+      return;
+    }
+    if (authStore.authenticated) {
+      tasksStore.fetchAll();
+      projectsStore.fetchAll();
+      labelsStore.fetchAll();
+    }
   });
-  shortcuts.register('Escape', () => {
-    // placeholder — close panel when panels exist
+
+  // Keyboard shortcuts
+  onMount(() => {
+    shortcuts.register('/', () => searchRef?.focus());
+    shortcuts.register('n', () => createOpen = true);
+    shortcuts.register('Escape', () => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+    window.addEventListener('keydown', shortcuts.handleKeydown);
+    return () => window.removeEventListener('keydown', shortcuts.handleKeydown);
   });
+
+  // Derive default project from current route
+  const defaultProjectId = $derived.by(() => {
+    const path = $page.url.pathname;
+    if (path.startsWith('/project/')) {
+      const id = Number(path.split('/')[2]);
+      return isNaN(id) ? undefined : id;
+    }
+    return undefined;
+  });
+
+  function handleSearchInput() {
+    searchStore.set(searchValue);
+  }
 </script>
 
-<svelte:window onkeydown={shortcuts.handleKeydown} />
-
-<div class="flex h-screen overflow-hidden bg-base">
-  <Sidebar />
-
-  <div class="flex-1 flex flex-col min-w-0">
-    <!-- Header Bar -->
-    <header class="h-[52px] bg-surface border-b border-default flex items-center justify-between px-4 shrink-0">
-      <div bind:this={searchWrapper} class="relative w-80 max-w-full">
-        <Input
-          bind:value={searchQuery}
-          placeholder="Search tasks..."
-          class="pr-10"
-        />
-        <div class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-          <Kbd>/</Kbd>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <Button variant="outline" size="sm">
-          New
-          <Kbd>N</Kbd>
-        </Button>
-        <Button variant="ghost" size="sm">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="color: var(--ai-accent);" aria-hidden="true">
-            <path d="M12 2l1.5 4.6H18l-3.9 2.8 1.5 4.6L12 11.2l-3.6 2.8 1.5-4.6L6 6.6h4.5L12 2z" fill="var(--ai-accent)"/>
-            <path d="M19 14l.8 2.4H22l-2 1.5.8 2.4L19 19l-1.8 1.3.8-2.4L16 16.4h2.2L19 14z" fill="var(--ai-accent)" opacity="0.7"/>
-          </svg>
-          AI
-        </Button>
-      </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="flex-1 overflow-y-auto p-6">
-      {@render children()}
-    </main>
+{#if isLoginPage}
+  {@render children()}
+{:else if authStore.loading}
+  <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh;">
+    <span style="color: var(--text-tertiary); font-size: 15px;">Loading...</span>
   </div>
-</div>
+{:else if authStore.authenticated}
+  <div style="display: flex; height: 100vh;">
+    <Sidebar bind:collapsed />
+    <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;">
+      <!-- Top bar -->
+      <div style="display: flex; align-items: center; padding: 10px 24px; border-bottom: 1px solid var(--border-subtle); gap: 10px; flex-shrink: 0;">
+        <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; flex-shrink: 0; margin-right: auto;">{pageTitle}</span>
+        <Input placeholder="Search..." bind:value={searchValue} bind:ref={searchRef} height={34} oninput={handleSearchInput} style="width: 180px; flex-shrink: 1;" />
+        <Button variant="outline" size="sm">Filter</Button>
+        <Button variant="accent" size="sm" onclick={() => goto('/extract')}>&diams; Extract</Button>
+        <Button variant="accent" size="sm" onclick={() => createOpen = true}>+ New</Button>
+      </div>
 
-<ToastContainer />
+      <!-- Content -->
+      <div style="flex: 1; overflow-y: auto;">
+        {@render children()}
+      </div>
+    </div>
+  </div>
+  <TaskCreatePanel open={createOpen} onclose={() => createOpen = false} {defaultProjectId} />
+  <ToastContainer />
+{/if}

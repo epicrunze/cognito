@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     )
 
     # ── Database ─────────────────────────────────────────────────────────────
-    database_url: str = "duckdb:///./data/agent.duckdb"
+    database_url: str = "sqlite:///./data/agent.db"
 
     # ── JWT Authentication ────────────────────────────────────────────────────
     jwt_secret: str = "CHANGE_ME_IN_PRODUCTION"
@@ -58,8 +58,8 @@ class Settings(BaseSettings):
 
     def get_database_path(self) -> str:
         """Extract the file path from the database URL."""
-        if self.database_url.startswith("duckdb:///"):
-            return self.database_url[len("duckdb:///"):]
+        if self.database_url.startswith("sqlite:///"):
+            return self.database_url[len("sqlite:///"):]
         return self.database_url
 
 

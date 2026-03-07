@@ -2,7 +2,10 @@
 
 import asyncio
 import json
+import logging
 from typing import AsyncIterator
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
@@ -21,6 +24,7 @@ class IngestRequest(BaseModel):
     source_type: str = "notes"  # notes | email | idea | manual
     confidential: bool = False
     project_hint: str | None = None
+    model: str = "gemini-flash"
 
 
 @router.post("/ingest")
@@ -36,10 +40,10 @@ async def ingest(
     If the client sends `Accept: text/event-stream`, streams proposals as SSE
     events so they appear in the UI as each one is extracted.
     """
-    if body.confidential:
+    if body.model.startswith("ollama-"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Confidential mode (Ollama) is coming in Phase 2.",
+            detail="Ollama models are coming in Phase 2.",
         )
 
     if not body.text.strip():
@@ -62,7 +66,7 @@ async def ingest(
                 proposals = await extractor.extract(
                     text=body.text,
                     source_type=body.source_type,
-                    confidential=body.confidential,
+                    model=body.model,
                     project_hint=body.project_hint,
                 )
                 for proposal in proposals:
@@ -70,6 +74,7 @@ async def ingest(
                     await asyncio.sleep(0.05)  # small delay for visual effect
                 yield {"event": "done", "data": json.dumps({"count": len(proposals)})}
             except Exception as e:
+                logger.exception("Extraction failed")
                 yield {"event": "error", "data": json.dumps({"detail": str(e)})}
 
         return EventSourceResponse(event_generator())
@@ -78,7 +83,7 @@ async def ingest(
     proposals = await extractor.extract(
         text=body.text,
         source_type=body.source_type,
-        confidential=body.confidential,
+        model=body.model,
         project_hint=body.project_hint,
     )
 

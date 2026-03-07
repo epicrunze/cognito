@@ -1,7 +1,8 @@
-<!-- TODO: Project task list page — /project/[id]
-  - Load project by id from URL param
-  - Render FilterBar + TaskList
-  - Support sorting/filtering via query params
-  - Sidebar highlights active project
--->
-<p>TODO: Project task list</p>
+<script lang="ts">
+  import { page } from '$app/stores';
+  import TaskList from '$components/features/TaskList.svelte';
+
+  const projectId = $derived(Number($page.params.id));
+</script>
+
+<TaskList {projectId} />

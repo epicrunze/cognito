@@ -12,9 +12,11 @@ export async function optimisticUpdate<T>(options: {
 
   try {
     return await apiCall();
-  } catch {
+  } catch (err) {
     rollback();
-    addToast(errorMessage, 'error');
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error(`[optimistic] ${errorMessage}:`, detail);
+    addToast(`${errorMessage}: ${detail}`, 'error');
     return undefined;
   }
 }

@@ -4,8 +4,8 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['IBM Plex Sans', 'system-ui', '-apple-system', 'sans-serif'],
-                mono: ['IBM Plex Mono', 'Fira Code', 'monospace'],
+                sans: ['IBM Plex Sans', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                mono: ['IBM Plex Mono', 'Menlo', 'monospace'],
             },
             fontSize: {
                 xs: 'var(--text-xs)',
@@ -19,6 +19,7 @@ export default {
                 accent: 'var(--accent)',
                 'accent-hover': 'var(--accent-hover)',
                 'accent-subtle': 'var(--accent-subtle)',
+                'accent-glow': 'var(--accent-glow)',
                 'priority-urgent': 'var(--priority-urgent)',
                 'priority-high': 'var(--priority-high)',
                 'priority-medium': 'var(--priority-medium)',
@@ -26,7 +27,6 @@ export default {
                 'priority-none': 'var(--priority-none)',
                 done: 'var(--done)',
                 overdue: 'var(--overdue)',
-                'ai-accent': 'var(--ai-accent)',
             },
             textColor: {
                 primary: 'var(--text-primary)',
@@ -40,10 +40,12 @@ export default {
                 'surface-hover': 'var(--bg-surface-hover)',
                 sidebar: 'var(--bg-sidebar)',
                 overlay: 'var(--bg-overlay)',
+                elevated: 'var(--bg-elevated)',
             },
             borderColor: {
                 default: 'var(--border-default)',
                 strong: 'var(--border-strong)',
+                subtle: 'var(--border-subtle)',
             },
             boxShadow: {
                 sm: 'var(--shadow-sm)',
@@ -56,8 +58,9 @@ export default {
                 'detail-panel': '480px',
             },
             borderRadius: {
-                container: '6px',
-                input: '4px',
+                container: '8px',
+                input: '8px',
+                inner: '6px',
                 pill: '9999px',
             },
             transitionDuration: {

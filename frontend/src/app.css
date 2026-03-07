@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,52 +6,54 @@
 
 :root {
   /* Backgrounds */
-  --bg-base: #FAFAF9;
-  --bg-surface: #FFFFFF;
-  --bg-surface-hover: #F5F5F4;
-  --bg-sidebar: #F5F5F4;
-  --bg-overlay: rgba(0, 0, 0, 0.4);
+  --bg-base: #111110;
+  --bg-surface: #1A1A19;
+  --bg-surface-hover: #222221;
+  --bg-sidebar: #161615;
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+  --bg-elevated: #252524;
 
   /* Borders */
-  --border-default: #E7E5E4;
-  --border-strong: #D6D3D1;
+  --border-default: #2A2A28;
+  --border-strong: #3A3A37;
+  --border-subtle: #1F1F1E;
 
   /* Text */
-  --text-primary: #1C1917;
-  --text-secondary: #57534E;
-  --text-tertiary: #A8A29E;
-  --text-on-accent: #FFFFFF;
+  --text-primary: #EDEDEC;
+  --text-secondary: #A1A09A;
+  --text-tertiary: #6B6A65;
+  --text-on-accent: #111110;
 
   /* Accent */
-  --accent: #6366F1;
-  --accent-hover: #4F46E5;
-  --accent-subtle: #EEF2FF;
+  --accent: #E8772E;
+  --accent-hover: #D4691F;
+  --accent-subtle: rgba(232, 119, 46, 0.1);
+  --accent-glow: rgba(232, 119, 46, 0.25);
 
   /* Semantic */
-  --priority-urgent: #EF4444;
-  --priority-high: #F97316;
-  --priority-medium: #EAB308;
-  --priority-low: #22C55E;
-  --priority-none: #A8A29E;
-  --done: #22C55E;
-  --overdue: #EF4444;
-  --ai-accent: #8B5CF6;
+  --priority-urgent: #EF5744;
+  --priority-high: #E8772E;
+  --priority-medium: #E2C541;
+  --priority-low: #5BBC6E;
+  --priority-none: #4A4A46;
+  --done: #5BBC6E;
+  --overdue: #EF5744;
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-slide-over: -8px 0 32px rgba(0, 0, 0, 0.12);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-slide-over: -8px 0 32px rgba(0, 0, 0, 0.5);
 
   /* Typography */
-  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'IBM Plex Mono', 'Fira Code', monospace;
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Menlo', monospace;
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
-  --text-base: 0.875rem;
-  --text-md: 0.9375rem;
-  --text-lg: 1rem;
-  --text-xl: 1.125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
   --font-normal: 400;
   --font-medium: 500;
   --font-semibold: 600;
@@ -74,9 +76,52 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
+    margin: 0;
   }
 
   * {
     box-sizing: border-box;
+    margin: 0;
   }
+
+  ::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--text-on-accent);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+    border-radius: 3px;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

@@ -1,9 +1,9 @@
 """Proposal lifecycle tests via FastAPI TestClient (sync)."""
 
+import sqlite3
 import uuid
 from unittest.mock import AsyncMock, patch
 
-import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
@@ -21,8 +21,8 @@ _TEST_USER = User(email="test@example.com", name="Test User")
 
 @pytest.fixture
 def seeded_db():
-    """In-memory DuckDB with schema + one pending proposal (project_id=1)."""
-    conn = duckdb.connect(":memory:")
+    """In-memory SQLite with schema + one pending proposal (project_id=1)."""
+    conn = sqlite3.connect(":memory:", isolation_level=None, check_same_thread=False)
     init_schema(conn)
 
     proposal_id = str(uuid.uuid4())

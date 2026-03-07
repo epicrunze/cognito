@@ -1,6 +1,6 @@
-// TODO: Svelte 5 rune-based stores (T-016)
-// - tasks store: fetchAll, fetchByProject, create, update, toggleDone, delete
-// - projects store: fetchAll (includes views)
-// - proposals store: fetchPending, approve, reject, approveAll
-// - labels store: fetchAll
-// - all mutations use optimistic update pattern from T-009
+// Re-export all stores for convenience
+export { authStore } from '$lib/stores/auth.svelte';
+export { tasksStore } from '$lib/stores/tasks.svelte';
+export { projectsStore } from '$lib/stores/projects.svelte';
+export { proposalsStore } from '$lib/stores/proposals.svelte';
+export { labelsStore } from '$lib/stores/labels.svelte';

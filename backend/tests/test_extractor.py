@@ -1,9 +1,9 @@
-"""Tests for TaskExtractor — mocked LLM + Vikunja, in-memory DuckDB."""
+"""Tests for TaskExtractor — mocked LLM + Vikunja, in-memory SQLite."""
 
 import json
+import sqlite3
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import duckdb
 import pytest
 
 from app.database import init_schema
@@ -16,8 +16,8 @@ from tests.conftest import make_mock_db
 
 @pytest.fixture
 def db():
-    """In-memory DuckDB pre-seeded with a default_project_id."""
-    conn = duckdb.connect(":memory:")
+    """In-memory SQLite pre-seeded with a default_project_id."""
+    conn = sqlite3.connect(":memory:", isolation_level=None, check_same_thread=False)
     init_schema(conn)
     conn.execute("UPDATE agent_config SET default_project_id = 99 WHERE id = 1")
     yield conn

@@ -1,7 +1,9 @@
-<!-- TODO: Kanban board page — /project/[id]/kanban
-  - Load project views, find view_kind=3 (kanban)
-  - Render KanbanBoard with columns from buckets
-  - Drag-and-drop to move tasks between columns
-  - POST to /api/v1/projects/{id}/views/{viewId}/buckets/tasks to update position
--->
-<p>TODO: Kanban board</p>
+<script lang="ts">
+  import { page } from '$app/stores';
+
+  const projectId = $derived(Number($page.params.id));
+</script>
+
+<div style="display: flex; align-items: center; justify-content: center; padding: 80px 24px;">
+  <span style="font-size: 15px; color: var(--text-tertiary);">Kanban view for project {projectId} coming soon</span>
+</div>

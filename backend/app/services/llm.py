@@ -5,13 +5,17 @@ Phase 1: Gemini API only.
 Phase 2 will add OllamaClient with Qwen 3.x tool calling.
 """
 
+import asyncio
 import json
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Optional
 
 import httpx
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class LLMError(Exception):
@@ -99,23 +103,33 @@ class GeminiClient(LLMClient):
 
     async def _call_api(self, payload: dict) -> dict:
         url = f"{self.API_BASE}/models/{self.model}:generateContent?key={self.api_key}"
+        last_error = None
         async with httpx.AsyncClient(timeout=60.0) as client:
             for attempt in range(3):
                 try:
                     response = await client.post(url, json=payload)
                     if response.status_code == 429:
-                        import asyncio
+                        logger.warning("Gemini 429 rate-limited (attempt %d/3)", attempt + 1)
+                        last_error = "429 rate-limited"
                         await asyncio.sleep(2 ** attempt)
                         continue
                     response.raise_for_status()
                     return response.json()
                 except httpx.TimeoutException:
-                    if attempt == 2:
-                        raise LLMError("Gemini API timeout after 3 attempts")
+                    logger.warning("Gemini timeout (attempt %d/3)", attempt + 1)
+                    last_error = "timeout"
                 except httpx.HTTPStatusError as e:
-                    if attempt == 2:
-                        raise LLMError(f"Gemini API error: {e}")
-        raise LLMError("Gemini API failed after 3 attempts")
+                    logger.error("Gemini API error (attempt %d/3): %s %s",
+                        attempt + 1, e.response.status_code, e.response.text[:500])
+                    last_error = f"{e.response.status_code}: {e.response.text[:200]}"
+                except httpx.ConnectError as e:
+                    logger.error("Gemini connection error (attempt %d/3): %s", attempt + 1, e)
+                    last_error = f"connection error: {e}"
+                except Exception as e:
+                    logger.error("Gemini unexpected error (attempt %d/3): %s: %s",
+                        attempt + 1, type(e).__name__, e)
+                    last_error = f"{type(e).__name__}: {e}"
+        raise LLMError(f"Gemini API failed after 3 attempts (last: {last_error or 'unknown'})")
 
     async def generate(self, messages: list[dict], system_prompt: str) -> str:
         payload = {
@@ -204,9 +218,8 @@ class GeminiClient(LLMClient):
         raise LLMError("Tool-calling loop exceeded maximum iterations")
 
 
-def get_llm_client(confidential: bool = False) -> LLMClient:
-    """Return the appropriate LLM client based on confidential flag."""
-    # Phase 1: Gemini only. Phase 2 will add Ollama routing.
+def get_llm_client(model: str | None = None, confidential: bool = False) -> LLMClient:
+    """Return the appropriate LLM client based on model/confidential flag."""
     if confidential:
         raise LLMError("Confidential mode (Ollama) is not yet available — coming in Phase 2.")
-    return GeminiClient()
+    return GeminiClient(model=model)

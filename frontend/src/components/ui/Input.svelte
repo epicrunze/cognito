@@ -1,38 +1,32 @@
 <script lang="ts">
   let {
-    error,
+    placeholder = '',
     value = $bindable(''),
-    ...restProps
+    height = 40,
+    oninput,
+    onkeydown,
+    style = '',
+    ref = $bindable<HTMLInputElement | undefined>(undefined),
   }: {
-    error?: string;
+    placeholder?: string;
     value?: string;
-    [key: string]: unknown;
+    height?: number;
+    oninput?: (e: Event) => void;
+    onkeydown?: (e: KeyboardEvent) => void;
+    style?: string;
+    ref?: HTMLInputElement | undefined;
   } = $props();
-
-  const baseClasses =
-    'w-full h-9 px-3 text-base bg-surface border rounded-input text-primary placeholder:text-tertiary duration-fast outline-none';
-
-  const normalClasses = 'border-default focus:border-accent focus:ring-1 focus:ring-accent';
-  const errorClasses = 'focus:ring-1';
-  const errorStyle = 'border-color: var(--priority-urgent);';
-  const errorFocusStyle =
-    'border-color: var(--priority-urgent); --tw-ring-color: var(--priority-urgent);';
+  let focused = $state(false);
 </script>
 
-<div class="w-full">
-  <input
-    bind:value
-    class="{baseClasses} {error ? errorClasses : normalClasses}"
-    style={error ? errorStyle : ''}
-    onfocus={error
-      ? (e) => ((e.currentTarget as HTMLInputElement).style.cssText = errorFocusStyle)
-      : undefined}
-    onblur={error
-      ? (e) => ((e.currentTarget as HTMLInputElement).style.cssText = errorStyle)
-      : undefined}
-    {...restProps}
-  />
-  {#if error}
-    <p class="mt-1 text-xs" style="color: var(--priority-urgent);">{error}</p>
-  {/if}
-</div>
+<input
+  bind:this={ref}
+  type="text"
+  {placeholder}
+  bind:value
+  onfocus={() => focused = true}
+  onblur={() => focused = false}
+  {oninput}
+  {onkeydown}
+  style="height: {height}px; padding: 0 12px; font-size: 13.5px; font-weight: 400; color: var(--text-primary); background: var(--bg-elevated); border: 1px solid {focused ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; outline: none; box-shadow: {focused ? '0 0 0 2px rgba(232,119,46,0.15)' : 'none'}; transition: all 150ms ease-out; min-width: 0; font-family: var(--font-sans); {style}"
+/>

@@ -6,99 +6,104 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Cognito is a task-agent app: users input freeform text, an LLM extracts structured tasks, and approved tasks sync to Vikunja (self-hosted task manager). FastAPI backend + SvelteKit frontend + SQLite.
 
-The full technical spec is at `docs/SPEC.md` — read relevant sections before implementing features. The ordered task queue is in `TASKS.md`.
+Full spec: `docs/SPEC.md`. Task queue: `TASKS.md`. Live component reference: `docs/cognito-design-system.jsx`.
 
 ## Commands
 
 ### Backend (from `backend/`)
 ```bash
-uv sync                                          # install deps
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000  # dev server
-uv run pytest tests/ -v                          # all tests (38)
-uv run pytest tests/test_proposals.py -v         # single test file
-uv run pytest tests/test_extractor.py::test_name -v  # single test
+uv sync
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run pytest tests/ -v
+uv run pytest tests/test_proposals.py -v
 ```
 
 ### Frontend (from `frontend/`)
 ```bash
-npm install                  # install deps
-npm run dev                  # dev server (port 5173, proxies /api to backend)
+npm install
+npm run dev                  # port 5173, proxies /api to backend
 npm run build                # static build → ./build
 npm run check                # svelte-check + TypeScript
 ```
 
 ### Docker
 ```bash
-docker-compose up --build    # all services (vikunja:3456, backend:8000, frontend:80)
+docker-compose up --build    # vikunja:3456, backend:8000, frontend:80
 ```
+## MCP Servers
+
+**Svelte** (`sveltejs/mcp`): Provides Svelte 5 docs lookup and code analysis.
+- Run `svelte-autofixer` after writing or editing any `.svelte` file
+- Use `get-documentation` before implementing SvelteKit patterns (load functions, form actions, routing)
+- Use `list-sections` to find relevant docs when unsure about Svelte 5 syntax
 
 ## Architecture
 
 **Backend** (`backend/app/`): Layered FastAPI — routers → services → models → database.
-- `main.py` — app entry, lifespan initializes SQLite schema, mounts 4 routers
-- `database.py` — SQLite connection via `get_db()` context manager (used as FastAPI `Depends`)
-- `config.py` — pydantic-settings, all env vars have defaults
-- `services/extractor.py` — orchestrates LLM tool-calling loop to extract tasks from text
-- `services/llm.py` — `LLMClient` ABC with `GeminiClient` impl; `generate_with_tools()` handles multi-turn tool dispatch
-- `services/vikunja.py` — httpx-based REST client for Vikunja API
-- `routers/proposals.py` — full CRUD + approve/reject lifecycle; approve creates Vikunja task
-- `routers/ingest.py` — accepts text, returns proposals as JSON or SSE stream
-- `auth/` — Google OAuth2 → JWT in HttpOnly cookie, `get_current_user` dependency
+- `main.py` — app entry, lifespan inits SQLite schema
+- `database.py` — SQLite via `get_db()` context manager (FastAPI Depends)
+- `config.py` — Pydantic Settings, all env vars have defaults
+- `services/extractor.py` — LLM tool-calling loop (lookup_projects, resolve_project, check_existing_tasks, get_label_descriptions)
+- `services/llm.py` — LLMClient ABC with GeminiClient + OllamaClient; model selection per request
+- `services/vikunja.py` — httpx REST client for Vikunja API
+- `services/tagger.py` — auto-tagging via label descriptions + LLM
+- `routers/ingest.py` — text → proposals (JSON or SSE), includes model + raw_response
+- `routers/proposals.py` — CRUD + approve/reject; approve creates Vikunja task
+- `auth/` — Google OAuth2 → JWT HttpOnly cookie, `get_current_user` dependency
 
-**Frontend** (`frontend/src/`): SvelteKit (Svelte 5) with static adapter, Tailwind CSS, TypeScript strict.
-- Single page app: `routes/+page.svelte` (InputPanel + ProposalQueue)
-- `lib/api.ts` — fetch wrapper with silent 401 refresh, SSE streaming support
-- `lib/stores.svelte.ts` — Svelte 5 runes (`$state`, `$derived`) for reactivity
-- `components/ui/` — primitive design system components (Button, Input, Checkbox, Toast, SlideOver, etc.)
+**Frontend** (`frontend/src/`): SvelteKit (Svelte 5), static adapter, Tailwind CSS, TypeScript strict.
+- `app.css` — dark theme design tokens as CSS custom properties
+- `components/ui/` — primitives: Button, Input, Checkbox, Dropdown, Badge, Toast, SlideOver, Skeleton, Tip, etc.
+- `lib/api.ts` — fetch wrapper with silent 401 refresh, SSE streaming
+- `lib/stores.svelte.ts` — Svelte 5 runes ($state, $derived)
 
-**Database**: SQLite single file (`./data/agent.db`). Tables: `users`, `task_proposals`, `vikunja_projects`, `agent_config`.
+**Database**: SQLite (`./data/agent.db`). Tables: users, task_proposals, label_descriptions, vikunja_projects, agent_config.
 
-**Key flow**: User text → `POST /api/ingest` → TaskExtractor calls Gemini with tools (lookup_projects, resolve_project, check_existing_tasks) → proposals saved as pending → user approves → Vikunja task created.
+## Vikunja API — Key Gotchas
 
-## Vikunja API — Critical Details
+The frontend NEVER calls Vikunja directly — the backend proxy injects the API token. Full reference in `docs/SPEC.md` Section 6.
 
-Vikunja is the headless task backend. The frontend NEVER calls it directly — all requests go through the FastAPI proxy which injects the API token.
-
-- **PUT creates, POST updates.** This is the opposite of standard REST. Exception: label update also uses PUT. Double-check every endpoint.
-- **Buckets belong to project views, not projects.** To show a kanban board: GET project views → find `view_kind=3` → GET its buckets → GET tasks per bucket.
-- **Moving tasks between kanban columns:** POST to `/api/v1/projects/{id}/views/{viewId}/buckets/tasks` with `{task_id, bucket_id, position}`.
-- **Filtering uses expression syntax** in a single `filter` param: `done = false && priority >= 3` (not individual query params).
-- **Search uses `s` parameter**, not `search`.
-- **Pagination** comes in response headers: `x-pagination-total-pages`, `x-pagination-result-count`.
-- **Dates:** ISO 8601 with timezone: `2026-03-07T00:00:00Z`.
-- **Task `position` is a float**, view-dependent. Reorder by calculating midpoint between neighbours.
-- **Labels** added to tasks via PUT `/tasks/{id}/labels` with body `{"label_id": X}`.
-- **Projects** can nest via `parent_project_id`. The `identifier` field (e.g. "PHD") builds human-readable task IDs like "PHD-12".
-- Full API reference in `docs/SPEC.md` Section 6. Swagger docs at `http://localhost:3456/api/v1/docs`.
+- **PUT creates, POST updates** (opposite of REST). Label update uses PUT for both.
+- **Buckets belong to views, not projects.** Kanban: GET views → find view_kind=3 → GET buckets → tasks per bucket.
+- **Filter syntax:** single `filter` param with expressions: `done = false && priority >= 3`.
+- **Search:** `s` param, not `search`. **Pagination:** in response headers. **Dates:** ISO 8601.
+- **Position:** float, view-dependent. Reorder via midpoint between neighbours.
 
 ## Design System
 
-Aesthetic: Linear meets Things 3. Warm neutral palette, high information density, instant interactions. Full token definitions in `docs/SPEC.md` Section 5.1.
+Dark theme. Tangerine accent (#E8772E) on warm dark neutrals. IBM Plex Sans. Full tokens in `docs/SPEC.md` Section 5.2. Live states in `docs/cognito-design-system.jsx`.
 
-**Palette** (defined as CSS custom properties in `app.css`):
-- Backgrounds: `#FAFAF9` (base), `#FFFFFF` (surface), `#F5F5F4` (sidebar/hover)
-- Text: `#1C1917` (primary), `#57534E` (secondary), `#A8A29E` (tertiary)
-- Accent: `#6366F1` (indigo — primary actions), `#8B5CF6` (purple — AI features)
-- Priority: urgent=`#EF4444`, high=`#F97316`, medium=`#EAB308`, low=`#22C55E`
-- Borders: `#E7E5E4` (default), `#D6D3D1` (strong)
+**Key patterns:**
+- Optimistic updates on all mutations (update store → API → rollback on failure + toast)
+- AI-tagged tasks: tangerine left border + inward glow, fades after viewing
+- Collapsed sidebar: z-index 50, overflow visible, tooltips to the right outside the bar
+- Top bar buttons: flexShrink 0, whiteSpace nowrap (never wrap to second line)
+- Completed tasks: below "Completed (N)" divider, 0.65 opacity, collapsible
+- Transitions: 150ms hover, 200ms panels, 300ms slide-overs (Svelte fly/fade/slide)
+- Auto-save: 500ms debounce text, immediate toggles/selects
 
-**Typography:** IBM Plex Sans (400/500/600) + IBM Plex Mono. Base size: 14px (0.875rem).
+## Testing
 
-**Spacing:** 4/8/12/16/20/24/32/48px scale. Border radius: 6px containers, 4px inputs, 9999px pills.
-
-**Interactions:**
-- All mutations use optimistic updates — update store immediately, API in background, rollback + toast on failure.
-- Transitions: 150ms (hover), 200ms (panels/cards), 300ms (slide-overs). Use Svelte `fly`, `fade`, `slide`.
-- Auto-save: debounce 500ms for text fields, immediate for toggles/selects.
-
-## Testing Patterns
-
-Tests use in-memory SQLite, dependency overrides, and async mocking:
-- Patch `get_db` with `make_mock_db(conn)` (yields same in-memory connection)
+In-memory SQLite, dependency overrides, async mocking:
+- Patch `get_db` with `make_mock_db(conn)`
 - Override `get_current_user` with lambda returning mock user
-- `respx.mock` for httpx calls (Vikunja client tests)
-- `AsyncMock` for async service methods
-- `asyncio_mode = "auto"` in pyproject.toml — no `@pytest.mark.asyncio` needed
+- `respx.mock` for httpx (Vikunja client)
+- `asyncio_mode = "auto"` in pyproject.toml
+
+## Deployment
+
+3 Docker containers behind Cloudflare tunnels (no ports exposed):
+- `tasks.epicrunze.com` → vikunja (:3456) — admin only, frontend never calls directly
+- `cognito.epicrunze.com` → frontend (nginx :80)
+- `api-cognito.epicrunze.com` → backend (:8000)
+
+**Backend → Vikunja**: Internal Docker network only (`http://vikunja:3456`). Set via `VIKUNJA_URL`.
+
+**Frontend API URL**: `PUBLIC_API_URL` is a SvelteKit build-time env var (baked in by static adapter). Pass as Docker build arg: `args: PUBLIC_API_URL: ${BACKEND_URL}`. In dev, leave unset — falls back to `/api` (Vite proxy).
+
+**CORS**: `FRONTEND_URL` origin allowed with credentials in `main.py`.
+
+**Cookies**: `COOKIE_DOMAIN=.epicrunze.com` covers both `cognito.` and `api-cognito.` subdomains.
 
 ## Environment
 

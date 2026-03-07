@@ -7,42 +7,32 @@
     onclose,
     children,
   }: {
-    open?: boolean;
+    open: boolean;
     onclose?: () => void;
     children: Snippet;
   } = $props();
 
-  $effect(() => {
-    if (!open) return;
-
-    document.body.style.overflow = 'hidden';
-
-    const handleKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onclose?.();
-    };
-    window.addEventListener('keydown', handleKeydown);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeydown);
-      document.body.style.overflow = '';
-    };
-  });
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') onclose?.();
+  }
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 {#if open}
-  <button
-    type="button"
-    class="fixed inset-0 bg-overlay z-40 cursor-default p-0 border-0 w-full"
+  <!-- Backdrop -->
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div
+    role="presentation"
     transition:fade={{ duration: 200 }}
     onclick={onclose}
-    aria-label="Close panel"
-    tabindex="-1"
-  ></button>
+    style="position: fixed; inset: 0; background: var(--bg-overlay); z-index: 100;"
+  ></div>
+
+  <!-- Panel -->
   <div
-    class="fixed right-0 top-0 w-detail-panel h-full bg-surface shadow-slide-over z-50 overflow-y-auto"
-    transition:fly={{ x: 480, duration: 200 }}
-    role="dialog"
-    aria-modal="true"
+    transition:fly={{ x: 480, duration: 300 }}
+    style="position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 100vw; background: var(--bg-surface); border-left: 1px solid var(--border-default); box-shadow: var(--shadow-slide-over); z-index: 101; overflow-y: auto;"
   >
     {@render children()}
   </div>

@@ -15,7 +15,7 @@ services:
   cognito-backend:
     build: ./backend
     volumes:
-      - ./data:/app/data          # DuckDB database file
+      - ./data:/app/data          # SQLite database file
     environment:
       - VIKUNJA_URL=http://vikunja:3456
       - VIKUNJA_API_TOKEN=${VIKUNJA_API_TOKEN}
@@ -25,7 +25,7 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - ALLOWED_EMAIL=${ALLOWED_EMAIL}
-      - DATABASE_URL=duckdb:////app/data/agent.duckdb
+      - DATABASE_URL=sqlite:////app/data/agent.db
       - JWT_SECRET=${JWT_SECRET}
       - FRONTEND_URL=${FRONTEND_URL}
       - BACKEND_URL=${BACKEND_URL}
@@ -44,8 +44,8 @@ services:
     build:
       context: ./frontend
       target: production
-    environment:
-      - PUBLIC_API_URL=${BACKEND_URL}
+      args:
+        PUBLIC_API_URL: ${BACKEND_URL}
     networks:
       - cognito-network
     depends_on:
