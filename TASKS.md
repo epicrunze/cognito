@@ -149,12 +149,12 @@ Read: Section 5.8
 
 ### T-019: Task detail panel
 Read: Section 5.7
-- [ ] SlideOver, opens on task row click
-- [ ] Editable: title (16px), done, project (Dropdown), priority (clickable dots), due date, labels (badges + add), description (textarea, markdown), estimated minutes
+- [x] SlideOver, opens on task row click
+- [x] Editable: title (16px), done, project (Dropdown + inline create), priority (clickable dots), due date (DatePicker), labels (badges + add picker), description (textarea), estimated minutes
 - [ ] Attachments section (list files/images, upload area) — uses Vikunja attachments API
-- [ ] Auto-save: debounce 500ms text, immediate toggles/selects
+- [x] Auto-save: debounce 500ms text, immediate toggles/selects
 - [ ] Clear AI-tagged glow when task is opened (mark as viewed)
-- [ ] Delete button + confirmation. Created/updated timestamps
+- [x] Delete button + confirmation. Created/updated timestamps
 
 ### T-020: Filter bar
 Read: Section 5.5
@@ -245,6 +245,17 @@ Read: Section 5.12
 - [ ] Detail panel full-screen on mobile
 - [ ] Kanban horizontal scroll, touch-friendly
 - [ ] Test 375px, 768px, 1024px+
+
+---
+
+## Additional items completed (not in original plan)
+
+- `ui/DatePicker.svelte` — full calendar picker component
+- `routers/models.py` + `models_registry.py` — GET /api/models endpoint for model selection
+- `/upcoming` and `/overdue` routes with filtered task views
+- `lib/stores/search.svelte.ts` — search store with 300ms debounce
+- TaskPanel supports `proposal` mode (edit proposals before approval inline)
+- Backend tests expanded to 42 passing (up from 38)
 
 ---
 
