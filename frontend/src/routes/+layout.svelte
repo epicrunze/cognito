@@ -7,7 +7,7 @@
   import { authStore, tasksStore, projectsStore, labelsStore } from '$lib/stores.svelte';
   import { shortcuts } from '$lib/shortcuts';
   import Sidebar from '$components/features/Sidebar.svelte';
-  import TaskCreatePanel from '$components/features/TaskCreatePanel.svelte';
+  import TaskPanel from '$components/features/TaskPanel.svelte';
   import Input from '$components/ui/Input.svelte';
   import Button from '$components/ui/Button.svelte';
   import ToastContainer from '$components/ui/ToastContainer.svelte';
@@ -100,6 +100,6 @@
       </div>
     </div>
   </div>
-  <TaskCreatePanel open={createOpen} onclose={() => createOpen = false} {defaultProjectId} />
+  <TaskPanel mode="create" open={createOpen} onclose={() => createOpen = false} {defaultProjectId} />
   <ToastContainer />
 {/if}

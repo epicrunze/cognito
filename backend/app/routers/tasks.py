@@ -44,6 +44,7 @@ class TaskUpdate(BaseModel):
 @router.get("")
 async def list_tasks(
     project_id: Optional[int] = Query(None),
+    view_id: Optional[int] = Query(None),
     s: Optional[str] = Query(None),
     filter: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
@@ -52,10 +53,11 @@ async def list_tasks(
     per_page: int = Query(50, ge=1, le=500),
     current_user: User = Depends(get_current_user),
 ):
-    """List tasks across all projects or for a specific project."""
+    """List tasks across all projects or for a specific project view."""
     try:
         tasks = await vikunja.list_tasks(
             project_id=project_id,
+            view_id=view_id,
             filter=filter,
             sort_by=sort_by,
             order_by=order_by,

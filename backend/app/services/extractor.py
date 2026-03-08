@@ -34,7 +34,7 @@ For each task, produce JSON with these fields:
 {{
   "title": "Short, actionable task title starting with a verb",
   "description": "1-2 sentences of context (nullable)",
-  "project_name": "Best matching project from lookup_projects, or 'Uncategorised'",
+  "project_name": "Best matching project from lookup_projects, or suggest a clear new project name",
   "project_id": <resolved via resolve_project>,
   "priority": 1-5 (1=low, 3=normal, 5=urgent),
   "due_date": "YYYY-MM-DD or null",
@@ -64,7 +64,7 @@ EXTRACTION_TOOLS = [
         "name": "resolve_project",
         "description": (
             "Maps a project name string to its Vikunja project ID. "
-            "Returns the default project ID from agent_config, or null if not configured."
+            "Returns matched=true with project_id if found, or matched=false with the suggested name if no match."
         ),
         "parameters": {
             "name": {"type": "string", "description": "Project name to look up"},
@@ -127,9 +127,8 @@ class TaskExtractor:
                 if name in p["title"].lower() or p["title"].lower() in name:
                     return {"project_id": p["id"], "project_name": p["title"]}
 
-            # Fall back to default
-            default_id = await self._load_default_project_id()
-            return {"project_id": default_id, "project_name": "Uncategorised"}
+            # No match — return the suggested name without a project_id
+            return {"project_id": None, "project_name": args.get("name", "").strip(), "matched": False}
 
         elif tool_name == "check_existing_tasks":
             title = args.get("title", "")
@@ -140,12 +139,6 @@ class TaskExtractor:
                 return []
 
         return {"error": f"Unknown tool: {tool_name}"}
-
-    # Map frontend model names → actual Gemini model IDs
-    MODEL_MAP = {
-        "gemini-flash": "gemini-2.0-flash",
-        "gemini-pro": "gemini-2.0-pro",
-    }
 
     async def extract(
         self,
@@ -159,6 +152,8 @@ class TaskExtractor:
 
         Returns a list of saved TaskProposal objects.
         """
+        from app.models_registry import get_model_id
+
         today = date.today().isoformat()
         system_prompt = EXTRACTION_SYSTEM_PROMPT.format(today=today)
 
@@ -166,7 +161,7 @@ class TaskExtractor:
         if project_hint:
             user_message = f"[Project context: {project_hint}]\n\n{user_message}"
 
-        resolved_model = self.MODEL_MAP.get(model, model)
+        resolved_model = get_model_id(model)
         llm = get_llm_client(model=resolved_model)
         messages = [{"role": "user", "content": user_message}]
 

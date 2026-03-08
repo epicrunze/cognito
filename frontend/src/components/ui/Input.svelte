@@ -3,6 +3,7 @@
     placeholder = '',
     value = $bindable(''),
     height = 40,
+    type = 'text' as 'text' | 'number',
     oninput,
     onkeydown,
     style = '',
@@ -11,6 +12,7 @@
     placeholder?: string;
     value?: string;
     height?: number;
+    type?: 'text' | 'number';
     oninput?: (e: Event) => void;
     onkeydown?: (e: KeyboardEvent) => void;
     style?: string;
@@ -21,7 +23,7 @@
 
 <input
   bind:this={ref}
-  type="text"
+  type={type}
   {placeholder}
   bind:value
   onfocus={() => focused = true}

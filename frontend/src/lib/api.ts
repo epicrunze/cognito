@@ -141,6 +141,10 @@ export const projectsApi = {
     return request<{ projects: Project[] }>('/projects');
   },
 
+  create(data: { title: string; description?: string }) {
+    return request<Project>('/projects', { method: 'POST', body: JSON.stringify(data) });
+  },
+
   sync() {
     return request<{ synced: number }>('/projects/sync', { method: 'POST' });
   },
@@ -171,7 +175,7 @@ export const proposalsApi = {
   },
 
   approve(id: string) {
-    return request<{ success: boolean; vikunja_task_id: number }>(`/proposals/${id}/approve`, {
+    return request<{ success: boolean; vikunja_task_id: number; new_project_created?: boolean }>(`/proposals/${id}/approve`, {
       method: 'POST',
     });
   },
@@ -180,11 +184,27 @@ export const proposalsApi = {
     return request<{ success: boolean }>(`/proposals/${id}/reject`, { method: 'POST' });
   },
 
-  approveAll() {
-    return request<{ approved: number; errors: Array<{ id: string; error: string }> }>(
+  approveAll(ids?: string[]) {
+    return request<{ approved: number; errors: Array<{ id: string; title?: string; error: string }>; new_projects?: string[] }>(
       '/proposals/approve-all',
-      { method: 'POST' },
+      { method: 'POST', body: JSON.stringify(ids ? { ids } : {}) },
     );
+  },
+};
+
+// ── Models ──────────────────────────────────────────────────────────────────
+
+export interface ModelOption {
+  value: string;
+  model_id: string;
+  label: string;
+  description: string;
+  provider: string;
+}
+
+export const modelsApi = {
+  list() {
+    return request<ModelOption[]>('/models');
   },
 };
 

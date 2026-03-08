@@ -5,15 +5,28 @@ from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.database import get_db
 from app.models.proposal import TaskProposal, TaskProposalUpdate
 from app.models.user import User
+from app.routers.projects import _add_project_to_cache
 from app.services.vikunja import VikunjaError, vikunja
 from app.utils.timestamp import utc_now
 
 router = APIRouter(prefix="/api/proposals", tags=["proposals"])
+
+
+class ApproveAllRequest(BaseModel):
+    ids: Optional[list[str]] = None
+
+
+def _get_default_project_id() -> int | None:
+    """Get default_project_id from agent_config."""
+    with get_db() as conn:
+        row = conn.execute("SELECT default_project_id FROM agent_config WHERE id = 1").fetchone()
+        return row[0] if row and row[0] else None
 
 
 def _row_to_proposal(row) -> TaskProposal:
@@ -153,11 +166,37 @@ async def approve_proposal(
         if proposal.status == "rejected":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot approve a rejected proposal")
 
+        new_project_created = False
         if not proposal.project_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Proposal has no project assigned — edit the proposal to assign a project first.",
-            )
+            if proposal.project_name:
+                # Create the suggested project in Vikunja
+                try:
+                    new_proj = await vikunja.create_project(proposal.project_name)
+                    proposal.project_id = new_proj["id"]
+                    new_project_created = True
+                    _add_project_to_cache(new_proj)
+                    conn.execute(
+                        "UPDATE task_proposals SET project_id = ? WHERE id = ?",
+                        [new_proj["id"], proposal_id],
+                    )
+                except VikunjaError as e:
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail=f"Failed to create project '{proposal.project_name}': {e}",
+                    )
+            else:
+                default_pid = _get_default_project_id()
+                if default_pid:
+                    proposal.project_id = default_pid
+                    conn.execute(
+                        "UPDATE task_proposals SET project_id = ? WHERE id = ?",
+                        [default_pid, proposal_id],
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Proposal has no project assigned and no default project configured.",
+                    )
 
     # Create task in Vikunja
     try:
@@ -194,6 +233,7 @@ async def approve_proposal(
         "success": True,
         "vikunja_task_id": vikunja_task_id,
         "vikunja_url": vikunja_url,
+        "new_project_created": new_project_created,
     }
 
 
@@ -219,24 +259,69 @@ async def reject_proposal(
 
 
 @router.post("/approve-all")
-async def approve_all(current_user: User = Depends(get_current_user)):
-    """Approve all currently pending proposals."""
+async def approve_all(
+    body: ApproveAllRequest = ApproveAllRequest(),
+    current_user: User = Depends(get_current_user),
+):
+    """Approve pending proposals. If ids provided, only approve those; otherwise all pending."""
     with get_db() as conn:
-        rows = conn.execute(
-            f"SELECT {PROPOSAL_COLUMNS} FROM task_proposals WHERE status = 'pending' ORDER BY created_at"
-        ).fetchall()
+        if body.ids is not None:
+            placeholders = ", ".join("?" for _ in body.ids)
+            rows = conn.execute(
+                f"SELECT {PROPOSAL_COLUMNS} FROM task_proposals WHERE status = 'pending' AND id IN ({placeholders}) ORDER BY created_at",
+                body.ids,
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                f"SELECT {PROPOSAL_COLUMNS} FROM task_proposals WHERE status = 'pending' ORDER BY created_at"
+            ).fetchall()
 
     if not rows:
         return {"approved": 0, "errors": []}
 
+    default_pid = _get_default_project_id()
     approved = 0
     errors = []
+    created_projects: dict[str, int] = {}  # project_name -> project_id dedup
+    new_projects: list[str] = []
 
     for row in rows:
         proposal = _row_to_proposal(row)
         if not proposal.project_id:
-            errors.append({"id": proposal.id, "error": "No project assigned"})
-            continue
+            if proposal.project_name and proposal.project_name in created_projects:
+                # Reuse already-created project from this batch
+                proposal.project_id = created_projects[proposal.project_name]
+                with get_db() as conn:
+                    conn.execute(
+                        "UPDATE task_proposals SET project_id = ? WHERE id = ?",
+                        [proposal.project_id, proposal.id],
+                    )
+            elif proposal.project_name:
+                # Create new project in Vikunja
+                try:
+                    new_proj = await vikunja.create_project(proposal.project_name)
+                    proposal.project_id = new_proj["id"]
+                    created_projects[proposal.project_name] = new_proj["id"]
+                    new_projects.append(proposal.project_name)
+                    _add_project_to_cache(new_proj)
+                    with get_db() as conn:
+                        conn.execute(
+                            "UPDATE task_proposals SET project_id = ? WHERE id = ?",
+                            [new_proj["id"], proposal.id],
+                        )
+                except VikunjaError as e:
+                    errors.append({"id": proposal.id, "title": proposal.title, "error": f"Failed to create project: {e}"})
+                    continue
+            elif default_pid:
+                proposal.project_id = default_pid
+                with get_db() as conn:
+                    conn.execute(
+                        "UPDATE task_proposals SET project_id = ? WHERE id = ?",
+                        [default_pid, proposal.id],
+                    )
+            else:
+                errors.append({"id": proposal.id, "title": proposal.title, "error": "No project assigned"})
+                continue
 
         try:
             task = await vikunja.create_task(
@@ -256,6 +341,6 @@ async def approve_all(current_user: User = Depends(get_current_user)):
                 )
             approved += 1
         except VikunjaError as e:
-            errors.append({"id": proposal.id, "error": str(e)})
+            errors.append({"id": proposal.id, "title": proposal.title, "error": str(e)})
 
-    return {"approved": approved, "errors": errors}
+    return {"approved": approved, "errors": errors, "new_projects": new_projects}

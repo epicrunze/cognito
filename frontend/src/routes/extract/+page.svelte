@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { extractTasks } from '$lib/api';
-  import { proposalsStore, tasksStore } from '$lib/stores.svelte';
+  import { extractTasks, modelsApi, type ModelOption } from '$lib/api';
+  import { proposalsStore, tasksStore, projectsStore } from '$lib/stores.svelte';
   import { addToast } from '$lib/stores/toast.svelte';
   import type { TaskProposal } from '$lib/types';
   import Textarea from '$components/ui/Textarea.svelte';
@@ -11,14 +11,22 @@
   import PriorityIndicator from '$components/ui/PriorityIndicator.svelte';
   import Badge from '$components/ui/Badge.svelte';
   import DateDisplay from '$components/ui/DateDisplay.svelte';
+  import TaskPanel from '$components/features/TaskPanel.svelte';
   import { fly } from 'svelte/transition';
+  import { onMount } from 'svelte';
 
-  const modelOptions = [
-    { value: 'gemini-flash', label: 'Gemini 2.0 Flash', description: 'Fast, good for most tasks' },
-    { value: 'gemini-pro', label: 'Gemini 2.0 Pro', description: 'Higher quality, slower' },
-    { value: 'ollama-qwen', label: 'Qwen 3.x (Local)', description: 'Private, runs on your machine' },
-    { value: 'ollama-llama', label: 'Llama 3.3 (Local)', description: 'Private, larger model' },
-  ];
+  let modelOptions = $state<{ value: string; label: string; description: string }[]>([
+    { value: 'gemini-flash', label: 'Gemini 3.1 Flash Lite', description: 'Fast, good for most tasks' },
+  ]);
+
+  onMount(async () => {
+    try {
+      const models = await modelsApi.list();
+      modelOptions = models.map((m) => ({ value: m.value, label: m.label, description: m.description }));
+    } catch {
+      // Keep fallback defaults
+    }
+  });
 
   let inputText = $state('');
   let selectedModel = $state('gemini-flash');
@@ -27,6 +35,7 @@
   let selectedIds = $state<Set<string>>(new Set());
   let rawResponse = $state('');
   let showRaw = $state(false);
+  let editingProposal = $state<TaskProposal | null>(null);
 
   const isLocal = $derived(selectedModel.startsWith('ollama'));
 
@@ -73,10 +82,31 @@
     const pending = proposals.filter(p => selectedIds.has(p.id) && p.status === 'pending');
     if (pending.length === 0) return;
 
-    await proposalsStore.approveAll();
-    addToast(`${pending.length} tasks created`, 'success');
-    proposals = proposals.map(p => selectedIds.has(p.id) ? { ...p, status: 'approved' as const } : p);
-    await tasksStore.fetchAll();
+    // Check if any proposals will create new projects
+    const newProjectProposals = pending.filter(p => !p.project_id && p.project_name);
+    if (newProjectProposals.length > 0) {
+      const names = [...new Set(newProjectProposals.map(p => p.project_name))];
+      if (!confirm(`This will create ${names.length} new project${names.length > 1 ? 's' : ''}: ${names.join(', ')}. Continue?`)) {
+        return;
+      }
+    }
+
+    const ids = Array.from(selectedIds);
+    const res = await proposalsStore.approveAll(ids);
+
+    if (res.approved > 0) {
+      addToast(`${res.approved} task${res.approved === 1 ? '' : 's'} created`, 'success');
+      proposals = proposals.map(p => selectedIds.has(p.id) && p.status !== 'pending' ? p : selectedIds.has(p.id) ? { ...p, status: 'approved' as const } : p);
+      await tasksStore.fetchAll();
+      if (res.new_projects && res.new_projects.length > 0) {
+        await projectsStore.fetchAll();
+      }
+    }
+
+    if (res.errors.length > 0) {
+      const details = res.errors.map(e => e.title ? `"${e.title}": ${e.error}` : e.error).join('; ');
+      addToast(`${res.errors.length} task${res.errors.length === 1 ? '' : 's'} failed: ${details}`, 'error');
+    }
   }
 
   async function handleRejectSelected() {
@@ -179,19 +209,30 @@
             checked={selectedIds.has(proposal.id)}
             onchange={() => toggleSelected(proposal.id)}
           />
-          <div style="flex: 1; min-width: 0;">
+          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+          <div style="flex: 1; min-width: 0; cursor: pointer;" onclick={() => { if (proposal.status === 'pending') editingProposal = proposal; }}>
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 7px;">
               <PriorityIndicator level={proposal.priority} size="sm" />
               <span style="font-size: 15px; font-weight: 500; color: var(--text-primary); line-height: 1.3;">
                 {proposal.title}
               </span>
+              {#if proposal.status === 'pending'}
+                <span style="font-size: 13px; color: var(--text-tertiary); opacity: 0.5;">&#9998;</span>
+              {/if}
               {#if proposal.status === 'approved'}
                 <span style="font-size: 12px; color: var(--done); font-weight: 500;">Approved</span>
               {/if}
             </div>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-              {#if proposal.project_name}
+              {#if proposal.project_name && !proposal.project_id}
+                <Badge color="var(--accent)">{proposal.project_name}</Badge>
+                <span style="font-size: 11px; color: var(--accent); font-weight: 500;">New project</span>
+                <span style="font-size: 13px; color: var(--border-strong);">&middot;</span>
+              {:else if proposal.project_name}
                 <span style="font-size: 13px; color: var(--text-tertiary);">{proposal.project_name}</span>
+                <span style="font-size: 13px; color: var(--border-strong);">&middot;</span>
+              {:else if !proposal.project_id}
+                <span style="font-size: 12px; color: var(--danger, #ef4444); font-weight: 500;">No project</span>
                 <span style="font-size: 13px; color: var(--border-strong);">&middot;</span>
               {/if}
               <DateDisplay date={proposal.due_date} />
@@ -209,3 +250,14 @@
     </div>
   {/if}
 </div>
+
+<TaskPanel
+  mode="proposal"
+  open={editingProposal !== null}
+  proposal={editingProposal ?? undefined}
+  onclose={() => editingProposal = null}
+  onupdate={(updated) => {
+    proposals = proposals.map(p => p.id === updated.id ? updated : p);
+    editingProposal = null;
+  }}
+/>

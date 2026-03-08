@@ -114,7 +114,7 @@ async def test_get_task_error(vc):
 @respx.mock
 async def test_search_tasks_success(vc):
     tasks = [{"id": i, "title": f"Task {i}"} for i in range(3)]
-    respx.get(f"{BASE_URL}/api/v1/tasks/all").mock(
+    respx.get(f"{BASE_URL}/api/v1/tasks").mock(
         return_value=httpx.Response(200, json=tasks)
     )
     result = await vc.search_tasks("Task")
@@ -122,11 +122,35 @@ async def test_search_tasks_success(vc):
     assert result[0]["id"] == 0
 
 
+# ── create_project ────────────────────────────────────────────────────────────
+
+@respx.mock
+async def test_create_project_success(vc):
+    respx.put(f"{BASE_URL}/api/v1/projects").mock(
+        return_value=httpx.Response(200, json={"id": 10, "title": "New Project", "description": ""})
+    )
+    result = await vc.create_project("New Project")
+    assert result["id"] == 10
+    assert result["title"] == "New Project"
+
+    body = json.loads(respx.calls.last.request.content)
+    assert body["title"] == "New Project"
+
+
+@respx.mock
+async def test_create_project_error(vc):
+    respx.put(f"{BASE_URL}/api/v1/projects").mock(
+        return_value=httpx.Response(500, text="Internal Server Error")
+    )
+    with pytest.raises(VikunjaError):
+        await vc.create_project("Bad Project")
+
+
 @respx.mock
 async def test_search_tasks_error(vc):
-    """500 from Vikunja → silent failure, return []."""
-    respx.get(f"{BASE_URL}/api/v1/tasks/all").mock(
+    """500 from Vikunja → raises VikunjaError."""
+    respx.get(f"{BASE_URL}/api/v1/tasks").mock(
         return_value=httpx.Response(500, text="Error")
     )
-    result = await vc.search_tasks("query")
-    assert result == []
+    with pytest.raises(VikunjaError):
+        await vc.search_tasks("query")

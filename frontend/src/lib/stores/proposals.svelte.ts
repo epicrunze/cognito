@@ -65,24 +65,25 @@ function createProposalsStore() {
       });
     },
 
-    async approveAll() {
-      const pending = proposals.filter((p) => p.status === 'pending');
-      if (pending.length === 0) return { approved: 0, errors: [] };
-
+    async approveAll(ids?: string[]) {
       const original = [...proposals];
+      const targetIds = ids ? new Set(ids) : new Set(proposals.filter((p) => p.status === 'pending').map((p) => p.id));
+      if (targetIds.size === 0) return { approved: 0, errors: [] as Array<{ id: string; title?: string; error: string }> };
 
-      await optimisticUpdate({
+      const res = await optimisticUpdate({
         apply: () => {
           proposals = proposals.map((p) =>
-            p.status === 'pending' ? { ...p, status: 'approved' as const } : p,
+            targetIds.has(p.id) && p.status === 'pending' ? { ...p, status: 'approved' as const } : p,
           );
         },
-        apiCall: () => proposalsApi.approveAll(),
+        apiCall: () => proposalsApi.approveAll(ids),
         rollback: () => {
           proposals = original;
         },
         errorMessage: 'Failed to approve proposals',
       });
+
+      return res ?? { approved: 0, errors: [] as Array<{ id: string; title?: string; error: string }> };
     },
   };
 }

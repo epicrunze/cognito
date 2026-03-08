@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     # ── LLM — Phase 1: Gemini only ────────────────────────────────────────────
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-3.1-flash-lite-preview"
 
     # ── LLM — Phase 2: Ollama ─────────────────────────────────────────────────
     ollama_url: str = "http://localhost:11434"

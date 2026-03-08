@@ -5,6 +5,7 @@
   import { addToast } from '$lib/stores/toast.svelte';
   import { searchStore } from '$lib/stores/search.svelte';
   import TaskRow from './TaskRow.svelte';
+  import TaskPanel from './TaskPanel.svelte';
   import Skeleton from '$components/ui/Skeleton.svelte';
 
   let {
@@ -18,6 +19,8 @@
   let showCompleted = $state(false);
   let quickAddValue = $state('');
   let quickAddRef = $state<HTMLInputElement>();
+  let editingTaskId = $state<number | null>(null);
+  const editingTask = $derived(editingTaskId != null ? tasksStore.tasks.find(t => t.id === editingTaskId) ?? null : null);
 
   // Sort: overdue first, then priority desc, then due date asc
   function smartSort(tasks: Task[]): Task[] {
@@ -107,6 +110,7 @@
     <TaskRow
       {task}
       ontoggle={() => tasksStore.toggleDone(task.id)}
+      onclick={() => editingTaskId = task.id}
     />
   {/each}
 
@@ -127,9 +131,12 @@
           <TaskRow
             {task}
             ontoggle={() => tasksStore.toggleDone(task.id)}
+            onclick={() => editingTaskId = task.id}
           />
         {/each}
       </div>
     {/if}
   {/if}
 {/if}
+
+<TaskPanel mode="edit" open={editingTaskId !== null} task={editingTask ?? undefined} onclose={() => editingTaskId = null} />

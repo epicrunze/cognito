@@ -17,6 +17,12 @@ function createProjectsStore() {
       return error;
     },
 
+    async create(data: { title: string; description?: string }) {
+      const project = await projectsApi.create(data);
+      await this.fetchAll();
+      return project;
+    },
+
     async fetchAll() {
       loading = true;
       error = null;

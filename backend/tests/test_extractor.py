@@ -110,16 +110,16 @@ async def test_tool_resolve_project_partial():
 
 
 async def test_tool_resolve_project_fallback(db):
-    """No match → returns default_project_id from agent_config."""
+    """No match → returns matched=False with the suggested name."""
     extractor = TaskExtractor()
     projects = [{"id": 1, "title": "Some Project", "description": ""}]
-    with patch("app.services.extractor.vikunja") as mock_vk, \
-         patch("app.services.extractor.get_db", make_mock_db(db)):
+    with patch("app.services.extractor.vikunja") as mock_vk:
         mock_vk.list_projects = AsyncMock(return_value=projects)
         result = await extractor._tool_handler("resolve_project", {"name": "nonexistent"})
 
-    assert result["project_id"] == 99
-    assert result["project_name"] == "Uncategorised"
+    assert result["project_id"] is None
+    assert result["project_name"] == "nonexistent"
+    assert result["matched"] is False
 
 
 async def test_tool_check_existing_tasks():

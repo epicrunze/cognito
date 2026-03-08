@@ -53,6 +53,10 @@ class VikunjaClient:
         data = await self._request("GET", "/projects")
         return data if isinstance(data, list) else []
 
+    async def create_project(self, title: str, description: str = "") -> dict:
+        """Create a new project. PUT creates in Vikunja."""
+        return await self._request("PUT", "/projects", json={"title": title, "description": description})
+
     async def get_project(self, project_id: int) -> dict:
         """Fetch a single project by ID."""
         return await self._request("GET", f"/projects/{project_id}")
@@ -67,6 +71,7 @@ class VikunjaClient:
     async def list_tasks(
         self,
         project_id: int | None = None,
+        view_id: int | None = None,
         filter: str | None = None,
         sort_by: str | None = None,
         order_by: str | None = None,
@@ -74,7 +79,7 @@ class VikunjaClient:
         per_page: int = 50,
         s: str | None = None,
     ) -> list[dict]:
-        """List tasks. Uses /tasks/all for cross-project, or /projects/{id}/tasks."""
+        """List tasks. Uses /projects/{id}/views/{view}/tasks for a project, or /tasks for all."""
         params: dict = {"page": page, "per_page": per_page}
         if filter:
             params["filter"] = filter
@@ -85,21 +90,13 @@ class VikunjaClient:
         if s:
             params["s"] = s
 
-        if project_id:
-            path = f"/projects/{project_id}/tasks"
+        if project_id and view_id:
+            path = f"/projects/{project_id}/views/{view_id}/tasks"
         else:
-            path = "/tasks/all"
+            path = "/tasks"
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.get(
-                f"{self.base_url}/api/v1{path}",
-                headers=self._headers,
-                params=params,
-            )
-            if not response.is_success:
-                raise VikunjaError(f"Failed to list tasks: {response.status_code} {response.text}")
-            data = response.json()
-            return data if isinstance(data, list) else []
+        data = await self._request("GET", path, params=params)
+        return data if isinstance(data, list) else []
 
     async def get_task(self, task_id: int) -> dict:
         """Fetch a single task by ID."""
@@ -180,6 +177,10 @@ class VikunjaClient:
         """Create a label. PUT creates in Vikunja."""
         return await self._request("PUT", "/labels", json=data)
 
+    async def update_label(self, label_id: int, data: dict) -> dict:
+        """Update a label. PUT updates in Vikunja."""
+        return await self._request("PUT", f"/labels/{label_id}", json=data)
+
     async def delete_label(self, label_id: int) -> dict:
         """Delete a label."""
         return await self._request("DELETE", f"/labels/{label_id}")
@@ -204,8 +205,8 @@ class VikunjaClient:
         """Move a task to a different kanban bucket."""
         return await self._request(
             "POST",
-            f"/projects/{project_id}/views/{view_id}/buckets/tasks",
-            json={"task_id": task_id, "bucket_id": bucket_id, "position": position},
+            f"/projects/{project_id}/views/{view_id}/buckets/{bucket_id}/tasks",
+            json={"task_id": task_id, "position": position},
         )
 
     # ── Search ────────────────────────────────────────────────────────────────
@@ -216,16 +217,8 @@ class VikunjaClient:
 
         Uses the Vikunja task list endpoint with a search param.
         """
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.get(
-                f"{self.base_url}/api/v1/tasks/all",
-                headers=self._headers,
-                params={"s": query, "per_page": 5},
-            )
-            if response.status_code != 200:
-                return []
-            data = response.json()
-            return data if isinstance(data, list) else []
+        data = await self._request("GET", "/tasks", params={"s": query, "per_page": 5})
+        return data if isinstance(data, list) else []
 
 
 # Global client instance

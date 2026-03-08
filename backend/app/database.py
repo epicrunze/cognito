@@ -104,7 +104,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
             id                 INTEGER PRIMARY KEY,
             default_project_id INTEGER,
             ollama_model       TEXT DEFAULT 'qwen3:4b',
-            gemini_model       TEXT DEFAULT 'gemini-2.0-flash',
+            gemini_model       TEXT DEFAULT 'gemini-3.1-flash-lite-preview',
             gcal_calendar_id   TEXT
         )
     """)

@@ -19,6 +19,7 @@ from app.routers.ingest import router as ingest_router
 from app.routers.labels import router as labels_router
 from app.routers.proposals import router as proposals_router
 from app.routers.projects import router as projects_router
+from app.routers.models import router as models_router
 from app.routers.tasks import router as tasks_router
 
 
@@ -59,6 +60,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(ingest_router)
 app.include_router(labels_router)
+app.include_router(models_router)
 app.include_router(proposals_router)
 app.include_router(projects_router)
 app.include_router(tasks_router)
