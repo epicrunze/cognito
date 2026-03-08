@@ -127,8 +127,8 @@ async def update_task(
     if not data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
 
-    # Vikunja expects due_date as RFC3339
-    if "due_date" in data and data["due_date"]:
+    # Vikunja expects due_date as RFC3339 — only append if not already a full timestamp
+    if "due_date" in data and data["due_date"] and "T" not in data["due_date"]:
         data["due_date"] = f"{data['due_date']}T00:00:00Z"
 
     try:

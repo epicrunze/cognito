@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { Task, TaskProposal, Label } from '$lib/types';
   import { tasksStore, projectsStore, labelsStore } from '$lib/stores.svelte';
   import { addToast } from '$lib/stores/toast.svelte';
@@ -70,14 +71,26 @@
 
   const headerText = $derived.by(() => {
     if (mode === 'create') return 'New Task';
-    if (mode === 'edit' && task) return task.identifier || `Task #${task.id}`;
+    if (mode === 'edit' && task) return task.title || `Task #${task.id}`;
     if (mode === 'proposal') return 'Edit Proposal';
     return 'Task';
   });
 
-  // Reset form when panel opens or task/proposal changes
+  // Key that only changes when the panel opens or switches to a different task/proposal
+  const editKey = $derived.by(() => {
+    if (!open) return '';
+    if (mode === 'create') return 'create';
+    if (mode === 'edit' && task) return `edit-${task.id}`;
+    if (mode === 'proposal' && proposal) return `proposal-${proposal.id}`;
+    return '';
+  });
+
+  // Populate form only when editKey changes (panel open / task switch), not on every store update
   $effect(() => {
-    if (open) {
+    const key = editKey;  // sole reactive dependency
+    if (!key) return;
+
+    untrack(() => {
       creatingProject = false;
       newProjectName = '';
       showLabelPicker = false;
@@ -100,7 +113,7 @@
         priority = task.priority;
         dueDate = task.due_date ? task.due_date.split('T')[0] : '';
         estimatedMinutes = '';
-        currentLabels = [...task.labels];
+        currentLabels = [...(task.labels ?? [])];
         proposalLabelNames = [];
         projectValue = String(task.project_id);
       } else if (mode === 'proposal' && proposal) {
@@ -113,7 +126,7 @@
         proposalLabelNames = [...(proposal.labels || [])];
         projectValue = proposal.project_id ? String(proposal.project_id) : '';
       }
-    }
+    });
   });
 
   // ── Auto-save helpers ──────────────────────────────────────────────
@@ -142,7 +155,7 @@
     try {
       const data: Record<string, unknown> = {};
       if (field === 'due_date') {
-        data.due_date = value ? `${value}T00:00:00Z` : null;
+        data.due_date = value || null;
       } else {
         data[field] = value;
       }

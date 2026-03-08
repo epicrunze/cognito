@@ -11,6 +11,11 @@ triggers:
   - kanban bucket
   - label API
   - project API
+  - 502 bad gateway
+  - task update
+  - task create
+  - due_date
+  - API error
 ---
 
 # Vikunja API Reference

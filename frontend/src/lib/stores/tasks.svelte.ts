@@ -2,6 +2,10 @@ import { tasksApi } from '$lib/api';
 import { optimisticUpdate } from '$lib/optimistic';
 import type { Task } from '$lib/types';
 
+function normalizeTask(t: Task): Task {
+  return { ...t, labels: t.labels ?? [] };
+}
+
 function createTasksStore() {
   let tasks = $state<Task[]>([]);
   let loading = $state(false);
@@ -23,7 +27,7 @@ function createTasksStore() {
       error = null;
       try {
         const res = await tasksApi.list({});
-        tasks = res.tasks;
+        tasks = res.tasks.map(normalizeTask);
       } catch (e) {
         error = e instanceof Error ? e.message : 'Failed to load tasks';
       } finally {
@@ -36,7 +40,7 @@ function createTasksStore() {
       error = null;
       try {
         const res = await tasksApi.list({ project_id: projectId });
-        tasks = res.tasks;
+        tasks = res.tasks.map(normalizeTask);
       } catch (e) {
         error = e instanceof Error ? e.message : 'Failed to load tasks';
       } finally {
@@ -78,8 +82,7 @@ function createTasksStore() {
         },
         apiCall: async () => {
           const created = await tasksApi.create(data);
-          console.log('[tasks] created:', created);
-          tasks = tasks.map((t) => (t.id === tempId ? created : t));
+          tasks = tasks.map((t) => (t.id === tempId ? normalizeTask(created) : t));
         },
         rollback: () => {
           tasks = tasks.filter((t) => t.id !== tempId);
