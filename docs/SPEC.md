@@ -457,7 +457,7 @@ Each label can have a **description** (stored in agent DB) explaining what it co
 
 **Optimistic updates** on all mutations. Pattern: update store → fire API → on failure: rollback + error toast.
 
-**Keyboard shortcuts:** N (new), E (edit), X (toggle done), / (search), Ctrl+Enter (submit extraction), Esc (close panel), J/K (navigate list), 1-5 (set priority in detail).
+**Keyboard shortcuts:** N (new), E (edit), X (toggle done), / (search), Ctrl+Enter (submit extraction), Esc (close panel/deselect), J/K (navigate list), Enter (open task), 1-5 (set priority), ? (shortcuts help).
 
 **Transitions:** Svelte `fly`, `fade`, `slide`. 150ms hover, 200ms panels/cards, 300ms slide-overs.
 

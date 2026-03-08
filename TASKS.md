@@ -127,7 +127,7 @@ Read: Section 5.5
 
 ### T-017: Smart sort
 - [x] Default: overdue first, then priority desc, then due date asc
-- [ ] Sort dropdown (Dropdown component): priority, due date, created, alphabetical
+- [x] Sort dropdown (Dropdown component): priority, due date, created, alphabetical
 - [ ] Translate to Vikunja sort_by + order_by params
 
 ### T-018: AI extraction page
@@ -158,9 +158,9 @@ Read: Section 5.7
 
 ### T-020: Filter bar
 Read: Section 5.5
-- [ ] FilterBar.svelte with chips: status (All/Active/Completed), priority, label
+- [x] FilterBar.svelte with chips: status (All/Active/Completed), priority, label
 - [ ] Translate to Vikunja filter syntax
-- [ ] Filter button in header shows active filter count
+- [x] Filter button in header shows active filter count
 
 ### T-021: Kanban board
 Read: Section 5.6
@@ -178,10 +178,12 @@ Read: Section 5.6
 
 ### T-023: Search + keyboard navigation
 Read: Section 5.10
-- [ ] Search input in header, debounced 300ms, uses `s` param
-- [ ] J/K navigate list (highlight selected row with accent-subtle + 2px accent left border)
-- [ ] Enter opens detail, X toggles done, E opens edit, 1-5 sets priority
-- [ ] / focuses search
+- [x] Search input in header, debounced 300ms, uses `s` param
+- [x] J/K navigate list (highlight selected row with accent-subtle + 2px accent left border)
+- [x] Enter opens detail, X toggles done, E opens edit, 1-5 sets priority
+- [x] / focuses search
+- [x] `?` opens keyboard shortcuts help slide-over
+- [x] Bottom hint bar in TaskList for shortcut discoverability (dismissible, persists in localStorage)
 
 ---
 
@@ -256,6 +258,9 @@ Read: Section 5.12
 - `lib/stores/search.svelte.ts` — search store with 300ms debounce
 - TaskPanel supports `proposal` mode (edit proposals before approval inline)
 - Backend tests expanded to 42 passing (up from 38)
+- `ShortcutsModal.svelte` — `?` key opens slide-over with full keyboard shortcuts reference (Navigation, Actions, Global sections)
+- Bottom hint bar in TaskList — dismissible shortcut hints, persists dismiss state in localStorage
+- `lib/stores/filter.svelte.ts` + `FilterBar.svelte` — client-side filtering by status, priority, labels with active count badge
 
 ---
 

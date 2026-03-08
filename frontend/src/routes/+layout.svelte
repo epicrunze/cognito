@@ -8,10 +8,13 @@
   import { shortcuts } from '$lib/shortcuts';
   import Sidebar from '$components/features/Sidebar.svelte';
   import TaskPanel from '$components/features/TaskPanel.svelte';
+  import FilterBar from '$components/features/FilterBar.svelte';
+  import ShortcutsModal from '$components/features/ShortcutsModal.svelte';
   import Input from '$components/ui/Input.svelte';
   import Button from '$components/ui/Button.svelte';
   import ToastContainer from '$components/ui/ToastContainer.svelte';
   import { searchStore } from '$lib/stores/search.svelte';
+  import { filterStore } from '$lib/stores/filter.svelte';
 
   let { children }: { children: Snippet } = $props();
 
@@ -19,6 +22,8 @@
   let searchRef = $state<HTMLInputElement | undefined>(undefined);
   let searchValue = $state('');
   let createOpen = $state(false);
+  let filterOpen = $state(false);
+  let shortcutsOpen = $state(false);
 
   const isLoginPage = $derived($page.url.pathname === '/login');
 
@@ -53,6 +58,7 @@
   onMount(() => {
     shortcuts.register('/', () => searchRef?.focus());
     shortcuts.register('n', () => createOpen = true);
+    shortcuts.register('?', () => shortcutsOpen = !shortcutsOpen);
     shortcuts.register('Escape', () => {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     });
@@ -89,10 +95,12 @@
       <div style="display: flex; align-items: center; padding: 10px 24px; border-bottom: 1px solid var(--border-subtle); gap: 10px; flex-shrink: 0;">
         <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; flex-shrink: 0; margin-right: auto;">{pageTitle}</span>
         <Input placeholder="Search..." bind:value={searchValue} bind:ref={searchRef} height={34} oninput={handleSearchInput} style="width: 180px; flex-shrink: 1;" />
-        <Button variant="outline" size="sm">Filter</Button>
+        <Button variant={filterOpen || filterStore.activeFilterCount > 0 ? 'accent' : 'outline'} size="sm" onclick={() => filterOpen = !filterOpen}>Filter{filterStore.activeFilterCount > 0 ? ` (${filterStore.activeFilterCount})` : ''}</Button>
         <Button variant="accent" size="sm" onclick={() => goto('/extract')}>&diams; Extract</Button>
         <Button variant="accent" size="sm" onclick={() => createOpen = true}>+ New</Button>
       </div>
+
+      <FilterBar open={filterOpen} />
 
       <!-- Content -->
       <div style="flex: 1; overflow-y: auto;">
@@ -101,5 +109,6 @@
     </div>
   </div>
   <TaskPanel mode="create" open={createOpen} onclose={() => createOpen = false} {defaultProjectId} />
+  <ShortcutsModal open={shortcutsOpen} onclose={() => shortcutsOpen = false} />
   <ToastContainer />
 {/if}

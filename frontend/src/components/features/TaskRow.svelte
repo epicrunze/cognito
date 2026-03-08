@@ -9,11 +9,13 @@
   let {
     task,
     selected = false,
+    viewed = false,
     ontoggle,
     onclick,
   }: {
     task: Task;
     selected?: boolean;
+    viewed?: boolean;
     ontoggle?: () => void;
     onclick?: () => void;
   } = $props();
