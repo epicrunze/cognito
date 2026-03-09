@@ -13,7 +13,6 @@
   import DatePicker from '$components/ui/DatePicker.svelte';
   import Checkbox from '$components/ui/Checkbox.svelte';
   import { slide } from 'svelte/transition';
-  import { flipElement } from '$lib/stores/flip.svelte';
 
   let {
     task,
@@ -313,12 +312,11 @@
   <div
     role="button"
     tabindex="0"
-    use:flipElement={data.id}
     onmouseenter={() => hovering = true}
     onmouseleave={() => hovering = false}
     onclick={handleBubbleClick}
     onkeydown={handleKeydown}
-    style="display: flex; align-items: center; width: 100%; border-radius: 8px; padding: 8px 12px; gap: 10px; background: {selected ? 'var(--accent-subtle)' : hovering ? 'var(--bg-surface-hover)' : 'transparent'}; border-bottom: 1px solid var(--border-subtle); border-left: {compactBorderLeft}; box-shadow: {showGlow ? 'inset 3px 0 8px -4px var(--accent-glow)' : 'none'}; cursor: pointer; transition: width 150ms ease-out, background 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out, opacity 150ms ease-out; opacity: {presenceOpacity}; min-height: 44px;"
+    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; display: flex; align-items: center; width: 100%; border-radius: 8px; padding: 8px 12px; gap: 10px; background: {selected ? 'var(--accent-subtle)' : hovering ? 'var(--bg-surface-hover)' : 'transparent'}; border-bottom: 1px solid var(--border-subtle); border-left: {compactBorderLeft}; box-shadow: {showGlow ? 'inset 3px 0 8px -4px var(--accent-glow)' : 'none'}; cursor: pointer; transition: width 150ms ease-out, background 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out, opacity 150ms ease-out; opacity: {presenceOpacity}; min-height: 44px;"
   >
     {#if proposalMode}
       <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -353,12 +351,11 @@
   <div
     role="button"
     tabindex="0"
-    use:flipElement={data.id}
     onmouseenter={() => hovering = true}
     onmouseleave={() => hovering = false}
     onclick={handleBubbleClick}
     onkeydown={handleKeydown}
-    style="position: relative; width: {expanded ? '360px' : '200px'}; min-height: {expanded ? 'auto' : '90px'}; border-radius: 10px; background: {expanded ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border: {borderStyle}; padding: {expanded ? '18px 20px' : '14px 16px'}; cursor: pointer; box-shadow: {shadowStyle}{showGlow && !expanded ? ', inset 0 0 12px -4px var(--accent-glow)' : ''}; transform: {hovering && !expanded ? 'translateY(-1px)' : 'translateY(0)'}; transition: width 200ms ease-out, min-height 200ms ease-out, background 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, opacity 200ms ease-out, padding 200ms ease-out; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden;"
+    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? '360px' : '200px'}; min-height: {expanded ? 'auto' : '90px'}; border-radius: 10px; background: {expanded ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border: {borderStyle}; padding: {expanded ? '18px 20px' : '14px 16px'}; cursor: pointer; box-shadow: {shadowStyle}{showGlow && !expanded ? ', inset 0 0 12px -4px var(--accent-glow)' : ''}; translate: {hovering && !expanded ? '0 -1px' : 'none'}; transition: width 200ms ease-out, min-height 200ms ease-out, background 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, opacity 200ms ease-out, padding 200ms ease-out, translate 200ms ease-out; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden;"
   >
     <!-- Project corner triangle -->
     {#if projectColor}

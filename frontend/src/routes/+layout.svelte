@@ -15,7 +15,6 @@
   import ToastContainer from '$components/ui/ToastContainer.svelte';
   import { searchStore } from '$lib/stores/search.svelte';
   import { filterStore } from '$lib/stores/filter.svelte';
-  import { transitionStore } from '$lib/stores/transition.svelte';
   import ViewOrchestrator from '$components/features/ViewOrchestrator.svelte';
 
   let { children }: { children: Snippet } = $props();
@@ -107,12 +106,12 @@
   </div>
 {:else if authStore.authenticated}
   <div style="display: flex; height: 100vh;">
-    <div style="flex-shrink: 0; opacity: {transitionStore.chromeFaded ? 0 : 1}; transition: opacity 200ms;">
+    <div style="flex-shrink: 0;">
       <Sidebar bind:collapsed />
     </div>
     <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;">
       <!-- Top bar -->
-      <div style="display: flex; align-items: center; padding: 10px 24px; border-bottom: 1px solid var(--border-subtle); gap: 10px; flex-shrink: 0; opacity: {transitionStore.chromeFaded ? 0 : 1}; transition: opacity 200ms;">
+      <div style="display: flex; align-items: center; padding: 10px 24px; border-bottom: 1px solid var(--border-subtle); gap: 10px; flex-shrink: 0;">
         <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; flex-shrink: 0; margin-right: auto;">{pageTitle}</span>
         <Input placeholder="Search..." bind:value={searchValue} bind:ref={searchRef} height={34} oninput={handleSearchInput} style="width: 180px; flex-shrink: 1;" />
         <Button variant={filterOpen || filterStore.activeFilterCount > 0 ? 'accent' : 'outline'} size="sm" onclick={() => filterOpen = !filterOpen}>Filter{filterStore.activeFilterCount > 0 ? ` (${filterStore.activeFilterCount})` : ''}</Button>

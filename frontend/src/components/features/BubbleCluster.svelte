@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { Project, Task } from '$lib/types';
-  import { transitionStore } from '$lib/stores/transition.svelte';
   import ThoughtBubble from './ThoughtBubble.svelte';
 
   let {
@@ -23,7 +22,7 @@
 
 <div style="margin-bottom: 44px;">
   <!-- Header -->
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding-left: 2px; opacity: {transitionStore.chromeFaded ? 0 : 1}; transition: opacity 200ms;">
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding-left: 2px;">
     <div style="width: 8px; height: 8px; border-radius: 50%; background: {project.hex_color || 'var(--text-tertiary)'};"></div>
     <span style="font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.07em;">{project.title}</span>
     <span style="font-size: 12px; color: var(--text-tertiary); opacity: 0.5;">{activeTasks.length}</span>
