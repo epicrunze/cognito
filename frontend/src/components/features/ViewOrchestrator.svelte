@@ -5,6 +5,8 @@
   import { tasksStore } from '$lib/stores.svelte';
   import { bubbleStore } from '$lib/stores/bubble.svelte';
   import { kanbanStore } from '$lib/stores/kanban.svelte';
+  import { sidebarRectsStore } from '$lib/stores/sidebarRects.svelte';
+  import { snapshotCards, diffSnapshots, animateFlights } from '$lib/viewTransitionAnimator';
   import BubbleCanvas from './BubbleCanvas.svelte';
   import KanbanBoard from './KanbanBoard.svelte';
   import TaskList from './TaskList.svelte';
@@ -40,15 +42,20 @@
       return;
     }
 
-    void updateView(newMode, projectId, filterMode);
+    void updateView(newMode, projectId, filterMode, oldPath);
   });
 
-  async function updateView(
-    newMode: 'bubbles' | 'kanban' | 'list',
-    newProjectId: number | null = projectId,
-    newFilterMode: string | null = filterMode,
-  ) {
-    // Prefetch while old view visible
+  /** Get a fallback origin point (brand-mark dot or viewport center) */
+  function getFallbackOrigin(): { x: number; y: number } {
+    const brandMark = document.querySelector('.brand-mark');
+    if (brandMark) {
+      const r = brandMark.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+    return { x: 32, y: 40 };
+  }
+
+  async function prefetchData(newMode: string, newProjectId: number | null) {
     try {
       if (newMode === 'kanban' && newProjectId != null) {
         await kanbanStore.prefetch(newProjectId);
@@ -58,21 +65,52 @@
         tasksStore.skipNextFetch();
       }
     } catch { /* proceed anyway */ }
+  }
 
+  async function updateView(
+    newMode: 'bubbles' | 'kanban' | 'list',
+    newProjectId: number | null = projectId,
+    newFilterMode: string | null = filterMode,
+    oldPath: string = '',
+  ) {
     bubbleStore.collapse();
 
+    // Determine sidebar origins for flight animations
+    const oldOrigin = sidebarRectsStore.getOrigin(oldPath) ?? getFallbackOrigin();
+    const newOrigin = sidebarRectsStore.getOrigin(pathname) ?? getFallbackOrigin();
+
+    // Snapshot BEFORE anything changes
+    const oldSnapshot = snapshotCards();
+
     if (!document.startViewTransition) {
+      await prefetchData(newMode, newProjectId);
       viewMode = newMode;
       displayProjectId = newProjectId;
       displayFilterMode = newFilterMode;
       return;
     }
 
-    document.startViewTransition(async () => {
+    // Start transition — browser captures old DOM here
+    const transition = document.startViewTransition(async () => {
+      // Prefetch INSIDE callback (old DOM already captured by browser)
+      await prefetchData(newMode, newProjectId);
       viewMode = newMode;
       displayProjectId = newProjectId;
       displayFilterMode = newFilterMode;
       await tick();
+    });
+
+    // After DOM update, snapshot new cards and animate flights
+    transition.updateCallbackDone.then(() => {
+      const newSnapshot = snapshotCards();
+      const { entering, leaving } = diffSnapshots(oldSnapshot, newSnapshot);
+
+      if (entering.length > 0 || leaving.length > 0) {
+        animateFlights(transition, entering, leaving, {
+          enterFrom: newOrigin,
+          leaveTo: oldOrigin,
+        });
+      }
     });
   }
 

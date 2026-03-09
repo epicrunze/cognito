@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { projectsStore, tasksStore } from '$lib/stores.svelte';
   import { allTasksIcon, upcomingIcon, overdueIcon, extractIcon, settingsIcon } from '$lib/icons';
+  import { registerRect } from '$lib/stores/sidebarRects.svelte';
   import Tip from '$components/ui/Tip.svelte';
 
   const currentPath = $derived($page.url.pathname);
@@ -71,6 +72,7 @@
           class:nav-icon-active={active}
           aria-label={item.label}
           aria-current={active ? 'page' : undefined}
+          use:registerRect={item.path}
         >
           {#if active}
             <span class="nav-glow"></span>
@@ -110,6 +112,7 @@
             aria-label="{project.title} ({count} tasks)"
             onclick={() => handleProjectClick(project.id)}
             style="animation-delay: {idx * 50}ms;"
+            use:registerRect={`/project/${project.id}`}
           >
             {#if active}
               <span class="project-bar" style:background={project.hex_color || 'var(--text-tertiary)'}></span>
