@@ -58,7 +58,7 @@ Every thought is a card. Cards have:
 
 ### Priority as presence, not decoration
 
-Don't show priority as dots or numbers on the bubble surface. Priority is communicated through:
+Priority is communicated through:
 - **Position** — high priority = top-left of cluster
 - **Visual weight** — urgent items might have a slightly more visible border, or the title text is the full primary colour instead of slightly muted
 - **Size hint** — urgent items could be fractionally larger, giving them more spatial gravity

@@ -78,7 +78,7 @@
   $effect(() => {
     const path = $page.url.pathname;
     if (!isTaskViewRoute) {
-      bubbleStore.collapse();
+      bubbleStore.collapseImmediate();
     }
   });
 
@@ -114,7 +114,7 @@
         <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; flex-shrink: 0; margin-right: auto;">{pageTitle}</span>
         <Input placeholder="Search..." bind:value={searchValue} bind:ref={searchRef} height={34} oninput={handleSearchInput} style="width: 180px; flex-shrink: 1;" />
         <Button variant={filterOpen || filterStore.activeFilterCount > 0 ? 'accent' : 'outline'} size="sm" onclick={() => filterOpen = !filterOpen}>Filter{filterStore.activeFilterCount > 0 ? ` (${filterStore.activeFilterCount})` : ''}</Button>
-        <Button variant="accent" size="sm" onclick={() => createOpen = true}>+ New</Button>
+        <Button variant="outline" size="sm" onclick={() => createOpen = true}>+ New</Button>
       </div>
 
       <FilterBar open={filterOpen} />

@@ -12,7 +12,7 @@
   import DateDisplay from '$components/ui/DateDisplay.svelte';
   import DatePicker from '$components/ui/DatePicker.svelte';
   import Checkbox from '$components/ui/Checkbox.svelte';
-  import { slide } from 'svelte/transition';
+
 
   let {
     task,
@@ -105,6 +105,7 @@
   const showGlow = $derived(isAiTagged && (!viewed || data.isProposal));
 
   const expanded = $derived(bubbleStore.expandedTaskId === data.id);
+  const supportsVT = $derived(typeof document !== 'undefined' && !!document.startViewTransition);
 
   // --- Priority as presence ---
   const presenceOpacity = $derived.by(() => {
@@ -132,6 +133,16 @@
     if (p >= 5) return 'var(--shadow-md)';
     if (p >= 3) return 'var(--shadow-sm)';
     return 'none';
+  });
+
+  // --- Bubble size by priority (spatial gravity) ---
+  const bubbleWidth = $derived.by(() => {
+    const widths: Record<number, number> = { 5: 220, 4: 210, 3: 200, 2: 185, 1: 175 };
+    return widths[data.priority] ?? 200;
+  });
+  const bubbleMinHeight = $derived.by(() => {
+    const heights: Record<number, number> = { 5: 95, 4: 92, 3: 90, 2: 85, 1: 82 };
+    return heights[data.priority] ?? 90;
   });
 
   // --- Expanded state editing ---
@@ -359,7 +370,7 @@
     onkeydown={handleKeydown}
     data-transition-id="{data.id}"
     data-task-priority="{data.priority}"
-    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? '360px' : '200px'}; min-height: {expanded ? 'auto' : '90px'}; border-radius: 10px; background: {expanded ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border: {borderStyle}; padding: {expanded ? '18px 20px' : '14px 16px'}; cursor: pointer; box-shadow: {shadowStyle}{showGlow && !expanded ? ', inset 0 0 12px -4px var(--accent-glow)' : ''}; translate: {hovering && !expanded ? '0 -1px' : 'none'}; transition: width 200ms ease-out, min-height 200ms ease-out, background 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, opacity 200ms ease-out, padding 200ms ease-out, translate 200ms ease-out; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden;"
+    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? '360px' : `${bubbleWidth}px`}; min-height: {expanded ? 'auto' : `${bubbleMinHeight}px`}; border-radius: 10px; background: {expanded ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border: {borderStyle}; padding: {expanded ? '18px 20px' : '14px 16px'}; cursor: pointer; box-shadow: {shadowStyle}{showGlow && !expanded ? ', inset 0 0 12px -4px var(--accent-glow)' : ''}; translate: {hovering && !expanded ? '0 -1px' : 'none'}; transition: background 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, opacity 200ms ease-out, padding 200ms ease-out, translate 200ms ease-out; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden;"
   >
     <!-- Project corner triangle -->
     {#if projectColor}
@@ -396,7 +407,7 @@
 
     {:else}
       <!-- EXPANDED STATE -->
-      <div transition:slide={{ duration: 200 }} style="animation: expandIn 200ms ease-out;">
+      <div style="{supportsVT ? '' : 'animation: expandIn 200ms ease-out;'}">
         <!-- Editable title -->
         <input
           type="text"

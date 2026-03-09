@@ -73,7 +73,7 @@
     newFilterMode: string | null = filterMode,
     oldPath: string = '',
   ) {
-    bubbleStore.collapse();
+    bubbleStore.collapseImmediate();
 
     // Determine sidebar origins for flight animations
     const oldOrigin = sidebarRectsStore.getOrigin(oldPath) ?? getFallbackOrigin();

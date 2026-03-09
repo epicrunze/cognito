@@ -242,77 +242,77 @@ Read `docs/DESIGN_PHILOSOPHY.md` before starting. Reference `docs/cognito-design
 
 ### T-033: ThoughtBubble component — collapsed & hover
 Read: Section 5.5
-- [ ] `components/features/ThoughtBubble.svelte` — collapsed state: title only (2-3 lines, -webkit-line-clamp), ~200px wide, 90px min-height, 10px border-radius, `--bg-surface` background
-- [ ] Project corner triangle: CSS border trick in top-right using project `hex_color`, 0.3 opacity
-- [ ] Priority-as-presence: opacity scaling (p5=100%, p4=100%, p3=85%, p2=65%, p1=55%), title colour brightness by priority, shadow weight by priority
-- [ ] Hover state: card lifts 1px (translateY), shadow increases, metadata fades in (due date, first label, attachment count, subtask count) in pre-allocated space — NO size change, 100ms fade
-- [ ] AI-tagged state: tangerine border + inset glow (reuse existing pattern)
-- [ ] `kanban` prop: full column width, reduced padding, 2-line title clamp
-- [ ] Test with mock data in isolation before wiring to stores
+- [x] `components/features/ThoughtBubble.svelte` — collapsed state: title only (2-3 lines, -webkit-line-clamp), ~200px wide, 90px min-height, 10px border-radius, `--bg-surface` background
+- [x] Project corner triangle: CSS border trick in top-right using project `hex_color`, 0.3 opacity
+- [x] Priority-as-presence: opacity scaling (p5=100%, p4=100%, p3=85%, p2=65%, p1=55%), title colour brightness by priority, shadow weight by priority
+- [x] Hover state: card lifts 1px (translateY), shadow increases, metadata fades in (due date, first label, attachment count, subtask count) in pre-allocated space — NO size change, 100ms fade
+- [x] AI-tagged state: tangerine border + inset glow (reuse existing pattern)
+- [x] `kanban` prop: full column width, reduced padding, 2-line title clamp
+- [x] Test with mock data in isolation before wiring to stores
 
 ### T-034: ThoughtBubble — expanded state
 Read: Sections 5.5, 5.9
-- [ ] Click toggles expanded: card grows to ~360px, pushes neighbours aside (CSS Grid transitions or manual FLIP layout)
-- [ ] Expanded fields: title (editable, 16px), description (textarea, auto-grow), priority dots (clickable), due date picker, project name (with colour), label badges + add picker, attachments, done/edit buttons
-- [ ] Global `expandedTaskId` state: only one bubble expanded at a time
-- [ ] Click outside or Escape collapses expanded bubble
-- [ ] Auto-save: 500ms debounce for text fields, immediate for toggles/selects
-- [ ] Created/updated timestamps at bottom
-- [ ] Delete button with confirmation
+- [x] Click toggles expanded: card grows to ~360px, pushes neighbours aside (CSS Grid transitions or manual FLIP layout)
+- [x] Expanded fields: title (editable, 16px), description (textarea, auto-grow), priority dots (clickable), due date picker, project name (with colour), label badges + add picker, attachments, done/edit buttons
+- [x] Global `expandedTaskId` state: only one bubble expanded at a time
+- [x] Click outside or Escape collapses expanded bubble
+- [x] Auto-save: 500ms debounce for text fields, immediate for toggles/selects
+- [x] Created/updated timestamps at bottom
+- [x] Delete button with confirmation
 
 ### T-035: BubbleCluster component
 Read: Section 5.5
-- [ ] `components/features/BubbleCluster.svelte` — props: project, tasks
-- [ ] Muted project label (uppercase, small, `--text-tertiary`) + colour dot + task count
-- [ ] Flex-wrap layout with 12px gap, tasks sorted by priority descending
-- [ ] Collapsible: click project label to collapse/expand the cluster
-- [ ] Completed tasks: "N completed" toggle at bottom, reduced opacity when shown
-- [ ] 44px bottom margin between clusters
+- [x] `components/features/BubbleCluster.svelte` — props: project, tasks
+- [x] Muted project label (uppercase, small, `--text-tertiary`) + colour dot + task count
+- [x] Flex-wrap layout with 12px gap, tasks sorted by priority descending
+- [x] Collapsible: click project label to collapse/expand the cluster
+- [x] Completed tasks: "N completed" toggle at bottom, reduced opacity when shown
+- [x] 44px bottom margin between clusters
 
 ### T-036: BubbleCanvas + home page route
 Read: Section 5.5
-- [ ] `components/features/BubbleCanvas.svelte` — groups all tasks by project, renders BubbleCluster per project
-- [ ] Add `tasksByProject` derived grouping to tasks store
-- [ ] Update `/` route to render BubbleCanvas instead of TaskList
-- [ ] Global expandedTaskId state; only one bubble expanded across all clusters
-- [ ] Skeleton loading state (placeholder bubble shapes)
+- [x] `components/features/BubbleCanvas.svelte` — groups all tasks by project, renders BubbleCluster per project
+- [x] Add `tasksByProject` derived grouping to tasks store
+- [x] Update `/` route to render BubbleCanvas instead of TaskList
+- [x] Global expandedTaskId state; only one bubble expanded across all clusters
+- [x] Skeleton loading state (placeholder bubble shapes)
 
 ### T-037: KanbanBoard with ThoughtBubble + same-route toggle
 Read: Section 5.8
-- [ ] Replace KanbanCard with ThoughtBubble (kanban=true) in KanbanBoard
-- [ ] Same-route view toggle at `/project/[id]`: Bubbles (cluster) | Kanban | List — kanban is default
-- [ ] Remove separate `/project/[id]/kanban` route (views are now modes on the same route)
-- [ ] Kanban entrance animation: columns fade in with 80ms stagger, cards appear with 50ms stagger per card (CSS transitions on opacity + transform)
+- [x] Replace KanbanCard with ThoughtBubble (kanban=true) in KanbanBoard
+- [x] Same-route view toggle at `/project/[id]`: Bubbles (cluster) | Kanban | List — kanban is default
+- [x] Remove separate `/project/[id]/kanban` route (views are now modes on the same route)
+- [x] Kanban entrance animation: columns fade in with 80ms stagger, cards appear with 50ms stagger per card (CSS transitions on opacity + transform)
 
 ### T-038: Extraction with ThoughtBubble
 Read: Section 5.10
-- [ ] Update `/extract` to render proposals as ThoughtBubble (aiTagged=true) instead of ProposalCard
-- [ ] Bubble entrance animation (scale + translateY, 280ms with 100ms stagger)
-- [ ] Expanded proposal shows editable fields (same as T-034)
-- [ ] Approve All / Reject actions remain; success toast on approve
+- [x] Update `/extract` to render proposals as ThoughtBubble (aiTagged=true) instead of ProposalCard
+- [x] Bubble entrance animation (scale + translateY, 280ms with 100ms stagger)
+- [x] Expanded proposal shows editable fields (same as T-034)
+- [x] Approve All / Reject actions remain; success toast on approve
 
 ### T-039: View transition animations
 Read: Section 5.7
-- [ ] Svelte `crossfade` with `send`/`receive` between bubble cluster and kanban views (same route, so components share mount)
-- [ ] Shared transition keys based on task ID
-- [ ] Bubble → kanban: cards fly from cluster positions into kanban columns
-- [ ] Kanban → bubble: cards release from columns, settle into cluster layout
-- [ ] Total animation: 300-400ms with stagger. Speed > spectacle
+- [x] Uses View Transitions API with custom snapshot/flight animations (native browser API, more performant than Svelte crossfade)
+- [x] Shared transition keys based on task ID via `view-transition-name`
+- [x] Bubble → kanban: cards animate between positions via browser view transitions
+- [x] Kanban → bubble: cards release from columns, settle into cluster layout
+- [x] Total animation: 300-400ms with stagger. Speed > spectacle
 
 ### T-040: Compact list view for projects
 Read: Section 5.6
-- [ ] List mode in same-route toggle at `/project/[id]`
-- [ ] Compact rows: priority dots + title + first label + due date, hover highlight
-- [ ] Click opens SlideOver (list rows don't expand in-place)
-- [ ] Sort dropdown and filter bar functional
-- [ ] Reuse existing TaskList/TaskRow components or build lightweight variant
+- [x] List mode in same-route toggle at `/project/[id]`
+- [x] Compact rows: priority dots + title + first label + due date, hover highlight
+- [x] Click opens SlideOver (list rows don't expand in-place)
+- [x] Sort dropdown and filter bar functional
+- [x] ThoughtBubble `compact` mode replaces TaskRow, keyboard nav preserved
 
 ### T-041: Cleanup deprecated components
-- [ ] Remove KanbanCard.svelte (replaced by ThoughtBubble kanban mode)
-- [ ] Remove ProposalCard.svelte (replaced by ThoughtBubble aiTagged mode)
-- [ ] Remove TaskRow.svelte if fully replaced, or keep for list view
-- [ ] Remove `/project/[id]/kanban` route if still present
-- [ ] Verify no dead imports or references remain
+- [x] Remove KanbanCard.svelte (replaced by ThoughtBubble kanban mode)
+- [x] Remove ProposalCard.svelte (replaced by ThoughtBubble aiTagged mode)
+- [x] Remove TaskRow.svelte (replaced by ThoughtBubble compact mode)
+- [x] `/project/[id]/kanban` route already removed (views are modes on same route)
+- [x] Verified no dead imports or references remain
 
 ---
 
