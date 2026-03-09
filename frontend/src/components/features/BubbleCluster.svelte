@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Project, Task } from '$lib/types';
   import ThoughtBubble from './ThoughtBubble.svelte';
+  import SeedBubble from './SeedBubble.svelte';
 
   let {
     project,
@@ -33,6 +34,7 @@
     {#each activeTasks as task (task.id)}
       <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
     {/each}
+    <SeedBubble projectId={project.id} />
   </div>
 
   <!-- Completed section -->

@@ -7,7 +7,7 @@
 
 import { goto } from '$app/navigation';
 import { PUBLIC_API_URL } from '$env/static/public';
-import type { Bucket, ChatMessage, Label, LabelDescription, LabelStats, Project, ProjectView, Subtask, Task, TaskAttachment, TaskProposal } from '$lib/types';
+import type { Bucket, ChatAction, ChatMessage, Label, LabelDescription, LabelStats, Project, ProjectView, Subtask, Task, TaskAttachment, TaskProposal } from '$lib/types';
 
 const BASE = PUBLIC_API_URL ? `${PUBLIC_API_URL}/api` : '/api';
 
@@ -380,6 +380,8 @@ export const chatApi = {
     return request<{
       reply: string;
       proposals: TaskProposal[];
+      actions: ChatAction[];
+      pending_actions: ChatAction[];
       conversation_id: string;
     }>('/chat', {
       method: 'POST',
@@ -394,6 +396,41 @@ export const chatApi = {
       created_at: string;
       updated_at: string;
     }>(`/chat/${conversationId}`);
+  },
+
+  executeAction(action: ChatAction) {
+    return request<{ success: boolean }>('/chat/execute-action', {
+      method: 'POST',
+      body: JSON.stringify({
+        type: action.type,
+        task_id: action.task_id,
+        changes: action.changes,
+        project_id: action.project_id,
+      }),
+    });
+  },
+};
+
+// ── Config ──────────────────────────────────────────────────────────────────
+
+export interface AgentConfigResponse {
+  default_project_id: number | null;
+  ollama_model: string | null;
+  gemini_model: string | null;
+  gcal_calendar_id: string | null;
+  system_prompt_override: string | null;
+}
+
+export const configApi = {
+  get() {
+    return request<AgentConfigResponse>('/config');
+  },
+
+  update(data: Partial<AgentConfigResponse>) {
+    return request<AgentConfigResponse>('/config', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   },
 };
 

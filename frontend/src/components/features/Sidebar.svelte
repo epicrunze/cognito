@@ -5,6 +5,8 @@
   import { registerRect } from '$lib/stores/sidebarRects.svelte';
   import Tip from '$components/ui/Tip.svelte';
 
+  let { ontoggleextract, extractOpen = false }: { ontoggleextract?: () => void; extractOpen?: boolean } = $props();
+
   const currentPath = $derived($page.url.pathname);
 
   // Nav counts
@@ -51,7 +53,6 @@
   }
 
   const isSettingsPage = $derived(currentPath.startsWith('/settings'));
-  const isExtractPage = $derived(currentPath === '/extract');
 </script>
 
 <nav
@@ -143,11 +144,11 @@
   <!-- AI Extract -->
   <div class="extract-zone">
     <Tip text="AI Extract" side="right">
-      <a href="/extract" class="extract-btn" class:extract-active={isExtractPage} aria-label="AI Extract">
+      <button class="extract-btn" class:extract-active={extractOpen} aria-label="AI Extract" onclick={() => ontoggleextract?.()}>
         <span class="diamond-icon">
           {@html extractIcon}
         </span>
-      </a>
+      </button>
     </Tip>
   </div>
 

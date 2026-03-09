@@ -101,13 +101,20 @@ def init_schema(conn: sqlite3.Connection) -> None:
     # ── Agent config (singleton — always id = 1) ──────────────────────────────
     conn.execute("""
         CREATE TABLE IF NOT EXISTS agent_config (
-            id                 INTEGER PRIMARY KEY,
-            default_project_id INTEGER,
-            ollama_model       TEXT DEFAULT 'qwen3:4b',
-            gemini_model       TEXT DEFAULT 'gemini-3.1-flash-lite-preview',
-            gcal_calendar_id   TEXT
+            id                      INTEGER PRIMARY KEY,
+            default_project_id      INTEGER,
+            ollama_model            TEXT DEFAULT 'qwen3:4b',
+            gemini_model            TEXT DEFAULT 'gemini-3.1-flash-lite-preview',
+            gcal_calendar_id        TEXT,
+            system_prompt_override  TEXT
         )
     """)
+
+    # Migration: add system_prompt_override to existing DBs
+    try:
+        conn.execute("ALTER TABLE agent_config ADD COLUMN system_prompt_override TEXT")
+    except Exception:
+        pass  # Column already exists
 
     # ── Label descriptions ────────────────────────────────────────────────────
     conn.execute("""
@@ -138,9 +145,16 @@ def init_schema(conn: sqlite3.Connection) -> None:
             role            TEXT NOT NULL,
             content         TEXT NOT NULL,
             proposals_json  TEXT,
+            actions_json    TEXT,
             created_at      TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S', 'now'))
         )
     """)
+
+    # Migration: add actions_json to existing DBs
+    try:
+        conn.execute("ALTER TABLE conversation_messages ADD COLUMN actions_json TEXT")
+    except Exception:
+        pass  # Column already exists
 
     # Seed the singleton config row if it doesn't exist
     conn.execute("INSERT OR IGNORE INTO agent_config (id) VALUES (1)")

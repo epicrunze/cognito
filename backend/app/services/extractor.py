@@ -169,6 +169,17 @@ class TaskExtractor:
         today = date.today().isoformat()
         system_prompt = EXTRACTION_SYSTEM_PROMPT.format(today=today)
 
+        # Append user's custom system prompt if configured
+        try:
+            with get_db() as conn:
+                row = conn.execute(
+                    "SELECT system_prompt_override FROM agent_config WHERE id = 1"
+                ).fetchone()
+                if row and row[0]:
+                    system_prompt += f"\n\nAdditional user instructions:\n{row[0]}"
+        except Exception:
+            pass  # Don't fail extraction if config read fails
+
         user_message = text
         if project_hint:
             user_message = f"[Project context: {project_hint}]\n\n{user_message}"

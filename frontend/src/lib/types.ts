@@ -133,6 +133,7 @@ export interface AgentConfig {
   ollama_model: string;
   gemini_model: string;
   gcal_calendar_id: string | null;
+  system_prompt_override: string | null;
 }
 
 export interface LabelDescription {
@@ -147,11 +148,22 @@ export interface LabelStats {
   [label_id: number]: { total: number; done: number; open: number };
 }
 
+export interface ChatAction {
+  type: 'complete' | 'update' | 'move' | 'delete';
+  task_id: number;
+  title?: string;
+  task_title?: string;
+  fields?: string[];
+  project_id?: number;
+  changes?: Record<string, unknown>;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   created_at?: string;
   proposals?: TaskProposal[];
+  actions?: ChatAction[];
 }
 
 export interface ChatSession {

@@ -5,15 +5,24 @@
   let {
     open = false,
     onclose,
+    width = 480,
     children,
   }: {
     open: boolean;
     onclose?: () => void;
+    width?: number;
     children: Snippet;
   } = $props();
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') onclose?.();
+    if (e.key === 'Escape') {
+      const el = document.activeElement;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+        (el as HTMLElement).blur();
+        return;
+      }
+      onclose?.();
+    }
   }
 </script>
 
@@ -31,8 +40,8 @@
 
   <!-- Panel -->
   <div
-    transition:fly={{ x: 480, duration: 300 }}
-    style="position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 100vw; background: var(--bg-surface); border-left: 1px solid var(--border-default); box-shadow: var(--shadow-slide-over); z-index: 101; overflow-y: auto;"
+    transition:fly={{ x: width, duration: 300 }}
+    style="position: fixed; top: 0; right: 0; bottom: 0; width: {width}px; max-width: 100vw; background: var(--bg-surface); border-left: 1px solid var(--border-default); box-shadow: var(--shadow-slide-over); z-index: 101; display: flex; flex-direction: column; overflow: hidden;"
   >
     {@render children()}
   </div>

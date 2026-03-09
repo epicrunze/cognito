@@ -214,8 +214,12 @@
   function debounceSaveDescription() {
     if (descTimer) clearTimeout(descTimer);
     descTimer = setTimeout(() => {
-      if (editDescription !== data.description && task) {
-        updateTask(task.id, { description: editDescription });
+      if (editDescription !== data.description) {
+        if (data.isProposal && proposal) {
+          saveProposalField({ description: editDescription });
+        } else if (task) {
+          updateTask(task.id, { description: editDescription });
+        }
       }
     }, 500);
   }
@@ -419,17 +423,15 @@
         />
 
         <!-- Editable description -->
-        {#if !data.isProposal}
-          <textarea
-            bind:value={editDescription}
-            oninput={debounceSaveDescription}
-            onclick={(e) => e.stopPropagation()}
-            placeholder="Add description..."
-            rows="2"
-            class="bubble-editable"
-            style="width: 100%; padding: 5px 8px; margin-bottom: 10px; font-size: 13.5px; color: var(--text-secondary); resize: none; line-height: 1.55;"
-          ></textarea>
-        {/if}
+        <textarea
+          bind:value={editDescription}
+          oninput={debounceSaveDescription}
+          onclick={(e) => e.stopPropagation()}
+          placeholder="Add description..."
+          rows="2"
+          class="bubble-editable"
+          style="width: 100%; padding: 5px 8px; margin-bottom: 10px; font-size: 13.5px; color: var(--text-secondary); resize: none; line-height: 1.55;"
+        ></textarea>
 
         <!-- Metadata row -->
         <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: center; padding-left: 8px;">

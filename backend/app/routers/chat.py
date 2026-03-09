@@ -1,9 +1,7 @@
 """
 Router: /api/chat
 
-Conversational task extraction — chat mode.
-Users can have a back-and-forth conversation with the AI,
-and it will extract tasks as proposals inline.
+Conversational task extraction + task modification via ChatAgent.
 """
 
 import json
@@ -16,7 +14,8 @@ from pydantic import BaseModel
 from app.auth.dependencies import get_current_user
 from app.database import get_db
 from app.models.user import User
-from app.services.extractor import TaskExtractor
+from app.services.agent import ChatAgent
+from app.services.vikunja import vikunja
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ async def chat(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Send a chat message. Returns AI reply + any extracted proposals.
+    Send a chat message. Returns AI reply + any extracted proposals + actions.
 
     Creates a new conversation if conversation_id is not provided.
     """
@@ -65,64 +64,42 @@ async def chat(
         ).fetchall()
         history = [{"role": r[0], "content": r[1]} for r in rows]
 
-    # Build context for extraction
-    context_parts = []
-    for msg in history[-10:]:  # Last 10 messages for context
-        context_parts.append(f"{msg['role'].upper()}: {msg['content']}")
-    context_parts.append(f"USER: {body.message}")
-    full_text = "\n\n".join(context_parts)
-
-    # Extract tasks
-    extractor = TaskExtractor()
+    # Process via ChatAgent
+    agent = ChatAgent()
     try:
-        proposals = await extractor.extract(
-            text=full_text,
-            source_type="chat",
+        result = await agent.process(
+            message=body.message,
+            history=history,
             model=body.model,
         )
-    except Exception as e:
-        logger.exception("Chat extraction failed")
-        proposals = []
-
-    # Generate a conversational reply
-    from app.models_registry import get_model_id
-    from app.services.llm import get_llm_client
-
-    resolved_model = get_model_id(body.model)
-    llm = get_llm_client(model=resolved_model)
-
-    reply_prompt = (
-        "You are a helpful task management assistant. The user is having a conversation with you. "
-        "Respond naturally and briefly. If you extracted tasks, acknowledge them. "
-        "Keep responses under 3 sentences unless the user asks a detailed question."
-    )
-
-    reply_messages = history[-6:] + [{"role": "user", "content": body.message}]
-    if proposals:
-        task_summary = ", ".join(f'"{p.title}"' for p in proposals[:5])
-        reply_messages.append({
-            "role": "assistant",
-            "content": f"[System: I extracted these tasks: {task_summary}]",
-        })
-
-    try:
-        reply = await llm.generate(
-            messages=reply_messages,
-            system_prompt=reply_prompt,
-        )
     except Exception:
-        reply = f"I extracted {len(proposals)} task{'s' if len(proposals) != 1 else ''} from your message." if proposals else "I couldn't extract any tasks from that. Could you give me more details?"
+        logger.exception("ChatAgent processing failed")
+        result = {
+            "reply": "Sorry, I had trouble processing that. Could you try again?",
+            "proposals": [],
+            "actions": [],
+            "pending_actions": [],
+        }
+
+    reply = result["reply"]
+    proposals = result["proposals"]
+    actions = result["actions"]
+    pending_actions = result["pending_actions"]
 
     # Save messages
     proposals_json = json.dumps([p.model_dump(mode="json") for p in proposals]) if proposals else None
+    all_actions = actions + pending_actions
+    actions_json = json.dumps(all_actions) if all_actions else None
+
     with get_db() as conn:
         conn.execute(
             "INSERT INTO conversation_messages (conversation_id, role, content) VALUES (?, 'user', ?)",
             [conversation_id, body.message],
         )
         conn.execute(
-            "INSERT INTO conversation_messages (conversation_id, role, content, proposals_json) VALUES (?, 'assistant', ?, ?)",
-            [conversation_id, reply, proposals_json],
+            "INSERT INTO conversation_messages (conversation_id, role, content, proposals_json, actions_json) "
+            "VALUES (?, 'assistant', ?, ?, ?)",
+            [conversation_id, reply, proposals_json, actions_json],
         )
         conn.execute(
             "UPDATE conversations SET updated_at = strftime('%Y-%m-%dT%H:%M:%S', 'now') WHERE id = ?",
@@ -132,8 +109,47 @@ async def chat(
     return {
         "reply": reply,
         "proposals": [p.model_dump(mode="json") for p in proposals],
+        "actions": actions,
+        "pending_actions": pending_actions,
         "conversation_id": conversation_id,
     }
+
+
+class ExecuteActionRequest(BaseModel):
+    type: str
+    task_id: int
+    changes: dict | None = None
+    project_id: int | None = None
+
+
+@router.post("/execute-action")
+async def execute_action(
+    body: ExecuteActionRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Execute a previously pending action after user approval."""
+    try:
+        if body.type == "update":
+            if not body.changes:
+                raise HTTPException(status_code=400, detail="changes required for update action")
+            await vikunja.update_task(body.task_id, body.changes)
+        elif body.type == "complete":
+            await vikunja.update_task(body.task_id, {"done": True})
+        elif body.type == "move":
+            if not body.project_id:
+                raise HTTPException(status_code=400, detail="project_id required for move action")
+            await vikunja.update_task(body.task_id, {"project_id": body.project_id})
+        elif body.type == "delete":
+            await vikunja.delete_task(body.task_id)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown action type: {body.type}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Failed to execute action")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"success": True}
 
 
 @router.get("/{conversation_id}")
@@ -151,15 +167,18 @@ async def get_conversation(
             raise HTTPException(status_code=404, detail="Conversation not found")
 
         rows = conn.execute(
-            "SELECT role, content, proposals_json, created_at FROM conversation_messages WHERE conversation_id = ? ORDER BY id",
+            "SELECT role, content, proposals_json, actions_json, created_at "
+            "FROM conversation_messages WHERE conversation_id = ? ORDER BY id",
             [conversation_id],
         ).fetchall()
 
     messages = []
     for r in rows:
-        msg = {"role": r[0], "content": r[1], "created_at": r[3]}
+        msg = {"role": r[0], "content": r[1], "created_at": r[4]}
         if r[2]:
             msg["proposals"] = json.loads(r[2])
+        if r[3]:
+            msg["actions"] = json.loads(r[3])
         messages.append(msg)
 
     return {
