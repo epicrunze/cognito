@@ -4,7 +4,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
-  import { authStore, tasksStore, projectsStore, labelsStore } from '$lib/stores.svelte';
+  import { authStore, tasksStore, projectsStore, labelsStore, bubbleStore } from '$lib/stores.svelte';
   import { shortcuts } from '$lib/shortcuts';
   import Sidebar from '$components/features/Sidebar.svelte';
   import TaskPanel from '$components/features/TaskPanel.svelte';
@@ -15,6 +15,8 @@
   import ToastContainer from '$components/ui/ToastContainer.svelte';
   import { searchStore } from '$lib/stores/search.svelte';
   import { filterStore } from '$lib/stores/filter.svelte';
+  import { transitionStore } from '$lib/stores/transition.svelte';
+  import ViewOrchestrator from '$components/features/ViewOrchestrator.svelte';
 
   let { children }: { children: Snippet } = $props();
 
@@ -26,6 +28,10 @@
   let shortcutsOpen = $state(false);
 
   const isLoginPage = $derived($page.url.pathname === '/login');
+  const isTaskViewRoute = $derived.by(() => {
+    const path = $page.url.pathname;
+    return path === '/' || path === '/upcoming' || path === '/overdue' || path.startsWith('/project/');
+  });
 
   // Page title mapping
   const pageTitles: Record<string, string> = {
@@ -39,8 +45,7 @@
     const path = $page.url.pathname;
     if (path.startsWith('/project/')) {
       const project = projectsStore.projects.find(p => p.id === Number(path.split('/')[2]));
-      const suffix = path.endsWith('/kanban') ? ' — Kanban' : '';
-      return (project?.title ?? 'Project') + suffix;
+      return project?.title ?? 'Project';
     }
     return pageTitles[path] ?? 'Cognito';
   });
@@ -55,6 +60,7 @@
       // tasksStore.fetchAll() is handled reactively by TaskList's $effect
       projectsStore.fetchAll();
       labelsStore.fetchAll();
+      labelsStore.fetchStats();
     }
   });
 
@@ -68,6 +74,14 @@
     });
     window.addEventListener('keydown', shortcuts.handleKeydown);
     return () => window.removeEventListener('keydown', shortcuts.handleKeydown);
+  });
+
+  // Collapse expanded bubble on route change (skip task-view routes — orchestrator handles those)
+  $effect(() => {
+    const path = $page.url.pathname;
+    if (!isTaskViewRoute) {
+      bubbleStore.collapse();
+    }
   });
 
   // Derive default project from current route
@@ -93,10 +107,12 @@
   </div>
 {:else if authStore.authenticated}
   <div style="display: flex; height: 100vh;">
-    <Sidebar bind:collapsed />
+    <div style="flex-shrink: 0; opacity: {transitionStore.chromeFaded ? 0 : 1}; transition: opacity 200ms;">
+      <Sidebar bind:collapsed />
+    </div>
     <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;">
       <!-- Top bar -->
-      <div style="display: flex; align-items: center; padding: 10px 24px; border-bottom: 1px solid var(--border-subtle); gap: 10px; flex-shrink: 0;">
+      <div style="display: flex; align-items: center; padding: 10px 24px; border-bottom: 1px solid var(--border-subtle); gap: 10px; flex-shrink: 0; opacity: {transitionStore.chromeFaded ? 0 : 1}; transition: opacity 200ms;">
         <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; flex-shrink: 0; margin-right: auto;">{pageTitle}</span>
         <Input placeholder="Search..." bind:value={searchValue} bind:ref={searchRef} height={34} oninput={handleSearchInput} style="width: 180px; flex-shrink: 1;" />
         <Button variant={filterOpen || filterStore.activeFilterCount > 0 ? 'accent' : 'outline'} size="sm" onclick={() => filterOpen = !filterOpen}>Filter{filterStore.activeFilterCount > 0 ? ` (${filterStore.activeFilterCount})` : ''}</Button>
@@ -108,7 +124,11 @@
 
       <!-- Content -->
       <div style="flex: 1; overflow-y: auto;">
-        {@render children()}
+        {#if isTaskViewRoute}
+          <ViewOrchestrator />
+        {:else}
+          {@render children()}
+        {/if}
       </div>
     </div>
   </div>

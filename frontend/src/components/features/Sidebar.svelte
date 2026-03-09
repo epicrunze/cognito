@@ -112,6 +112,9 @@
       <a href="/settings" class="snav-btn">
         <span style="font-size: 13px; color: var(--text-tertiary);">Settings</span>
       </a>
+      <a href="/settings/labels" class="snav-btn" style="padding-left: 24px;">
+        <span style="font-size: 12px; color: var(--text-tertiary);">Labels</span>
+      </a>
     </div>
     <div style="padding: 12px 20px; margin-top: 8px; border-top: 1px solid var(--border-subtle);">
       <span style="font-size: 13px; color: var(--text-tertiary);">{authStore.user?.email ?? ''}</span>

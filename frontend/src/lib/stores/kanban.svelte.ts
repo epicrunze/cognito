@@ -1,5 +1,6 @@
 import { kanbanApi, tasksApi } from '$lib/api';
 import { optimisticUpdate } from '$lib/optimistic';
+import { addToast } from '$lib/stores/toast.svelte';
 import type { Bucket, ProjectView, Task } from '$lib/types';
 
 function normalizeTask(t: Task): Task {
@@ -17,6 +18,9 @@ function createKanbanStore() {
   // Lightweight task→bucket name lookup for list view badges
   let taskBucketNames = $state<Map<number, string>>(new Map());
   let bucketMapFetchedFor = new Set<number>();
+
+  // One-shot skip flag for FLIP transitions
+  let _skipNextFetch = false;
 
   return {
     get projectId() { return projectId; },
@@ -76,9 +80,62 @@ function createKanbanStore() {
         }
       } catch (e) {
         error = e instanceof Error ? e.message : 'Failed to load kanban board';
+        addToast(error, 'error');
       } finally {
         loading = false;
       }
+    },
+
+    /** Pre-fetch board data without setting loading state (for FLIP transitions) */
+    async prefetch(pid: number) {
+      projectId = pid;
+      error = null;
+      try {
+        const viewsRes = await kanbanApi.listViews(pid);
+        let kanbanView = viewsRes.views.find(
+          (v) => v.view_kind === 'kanban'
+        );
+        if (!kanbanView) {
+          kanbanView = await kanbanApi.createView(pid, 'Kanban', 'kanban');
+        }
+        view = kanbanView;
+
+        const data = await kanbanApi.listViewTasks(pid, kanbanView.id);
+        if (Array.isArray(data) && data.length > 0 && data[0]?.id != null) {
+          buckets = data.map((b: Bucket) => ({ ...b, tasks: undefined })) as Bucket[];
+          const newMap = new Map<number, Task[]>();
+          for (const b of data) {
+            newMap.set(b.id, (b.tasks ?? []).map(t => ({ ...normalizeTask(t), bucket_id: b.id })));
+          }
+          tasksByBucket = newMap;
+
+          const nameMap = new Map(taskBucketNames);
+          for (const b of data) {
+            for (const t of b.tasks ?? []) {
+              nameMap.set(t.id, b.title);
+            }
+          }
+          taskBucketNames = nameMap;
+          bucketMapFetchedFor.add(pid);
+        } else {
+          const bucketsRes = await kanbanApi.listBuckets(pid, kanbanView.id);
+          buckets = bucketsRes.buckets;
+          const newMap = new Map<number, Task[]>();
+          for (const b of buckets) {
+            newMap.set(b.id, []);
+          }
+          tasksByBucket = newMap;
+        }
+      } catch (e) {
+        error = e instanceof Error ? e.message : 'Failed to load kanban board';
+        throw e;
+      }
+    },
+
+    skipNextFetch() { _skipNextFetch = true; },
+    shouldSkipFetch() {
+      if (_skipNextFetch) { _skipNextFetch = false; return true; }
+      return false;
     },
 
     async fetchBucketMap(pid: number) {
@@ -172,8 +229,8 @@ function createKanbanStore() {
         const newMap = new Map(tasksByBucket);
         newMap.set(bucket.id, []);
         tasksByBucket = newMap;
-      } catch {
-        // Error handled by api.ts
+      } catch (e) {
+        addToast(e instanceof Error ? e.message : 'Failed to create bucket', 'error');
       }
     },
 
@@ -190,8 +247,8 @@ function createKanbanStore() {
         const tasks = [...(newMap.get(bucketId) ?? []), normalized];
         newMap.set(bucketId, tasks);
         tasksByBucket = newMap;
-      } catch {
-        // Error handled by api.ts
+      } catch (e) {
+        addToast(e instanceof Error ? e.message : 'Failed to create task', 'error');
       }
     },
 

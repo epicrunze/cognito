@@ -7,7 +7,7 @@
 
 import { goto } from '$app/navigation';
 import { PUBLIC_API_URL } from '$env/static/public';
-import type { Bucket, Label, Project, ProjectView, Subtask, Task, TaskAttachment, TaskProposal } from '$lib/types';
+import type { Bucket, ChatMessage, Label, LabelDescription, LabelStats, Project, ProjectView, Subtask, Task, TaskAttachment, TaskProposal } from '$lib/types';
 
 const BASE = PUBLIC_API_URL ? `${PUBLIC_API_URL}/api` : '/api';
 
@@ -131,6 +131,14 @@ export const tasksApi = {
   /** Remove a label from a task. */
   removeLabel(taskId: number, labelId: number) {
     return request<void>(`/tasks/${taskId}/labels/${labelId}`, { method: 'DELETE' });
+  },
+
+  /** Auto-tag tasks using LLM + label descriptions. */
+  autoTag(taskIds?: number[], model?: string) {
+    return request<{ tagged: number; results: Array<{ task_id: number; labels_added: number[] }> }>(
+      '/tasks/auto-tag',
+      { method: 'POST', body: JSON.stringify({ task_ids: taskIds, model }) },
+    );
   },
 };
 
@@ -294,6 +302,25 @@ export const labelsApi = {
   create(data: { title: string; hex_color?: string }) {
     return request<Label>('/labels', { method: 'PUT', body: JSON.stringify(data) });
   },
+
+  descriptions() {
+    return request<{ descriptions: LabelDescription[] }>('/labels/descriptions');
+  },
+
+  upsertDescription(labelId: number, data: { title: string; description: string }) {
+    return request<LabelDescription>(`/labels/${labelId}/description`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteDescription(labelId: number) {
+    return request<{ success: boolean }>(`/labels/${labelId}/description`, { method: 'DELETE' });
+  },
+
+  stats() {
+    return request<{ stats: LabelStats }>('/labels/stats');
+  },
 };
 
 // ── Proposals ──────────────────────────────────────────────────────────────
@@ -343,6 +370,30 @@ export interface ModelOption {
 export const modelsApi = {
   list() {
     return request<ModelOption[]>('/models');
+  },
+};
+
+// ── Chat ────────────────────────────────────────────────────────────────────
+
+export const chatApi = {
+  send(message: string, conversationId?: string, model?: string) {
+    return request<{
+      reply: string;
+      proposals: TaskProposal[];
+      conversation_id: string;
+    }>('/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, conversation_id: conversationId, model }),
+    });
+  },
+
+  getConversation(conversationId: string) {
+    return request<{
+      conversation_id: string;
+      messages: ChatMessage[];
+      created_at: string;
+      updated_at: string;
+    }>(`/chat/${conversationId}`);
   },
 };
 

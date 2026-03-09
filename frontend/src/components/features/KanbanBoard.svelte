@@ -35,6 +35,7 @@
   });
 
   $effect(() => {
+    if (kanbanStore.shouldSkipFetch()) return;
     kanbanStore.fetchBoard(projectId);
   });
 

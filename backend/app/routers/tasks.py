@@ -16,7 +16,9 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app.database import get_db
 from app.models.user import User
+from app.services.tagger import AutoTagger
 from app.services.vikunja import VikunjaError, vikunja
 
 logger = logging.getLogger(__name__)
@@ -228,6 +230,79 @@ async def remove_label(
     except VikunjaError as e:
         logger.error("Failed to remove label %s from task %s: %s", label_id, task_id, e)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+# ── Auto-tag ─────────────────────────────────────────────────────────────
+
+
+class AutoTagRequest(BaseModel):
+    task_ids: Optional[list[int]] = None
+    model: Optional[str] = None
+
+
+@router.post("/auto-tag")
+async def auto_tag(
+    body: AutoTagRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Auto-tag tasks using LLM + label descriptions."""
+    # Load label descriptions
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT label_id, title, description FROM label_descriptions"
+        ).fetchall()
+    label_descriptions = [{"label_id": r[0], "title": r[1], "description": r[2]} for r in rows]
+
+    if not label_descriptions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No label descriptions configured. Add descriptions in Settings > Labels first.",
+        )
+
+    # Fetch tasks
+    try:
+        if body.task_ids:
+            tasks = []
+            for tid in body.task_ids:
+                tasks.append(await vikunja.get_task(tid))
+        else:
+            all_tasks = await vikunja.list_tasks(per_page=200)
+            tasks = [t for t in all_tasks if not t.get("done") and not (t.get("labels") or [])]
+    except VikunjaError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+    if not tasks:
+        return {"tagged": 0, "results": []}
+
+    # Get LLM suggestions
+    from app.models_registry import get_model_id
+    model = get_model_id(body.model) if body.model else None
+    tagger = AutoTagger()
+    suggestions = await tagger.suggest_labels(tasks, label_descriptions, model=model)
+
+    # Apply labels
+    results = []
+    tagged = 0
+    for task in tasks:
+        tid = task["id"]
+        label_ids = suggestions.get(tid, [])
+        if not label_ids:
+            continue
+        existing_label_ids = {l["id"] for l in (task.get("labels") or [])}
+        added = []
+        for lid in label_ids:
+            if lid in existing_label_ids:
+                continue
+            try:
+                await vikunja.add_label_to_task(tid, lid)
+                added.append(lid)
+            except VikunjaError:
+                logger.warning("Failed to add label %d to task %d", lid, tid)
+        if added:
+            tagged += 1
+            results.append({"task_id": tid, "labels_added": added})
+
+    return {"tagged": tagged, "results": results}
 
 
 # ── Attachments ──────────────────────────────────────────────────────────

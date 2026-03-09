@@ -5,3 +5,4 @@ export { projectsStore } from '$lib/stores/projects.svelte';
 export { proposalsStore } from '$lib/stores/proposals.svelte';
 export { labelsStore } from '$lib/stores/labels.svelte';
 export { updateTask, toggleDone, deleteTask } from '$lib/stores/taskMutations';
+export { bubbleStore } from '$lib/stores/bubble.svelte';

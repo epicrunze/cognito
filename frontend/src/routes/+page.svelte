@@ -1,5 +1,1 @@
-<script lang="ts">
-  import TaskList from '$components/features/TaskList.svelte';
-</script>
-
-<TaskList />
+<!-- Rendered by ViewOrchestrator in layout -->

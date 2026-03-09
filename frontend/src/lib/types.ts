@@ -135,14 +135,28 @@ export interface AgentConfig {
   gcal_calendar_id: string | null;
 }
 
+export interface LabelDescription {
+  label_id: number;
+  title: string;
+  description: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface LabelStats {
+  [label_id: number]: { total: number; done: number; open: number };
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
-  timestamp: string;
+  created_at?: string;
+  proposals?: TaskProposal[];
 }
 
 export interface ChatSession {
-  id: string;
+  conversation_id: string;
   messages: ChatMessage[];
   created_at: string;
+  updated_at: string;
 }

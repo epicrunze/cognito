@@ -239,7 +239,7 @@ All require JWT auth. The backend injects the Vikunja API token. **Vikunja uses 
 { "suggestions": [{ "task_id": 1, "add_labels": [3, 5], "reasons": {"3": "matched 'writing'"} }] }
 ```
 
-### 3.6 Scheduling (Phase 4)
+### 3.6 Scheduling (Phase 5)
 
 | Endpoint | Method | Description |
 |---|---|---|
@@ -311,7 +311,7 @@ Rules:
 
 ### 5.1 Philosophy
 
-**Dark theme, refined minimalism.** Inspired by Linear's density and Things 3's clarity. The app handles chaotic input and produces order — the UI is always composed. Tangerine accent on dark warm neutrals; no gradients, no decoration.
+**Dark theme, thinking space.** Cognito is a thinking surface, not a task manager. Tasks are "thought bubbles" that cluster by project, with priority communicated through visual presence (opacity, colour intensity, shadow weight) rather than explicit indicators. The dark background is the surface of thought; lighter bubbles float on it. Inspired by Google Keep's spatial layout, Are.na's calm density, and Things 3's satisfaction of completion. Tangerine accent on dark warm neutrals; no gradients, no decoration. See `docs/DESIGN_PHILOSOPHY.md` for the full design vision.
 
 ### 5.2 Tokens
 
@@ -402,50 +402,102 @@ Build these first in `components/ui/`. The live reference for all component stat
 ┌──────────────┬────────────────────────────────────────────────┐
 │              │  Page Title            Search  Filter  ◆  +New │
 │   SIDEBAR    ├────────────────────────────────────────────────┤
-│   240px      │  + Add task...                                 │
-│   (56px      ├────────────────────────────────────────────────┤
-│   collapsed) │                                                │
-│              │  Task list / Kanban / Extraction page           │
+│   240px      │                                                │
+│   (56px      │  Bubble Canvas (home) / Kanban|Bubble|List     │
+│   collapsed) │  (project, same-route toggle) / Extraction     │
 │              │                                                │
-│              │                     SlideOver detail panel →    │
+│              │  [Bubbles expand in-place pushing neighbours.   │
+│              │   SlideOver only in list view]                  │
 └──────────────┴────────────────────────────────────────────────┘
 ```
 
 **Sidebar:** Collapsible (240px → 56px icon rail). Tooltips appear to the RIGHT when collapsed, outside the sidebar boundary. Sidebar has `position: relative; z-index: 50; overflow: visible` when collapsed.
 
-Contents: "cognito" wordmark + collapse toggle, nav links (All Tasks, Upcoming, Overdue) with counts, Projects section with colour dots, AI Extract button (accent border + subtle bg, prominent), Settings, user email.
+Contents: "cognito" wordmark + collapse toggle, nav links (All Thoughts, Upcoming, Overdue) with counts, Projects section with colour dots, AI Extract button (accent border + subtle bg, prominent), Settings, user email.
 
 **Top bar:** Fixed single row. Title left, actions right: search input (shrinks), Filter button, ◆ Extract button, + New button. All buttons have hover effects.
 
-### 5.5 Task List View
+### 5.5 Bubble View (Primary)
 
-Each row shows: circular checkbox, priority dots (5 dots), title (15px medium), description preview (13px tertiary, truncated, hidden when done), metadata row (project name, label badges with hover stats, attachment count icon with tooltip, subtask progress icon with tooltip), due date right-aligned (red if overdue), hover chevron.
+Tasks are "thought bubbles" — rounded cards that cluster by project on a spatial canvas. This is the primary interaction paradigm. See `docs/DESIGN_PHILOSOPHY.md` for rationale and `docs/cognito-design-system.jsx` for the visual prototype.
 
-**AI-tagged indicator:** Tasks auto-tagged by AI get a tangerine left border + inward glow (`box-shadow: inset 3px 0 8px -4px var(--accent-glow)`). This fades to default after the user views/opens the task.
+#### ThoughtBubble Component
+
+Three states + kanban mode:
+
+**Collapsed (default):** ~200px wide, 90px min-height, 10px border-radius, `--bg-surface` background. Shows title only (2-3 lines, `-webkit-line-clamp`). Project corner triangle in top-right (CSS border trick, project `hex_color`, 0.3 opacity). Priority communicated through visual presence:
+
+| Priority | Opacity | Title brightness | Shadow |
+|----------|---------|-----------------|--------|
+| 5 (urgent) | 100% | Bright white | `--shadow-md` |
+| 4 (high) | 100% | `--text-primary` | `--shadow-sm` |
+| 3 (medium) | 85% | `--text-primary` | `--shadow-sm` |
+| 2 (low) | 65% | `--text-secondary` | none |
+| 1 (none) | 55% | `--text-secondary` | none |
+
+**Hover:** Card lifts 1px (`translateY(-1px)`), shadow increases, metadata fades in (due date, first label, attachment count, subtask count) in pre-allocated space — NO size change, 100ms fade.
+
+**Expanded:** Click toggles — card grows to ~360px, pushes neighbours aside (CSS Grid transitions or manual FLIP layout). Shows all editable fields: title (16px), description (textarea, auto-grow), priority dots (clickable), due date picker, project name (with colour), label badges + add picker, attachments, done/edit buttons, created/updated timestamps. Auto-save: 500ms debounce text, immediate toggles/selects. Delete button with confirmation. Only one bubble expanded at a time (global `expandedTaskId` state). Click outside or Escape collapses.
+
+**Kanban mode** (`kanban` prop): Full column width, reduced padding, 2-line title clamp. Used in KanbanBoard columns.
+
+**AI-tagged state:** Tangerine border + inset glow (`box-shadow: inset 3px 0 8px -4px var(--accent-glow)`). Fades after viewing. Used for both extraction proposals and auto-tagged tasks.
+
+#### BubbleCluster
+
+Groups tasks by project. Props: project, tasks. Muted project label (uppercase, small, `--text-tertiary`) + colour dot + task count. Flex-wrap layout with 12px gap, tasks sorted by priority descending. Collapsible: click project label to collapse/expand. Completed tasks: "N completed" toggle at bottom, reduced opacity when shown. 44px bottom margin between clusters.
+
+#### BubbleCanvas (Home)
+
+Renders all clusters at `/`. Groups tasks by project via `tasksByProject` derived state. Global `expandedTaskId` — only one expanded across all clusters. Skeleton loading state uses placeholder bubble shapes.
+
+### 5.6 Task List View (Secondary)
+
+Available within projects as a view mode toggle. Compact rows for methodical sorting, filtering, and bulk operations.
+
+Each row shows: circular checkbox, priority dots (5 dots), title (15px medium), description preview (13px tertiary, truncated, hidden when done), metadata row (project name, label badges with hover stats, attachment count icon with tooltip, subtask progress icon with tooltip), due date right-aligned (red if overdue), hover highlight.
+
+Click opens SlideOver (list rows don't expand in-place). Sort dropdown and filter bar functional.
 
 **Sorting:** Smart default — overdue first, then by priority descending, then by due date ascending. User can override via Sort dropdown.
 
 **Completed section:** Below a "Completed (N)" divider with toggle arrow. Completed tasks render at reduced opacity (0.65). Section is collapsible.
 
-### 5.6 Kanban Board
+### 5.7 View Transitions
 
-Per-project. Fetch views → find view_kind=3 → fetch buckets → fetch tasks per bucket.
+Same-route toggle between Bubble, Kanban, and List views at `/project/[id]` — no route changes, enabling native Svelte crossfade.
 
-Cards show: priority dots, title, due date, first label. Drag with `svelte-dnd-action`. Position is midpoint between neighbours. Move API: POST to bucket/tasks endpoint.
+- **Crossfade:** Svelte `crossfade` with `send`/`receive`, task ID as transition keys
+- **Bubble → Kanban:** Cards fly from cluster positions into kanban columns
+- **Kanban → Bubble:** Cards release from columns, settle into cluster layout
+- **Kanban entrance:** Columns fade in with 80ms stagger, cards appear with 50ms stagger per card (CSS transitions on opacity + transform)
+- **Budget:** 300-400ms total with stagger. Speed > spectacle
 
-### 5.7 Task Detail Panel (SlideOver)
+### 5.8 Kanban Board
 
-480px, slides from right. All fields editable, auto-save (debounce 500ms text, immediate toggles). Fields: title (16px), done checkbox, project (Dropdown), priority (clickable dots), due date, labels (badges + add), description (textarea, markdown), estimated minutes, attachments section (images, files, links). Delete with confirmation. Created/updated timestamps at bottom.
+Per-project. Default project view mode. Fetch views → find view_kind=3 → fetch buckets → fetch tasks per bucket. Uses `ThoughtBubble(kanban=true)` for cards.
 
-### 5.8 AI Extraction Page
+Drag with `svelte-dnd-action`. Position is midpoint between neighbours. Move API: POST to bucket/tasks endpoint.
 
-Route: `/extract`. Header: "◆ Extract Tasks" in accent. Model selector dropdown (Gemini Flash/Pro, Qwen, Llama). Local/Cloud toggle button with hover effect — when local, shows banner "Processing locally via Ollama — your data stays on this device."
+Entrance animation: columns fade in (80ms stagger), cards stagger in (50ms).
+
+### 5.9 Task Detail (In-Place Expansion)
+
+Task detail is now in-place expansion. Clicking a ThoughtBubble expands it to ~360px, pushing neighbours aside, showing all editable fields. Only one expanded at a time (global `expandedTaskId`). Click outside or Escape to collapse.
+
+All fields editable, auto-save (debounce 500ms text, immediate toggles). Fields: title (16px), done checkbox, project (Dropdown), priority (clickable dots), due date, labels (badges + add), description (textarea, markdown), estimated minutes, attachments section (images, files, links). Delete with confirmation. Created/updated timestamps at bottom.
+
+**Exception:** List view retains SlideOver (480px, slides from right) since list rows don't expand in-place.
+
+### 5.10 AI Extraction Page
+
+Route: `/extract`. Header: "◆ Extract Thoughts" in accent. Model selector dropdown (Gemini Flash/Pro, Qwen, Llama). Local/Cloud toggle button with hover effect — when local, shows banner "Processing locally via Ollama — your data stays on this device."
 
 Textarea input. Extract button with Ctrl+↵ hint. Collapsible "Raw AI Response" panel showing full JSON (tool calls, proposals, tokens, latency) for debugging.
 
-Proposals stream in via SSE with fly transition + stagger. Each card has tangerine left border + glow, checkbox, priority, title, project, date, labels, edit button on hover. Approve All / Reject Selected actions.
+Proposals render as `ThoughtBubble(aiTagged=true)` with bubble entrance animation (scale + translateY, 280ms with 100ms stagger). Expanded proposals show editable fields (same as 5.9). Approve All / Reject Selected actions. Success toast on approve.
 
-### 5.9 Tag System
+### 5.11 Tag System
 
 Each label can have a **description** (stored in agent DB) explaining what it covers. The AI extraction prompt includes these descriptions via the `get_label_descriptions` tool, enabling auto-tagging of new and existing tasks.
 
@@ -453,7 +505,7 @@ Each label can have a **description** (stored in agent DB) explaining what it co
 
 **Auto-tag existing tasks:** POST /api/tasks/auto-tag sends untagged (or all) task titles to the LLM with label descriptions, returns suggestions. Applies silently; user can remove tags.
 
-### 5.10 Interactions
+### 5.12 Interactions
 
 **Optimistic updates** on all mutations. Pattern: update store → fire API → on failure: rollback + error toast.
 
@@ -461,11 +513,11 @@ Each label can have a **description** (stored in agent DB) explaining what it co
 
 **Transitions:** Svelte `fly`, `fade`, `slide`. 150ms hover, 200ms panels/cards, 300ms slide-overs.
 
-### 5.11 Loading & Empty States
+### 5.13 Loading & Empty States
 
 Skeleton screens matching content shape (not spinners). Empty states with helpful messages: "No tasks yet", "Paste meeting notes to extract tasks", "No search results."
 
-### 5.12 Responsive
+### 5.14 Responsive
 
 Desktop (>1024px): full sidebar + content + slide-over. Tablet (768-1024px): collapsed sidebar. Mobile (<768px): sidebar hidden, full-screen overlays, horizontal kanban scroll.
 
@@ -522,6 +574,8 @@ cognito/
 ├── TASKS.md                     # Ordered implementation queue
 ├── docs/
 │   ├── SPEC.md                  # This file
+│   ├── DESIGN_PHILOSOPHY.md     # Bubble view design vision
+│   ├── MIGRATION_PLAN.md        # Phase 4 implementation guide
 │   └── cognito-design-system.jsx  # Live component reference (React, for visual iteration)
 ├── docker-compose.yml
 ├── .env.example
@@ -537,13 +591,14 @@ cognito/
 ├── frontend/
 │   ├── src/
 │   │   ├── app.css              # Design tokens
-│   │   ├── routes/              # +layout.svelte, +page.svelte, project/[id]/, extract/
+│   │   ├── routes/              # +layout.svelte, +page.svelte, project/[id]/ (Kanban|Bubble|List toggle), extract/
 │   │   ├── lib/                 # api.ts, stores.svelte.ts, types.ts, optimistic.ts, shortcuts.ts
 │   │   └── components/
 │   │       ├── ui/              # Button, Input, Textarea, Checkbox, Dropdown, Badge, Toast, SlideOver, Skeleton, Tip, etc.
-│   │       ├── Sidebar.svelte, TaskList.svelte, TaskRow.svelte, TaskDetail.svelte
-│   │       ├── KanbanBoard.svelte, KanbanColumn.svelte, KanbanCard.svelte
-│   │       ├── ExtractionPanel.svelte, ProposalCard.svelte, RawResponse.svelte
+│   │       ├── features/        # ThoughtBubble.svelte, BubbleCluster.svelte, BubbleCanvas.svelte, Sidebar.svelte, ProposalCard.svelte
+│   │       ├── TaskList.svelte, TaskRow.svelte, TaskDetail.svelte
+│   │       ├── KanbanBoard.svelte, KanbanColumn.svelte, KanbanCard.svelte (deprecated → ThoughtBubble kanban mode)
+│   │       ├── ExtractionPanel.svelte, ProposalCard.svelte (deprecated → ThoughtBubble aiTagged mode), RawResponse.svelte
 │   │       └── FilterBar.svelte
 │   ├── package.json
 │   └── svelte.config.js

@@ -77,6 +77,11 @@ EXTRACTION_TOOLS = [
             "title": {"type": "string", "description": "Task title to check for duplicates"},
         },
     },
+    {
+        "name": "get_label_descriptions",
+        "description": "Returns all labels with their descriptions for tagging tasks accurately.",
+        "parameters": {},
+    },
 ]
 
 
@@ -137,6 +142,13 @@ class TaskExtractor:
                 return [{"id": t["id"], "title": t["title"]} for t in tasks[:5]]
             except VikunjaError:
                 return []
+
+        elif tool_name == "get_label_descriptions":
+            with get_db() as conn:
+                rows = conn.execute(
+                    "SELECT label_id, title, description FROM label_descriptions"
+                ).fetchall()
+            return [{"label_id": r[0], "title": r[1], "description": r[2]} for r in rows]
 
         return {"error": f"Unknown tool: {tool_name}"}
 

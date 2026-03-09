@@ -17,6 +17,9 @@ function createTasksStore() {
   let loading = $state(false);
   let error = $state<string | null>(null);
 
+  // One-shot skip flag for FLIP transitions
+  let _skipNextFetch = false;
+
   return {
     get tasks() {
       return tasks;
@@ -52,6 +55,24 @@ function createTasksStore() {
       } finally {
         loading = false;
       }
+    },
+
+    /** Pre-fetch tasks without setting loading state (for FLIP transitions) */
+    async prefetch(projectId?: number, params?: FetchParams) {
+      error = null;
+      try {
+        const res = await tasksApi.list({ project_id: projectId, ...params });
+        tasks = res.tasks.map(normalizeTask);
+      } catch (e) {
+        error = e instanceof Error ? e.message : 'Failed to load tasks';
+        throw e;
+      }
+    },
+
+    skipNextFetch() { _skipNextFetch = true; },
+    shouldSkipFetch() {
+      if (_skipNextFetch) { _skipNextFetch = false; return true; }
+      return false;
     },
 
     async create(data: { project_id: number; title: string; priority?: number; due_date?: string; description?: string }): Promise<Task | undefined> {

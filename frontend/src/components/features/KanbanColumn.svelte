@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { Bucket, Task } from '$lib/types';
   import { dndzone } from 'svelte-dnd-action';
-  import KanbanCard from './KanbanCard.svelte';
+  import { bubbleStore } from '$lib/stores/bubble.svelte';
+  import { transitionStore } from '$lib/stores/transition.svelte';
+  import ThoughtBubble from './ThoughtBubble.svelte';
 
   let {
     bucket,
@@ -29,6 +31,7 @@
 
   function handleConsider(e: CustomEvent<{ items: Task[] }>) {
     isDragging = true;
+    bubbleStore.collapse();
     localItems = e.detail.items;
   }
 
@@ -45,9 +48,9 @@
   }
 </script>
 
-<div style="width: 280px; flex-shrink: 0; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; display: flex; flex-direction: column; max-height: 100%;">
+<div style="width: 280px; flex-shrink: 0; background: {transitionStore.chromeFaded ? 'transparent' : 'var(--bg-base)'}; border: 1px solid {transitionStore.chromeFaded ? 'transparent' : 'var(--border-default)'}; border-radius: 10px; display: flex; flex-direction: column; max-height: 100%; transition: background 200ms, border-color 200ms;">
   <!-- Header -->
-  <div style="padding: 14px 16px 10px; display: flex; align-items: center; justify-content: space-between;">
+  <div style="padding: 14px 16px 10px; display: flex; align-items: center; justify-content: space-between; opacity: {transitionStore.chromeFaded ? 0 : 1}; transition: opacity 200ms;">
     <span style="font-size: 14px; font-weight: 600; color: var(--text-primary);">{bucket.title}</span>
     <span style="font-size: 12px; color: var(--text-tertiary); background: var(--bg-elevated); padding: 2px 8px; border-radius: 9999px;">{tasks.length}</span>
   </div>
@@ -61,13 +64,13 @@
   >
     {#each localItems as task (task.id)}
       <div>
-        <KanbanCard {task} onclick={() => onTaskClick?.(task.id)} />
+        <ThoughtBubble {task} onclick={() => onTaskClick?.(task.id)} />
       </div>
     {/each}
   </div>
 
   <!-- Quick add -->
-  <div style="padding: 10px; border-top: 1px solid var(--border-subtle);">
+  <div style="padding: 10px; border-top: 1px solid var(--border-subtle); opacity: {transitionStore.chromeFaded ? 0 : 1}; transition: opacity 200ms;">
     <input
       bind:value={quickAddValue}
       onkeydown={handleQuickAdd}

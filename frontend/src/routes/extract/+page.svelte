@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { extractTasks, modelsApi, type ModelOption } from '$lib/api';
+  import { extractTasks, modelsApi, tasksApi, type ModelOption } from '$lib/api';
   import { proposalsStore, tasksStore, projectsStore } from '$lib/stores.svelte';
+  import { chatStore } from '$lib/stores/chat.svelte';
+  import { filterStore } from '$lib/stores/filter.svelte';
   import { addToast } from '$lib/stores/toast.svelte';
   import type { TaskProposal } from '$lib/types';
   import Textarea from '$components/ui/Textarea.svelte';
@@ -8,9 +10,9 @@
   import Dropdown from '$components/ui/Dropdown.svelte';
   import Kbd from '$components/ui/Kbd.svelte';
   import TaskPanel from '$components/features/TaskPanel.svelte';
-  import ProposalCard from '$components/features/ProposalCard.svelte';
-  import { fly } from 'svelte/transition';
-  import { onMount } from 'svelte';
+  import ThoughtBubble from '$components/features/ThoughtBubble.svelte';
+  import { fly, slide, fade } from 'svelte/transition';
+  import { onMount, tick } from 'svelte';
 
   let modelOptions = $state<{ value: string; label: string; description: string }[]>([
     { value: 'gemini-flash', label: 'Gemini 3.1 Flash Lite', description: 'Fast, good for most tasks' },
@@ -25,6 +27,7 @@
     }
   });
 
+  let tab = $state<'paste' | 'chat'>('paste');
   let inputText = $state('');
   let selectedModel = $state('gemini-flash');
   let extracting = $state(false);
@@ -33,7 +36,11 @@
   let rawResponse = $state('');
   let showRaw = $state(false);
   let editingProposal = $state<TaskProposal | null>(null);
-  let hoveringCardId = $state<string | null>(null);
+  let extractError = $state<string | null>(null);
+
+  // Chat state
+  let chatInput = $state('');
+  let chatContainerRef = $state<HTMLDivElement | undefined>(undefined);
 
   const isLocal = $derived(selectedModel.startsWith('ollama'));
 
@@ -53,6 +60,7 @@
     proposals = [];
     selectedIds = new Set();
     rawResponse = '';
+    extractError = null;
 
     try {
       for await (const event of extractTasks(inputText, { model: selectedModel })) {
@@ -63,14 +71,16 @@
         } else if (event.type === 'done') {
           addToast(`Extracted ${event.count} tasks`, 'success');
         } else if (event.type === 'error') {
-          addToast(event.detail ?? 'Extraction failed', 'error');
+          extractError = event.detail ?? 'Extraction failed';
+          addToast(extractError, 'error');
         }
       }
     } catch (e) {
-      addToast(e instanceof Error ? e.message : 'Extraction failed', 'error');
+      extractError = e instanceof Error ? e.message : 'Extraction failed';
+      addToast(extractError, 'error');
     } finally {
       extracting = false;
-      if (proposals.length === 0) {
+      if (proposals.length === 0 && !extractError) {
         addToast('No tasks extracted — check the backend logs', 'error');
       }
     }
@@ -116,10 +126,45 @@
     selectedIds = new Set();
   }
 
+  async function handleAutoTag() {
+    try {
+      addToast('Auto-tagging tasks...', 'info');
+      const res = await tasksApi.autoTag(undefined, selectedModel);
+      if (res.tagged > 0) {
+        const taggedIds = res.results.map(r => r.task_id);
+        filterStore.addAiTaggedBatch(taggedIds);
+        addToast(`Auto-tagged ${res.tagged} task${res.tagged === 1 ? '' : 's'}`, 'success');
+        await tasksStore.fetchAll();
+      } else {
+        addToast('No tasks to auto-tag', 'info');
+      }
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'Auto-tag failed', 'error');
+    }
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       handleExtract();
+    }
+  }
+
+  async function handleChatSend() {
+    if (!chatInput.trim() || chatStore.loading) return;
+    const msg = chatInput;
+    chatInput = '';
+    await chatStore.sendMessage(msg, selectedModel);
+    await tick();
+    if (chatContainerRef) {
+      chatContainerRef.scrollTop = chatContainerRef.scrollHeight;
+    }
+  }
+
+  function handleChatKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleChatSend();
     }
   }
 </script>
@@ -128,6 +173,18 @@
   <!-- Header -->
   <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
     <span style="font-size: 20px; font-weight: 600; color: var(--accent);">&#9670; Extract Tasks</span>
+  </div>
+
+  <!-- Tab toggle -->
+  <div style="display: flex; gap: 0; margin-bottom: 20px; border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden; width: fit-content;">
+    <button
+      onclick={() => tab = 'paste'}
+      style="padding: 7px 18px; font-size: 13px; font-weight: 500; font-family: var(--font-sans); border: none; cursor: pointer; background: {tab === 'paste' ? 'var(--accent)' : 'transparent'}; color: {tab === 'paste' ? 'white' : 'var(--text-secondary)'}; transition: all 150ms;"
+    >Paste</button>
+    <button
+      onclick={() => tab = 'chat'}
+      style="padding: 7px 18px; font-size: 13px; font-weight: 500; font-family: var(--font-sans); border: none; border-left: 1px solid var(--border-default); cursor: pointer; background: {tab === 'chat' ? 'var(--accent)' : 'transparent'}; color: {tab === 'chat' ? 'white' : 'var(--text-secondary)'}; transition: all 150ms;"
+    >Chat</button>
   </div>
 
   <!-- Controls -->
@@ -142,6 +199,7 @@
     >
       {isLocal ? '\uD83D\uDD12 Local' : '\u2601 Cloud'}
     </Button>
+    <Button variant="ghost" size="sm" onclick={handleAutoTag}>Auto-tag</Button>
   </div>
 
   {#if isLocal}
@@ -150,67 +208,159 @@
     </div>
   {/if}
 
-  <!-- Input -->
-  <div style="margin-bottom: 16px;">
-    <Textarea
-      bind:value={inputText}
-      placeholder="Paste meeting notes, emails, or ideas here..."
-      rows={6}
-      onkeydown={handleKeydown}
-    />
-  </div>
-
-  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 32px;">
-    <Button variant="accent" loading={extracting} onclick={handleExtract} disabled={!inputText.trim()}>
-      {extracting ? 'Extracting...' : 'Extract Tasks'}
-    </Button>
-    <Kbd>Ctrl+&crarr;</Kbd>
-  </div>
-
-  <!-- Raw Response -->
-  {#if rawResponse}
-    <div style="margin-bottom: 24px;">
-      <button
-        onclick={() => showRaw = !showRaw}
-        style="display: flex; align-items: center; gap: 6px; background: none; border: none; color: var(--text-tertiary); font-size: 13px; cursor: pointer; padding: 0; font-family: var(--font-sans);"
-      >
-        <span style="transform: {showRaw ? 'rotate(90deg)' : 'rotate(0deg)'}; transition: transform 150ms; font-size: 10px;">&#9654;</span>
-        Raw AI Response
-      </button>
-      {#if showRaw}
-        <pre style="margin-top: 10px; padding: 16px; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 8px; font-size: 12.5px; font-family: var(--font-mono); color: var(--text-secondary); line-height: 1.6; overflow: auto; max-height: 300px; white-space: pre-wrap;">{rawResponse}</pre>
-      {/if}
+  <!-- PASTE TAB -->
+  {#if tab === 'paste'}
+    <!-- Input -->
+    <div style="margin-bottom: 16px;">
+      <Textarea
+        bind:value={inputText}
+        placeholder="Paste meeting notes, emails, or ideas here..."
+        rows={6}
+        onkeydown={handleKeydown}
+      />
     </div>
-  {/if}
 
-  <!-- Proposals -->
-  {#if proposals.length > 0}
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-      <Button variant="accent" size="sm" onclick={handleApproveAll} disabled={selectedIds.size === 0}>
-        Approve All ({selectedIds.size})
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 32px;">
+      <Button variant="accent" loading={extracting} onclick={handleExtract} disabled={!inputText.trim()} style={extracting ? 'animation: pulse-glow 1.5s ease-in-out infinite;' : ''}>
+        {extracting ? 'Extracting...' : 'Extract Tasks'}
       </Button>
-      <Button variant="outline" size="sm" onclick={selectAll}>Select All</Button>
-      {#if selectedIds.size > 0}
-        <Button variant="danger" size="sm" onclick={handleRejectSelected}>
-          Reject Selected
-        </Button>
-      {/if}
+      <Kbd>Ctrl+&crarr;</Kbd>
     </div>
 
-    <div style="display: flex; flex-direction: column; gap: 10px;">
-      {#each proposals as proposal, i (proposal.id)}
-        <div in:fly={{ y: 20, duration: 200, delay: i * 50 }}>
-          <ProposalCard
-            {proposal}
-            selected={selectedIds.has(proposal.id)}
-            hovered={hoveringCardId === proposal.id}
-            onselect={() => toggleSelected(proposal.id)}
-            onedit={() => { if (proposal.status === 'pending') editingProposal = proposal; }}
-            onmouseenter={() => hoveringCardId = proposal.id}
-            onmouseleave={() => { if (hoveringCardId === proposal.id) hoveringCardId = null; }}
+    <!-- Error + Retry -->
+    {#if extractError && !extracting}
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 12px 16px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px;">
+        <span style="font-size: 13px; color: var(--danger, #ef4444); flex: 1;">{extractError}</span>
+        <Button variant="outline" size="sm" onclick={handleExtract}>Retry</Button>
+      </div>
+    {/if}
+
+    <!-- Raw Response -->
+    {#if rawResponse}
+      <div style="margin-bottom: 24px;">
+        <button
+          onclick={() => showRaw = !showRaw}
+          style="display: flex; align-items: center; gap: 6px; background: none; border: none; color: var(--text-tertiary); font-size: 13px; cursor: pointer; padding: 0; font-family: var(--font-sans);"
+        >
+          <span style="transform: {showRaw ? 'rotate(90deg)' : 'rotate(0deg)'}; transition: transform 150ms; font-size: 10px;">&#9654;</span>
+          Raw AI Response
+        </button>
+        {#if showRaw}
+          <pre style="margin-top: 10px; padding: 16px; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 8px; font-size: 12.5px; font-family: var(--font-mono); color: var(--text-secondary); line-height: 1.6; overflow: auto; max-height: 300px; white-space: pre-wrap;">{rawResponse}</pre>
+        {/if}
+      </div>
+    {/if}
+
+    <!-- Proposals -->
+    {#if proposals.length > 0}
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+        <Button variant="accent" size="sm" onclick={handleApproveAll} disabled={selectedIds.size === 0}>
+          Approve All ({selectedIds.size})
+        </Button>
+        <Button variant="outline" size="sm" onclick={selectAll}>Select All</Button>
+        {#if selectedIds.size > 0}
+          <Button variant="danger" size="sm" onclick={handleRejectSelected}>
+            Reject Selected
+          </Button>
+        {/if}
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+        {#each proposals as proposal, i (proposal.id)}
+          {#if proposal.status !== 'approved'}
+            <div in:fly={{ y: 20, duration: 250, delay: i * 50 }} out:slide|local={{ duration: 200 }}>
+              <ThoughtBubble
+                {proposal}
+                proposalMode
+                selected={selectedIds.has(proposal.id)}
+                onselect={() => toggleSelected(proposal.id)}
+                onapprove={async () => {
+                  const res = await proposalsStore.approveAll([proposal.id]);
+                  if (res.approved > 0) {
+                    proposals = proposals.map(p => p.id === proposal.id ? { ...p, status: 'approved' as const } : p);
+                    addToast('Task created', 'success');
+                    await tasksStore.fetchAll();
+                  }
+                }}
+                onreject={async () => {
+                  await proposalsStore.reject(proposal.id);
+                  proposals = proposals.filter(p => p.id !== proposal.id);
+                }}
+                onproposalupdate={(updated) => { proposals = proposals.map(p => p.id === updated.id ? updated : p); }}
+              />
+            </div>
+          {:else}
+            <div out:slide|local={{ duration: 200 }} style="opacity: 0.5;">
+              <ThoughtBubble
+                {proposal}
+                proposalMode
+                selected={selectedIds.has(proposal.id)}
+                onselect={() => toggleSelected(proposal.id)}
+              />
+            </div>
+          {/if}
+        {/each}
+      </div>
+    {/if}
+
+  <!-- CHAT TAB -->
+  {:else}
+    <div style="display: flex; flex-direction: column; height: calc(100vh - 340px); min-height: 300px;">
+      <!-- Messages -->
+      <div bind:this={chatContainerRef} style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 8px 0; margin-bottom: 16px;">
+        {#if chatStore.messages.length === 0}
+          <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
+            <span style="color: var(--text-tertiary); font-size: 14px;">Start a conversation to extract tasks naturally.</span>
+          </div>
+        {/if}
+        {#each chatStore.messages as msg, i (i)}
+          <div style="display: flex; justify-content: {msg.role === 'user' ? 'flex-end' : 'flex-start'};">
+            <div style="max-width: 85%; padding: 10px 14px; border-radius: 12px; background: {msg.role === 'user' ? 'var(--accent)' : 'var(--bg-surface)'}; color: {msg.role === 'user' ? 'white' : 'var(--text-primary)'}; font-size: 14px; line-height: 1.5; border: {msg.role === 'assistant' ? '1px solid var(--border-default)' : 'none'};">
+              {msg.content}
+              {#if msg.proposals && msg.proposals.length > 0}
+                <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                  {#each msg.proposals as proposal (proposal.id)}
+                    <div style="padding: 8px 12px; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 8px; border-left: 2px solid var(--accent); font-size: 13px;">
+                      <span style="font-weight: 500;">{proposal.title}</span>
+                      {#if proposal.project_name}
+                        <span style="color: var(--text-tertiary); margin-left: 8px;">{proposal.project_name}</span>
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/each}
+        {#if chatStore.loading}
+          <div style="display: flex; justify-content: flex-start;">
+            <div style="padding: 10px 14px; background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 12px; color: var(--text-tertiary); font-size: 14px;">
+              <span class="typing-indicator">Thinking</span>
+            </div>
+          </div>
+        {/if}
+      </div>
+
+      <!-- Chat input -->
+      <div style="display: flex; gap: 10px; align-items: flex-end;">
+        <div style="flex: 1;">
+          <Textarea
+            bind:value={chatInput}
+            placeholder="Type a message..."
+            rows={2}
+            onkeydown={handleChatKeydown}
           />
         </div>
-      {/each}
+        <Button variant="accent" onclick={handleChatSend} disabled={!chatInput.trim() || chatStore.loading}>
+          Send
+        </Button>
+      </div>
+
+      {#if chatStore.conversationId}
+        <div style="margin-top: 8px;">
+          <Button variant="ghost" size="sm" onclick={() => chatStore.startNewConversation()}>New conversation</Button>
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
@@ -225,3 +375,23 @@
     editingProposal = null;
   }}
 />
+
+<style>
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(232, 119, 46, 0.4); }
+    50% { box-shadow: 0 0 12px 4px rgba(232, 119, 46, 0.3); }
+  }
+
+  .typing-indicator::after {
+    content: '';
+    animation: dots 1.5s steps(4, end) infinite;
+  }
+
+  @keyframes dots {
+    0% { content: ''; }
+    25% { content: '.'; }
+    50% { content: '..'; }
+    75% { content: '...'; }
+    100% { content: ''; }
+  }
+</style>

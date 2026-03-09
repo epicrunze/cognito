@@ -54,7 +54,7 @@ Read: Sections 5.4, 5.5
 - [x] All sidebar items have hover effects
 
 ### T-007: Types and keyboard shortcuts
-Read: Sections 2.1, 2.2, 5.10
+Read: Sections 2.1, 2.2, 5.12
 - [x] `lib/types.ts` — Task, Project, ProjectView, Bucket, Label, TaskProposal, LabelDescription
 - [x] `lib/shortcuts.ts` — page-level keydown handler, disabled when input focused
 - [x] Wire N, /, Escape initially; others when features built
@@ -131,7 +131,7 @@ Read: Section 5.5
 - [x] Translate to Vikunja sort_by + order_by params (via filterStore.vikunjaSort)
 
 ### T-018: AI extraction page
-Read: Section 5.8
+Read: Section 5.10
 - [x] Route: `/extract`
 - [x] Header: "Extract Tasks" in accent colour
 - [x] Model selector (Dropdown): Gemini Flash, Gemini Pro, Qwen (Local), Llama (Local)
@@ -148,7 +148,7 @@ Read: Section 5.8
 ## Phase 2: Rich Task Management
 
 ### T-019: Task detail panel
-Read: Section 5.7
+Read: Section 5.9
 - [x] SlideOver, opens on task row click
 - [x] Editable: title (16px), done, project (Dropdown + inline create), priority (clickable dots), due date (DatePicker), labels (badges + add picker), description (textarea), estimated minutes
 - [x] Attachments section (list files/images, upload area) — uses Vikunja attachments API
@@ -157,13 +157,13 @@ Read: Section 5.7
 - [x] Delete button + confirmation. Created/updated timestamps
 
 ### T-020: Filter bar
-Read: Section 5.5
+Read: Section 5.6
 - [x] FilterBar.svelte with chips: status (All/Active/Completed), priority, label
 - [x] Translate to Vikunja filter syntax (via filterStore.vikunjaFilter)
 - [x] Filter button in header shows active filter count
 
 ### T-021: Kanban board
-Read: Section 5.6
+Read: Section 5.8
 - [x] Route: `/project/[id]/kanban`
 - [x] Fetch views -> find view_kind=kanban -> buckets -> tasks per bucket (auto-creates kanban view if missing)
 - [x] Cards: priority, title, date, first label. Hover shadow
@@ -180,7 +180,7 @@ Read: Section 5.6
 - [x] Optimistic update with rollback
 
 ### T-023: Search + keyboard navigation
-Read: Section 5.10
+Read: Section 5.12
 - [x] Search input in header, debounced 300ms, uses `s` param
 - [x] J/K navigate list (highlight selected row with accent-subtle + 2px accent left border)
 - [x] Enter opens detail, X toggles done, E opens edit, 1-5 sets priority
@@ -193,50 +193,130 @@ Read: Section 5.10
 ## Phase 3: Auto-tagging + AI Polish
 
 ### T-024: Label descriptions
-Read: Section 5.9
-- [ ] Backend: label_descriptions CRUD endpoints (Section 3.5)
-- [ ] `services/tagger.py` — auto-tag logic using LLM + label descriptions
-- [ ] UI: in label management (settings or inline), let user write description per label
-- [ ] New tool: get_label_descriptions for extraction pipeline
+Read: Section 5.11
+- [x] Backend: label_descriptions CRUD endpoints (Section 3.5)
+- [x] `services/tagger.py` — auto-tag logic using LLM + label descriptions
+- [x] UI: in label management (settings or inline), let user write description per label
+- [x] New tool: get_label_descriptions for extraction pipeline
 
 ### T-025: Auto-tag existing tasks
-- [ ] POST /api/tasks/auto-tag endpoint
-- [ ] Sends task titles to LLM with label descriptions, returns suggested labels
-- [ ] UI: button in settings or per-project to "Auto-tag untagged tasks"
-- [ ] Apply silently, user can remove. Show AI-tagged glow on newly tagged
+- [x] POST /api/tasks/auto-tag endpoint
+- [x] Sends task titles to LLM with label descriptions, returns suggested labels
+- [x] UI: button in settings or per-project to "Auto-tag untagged tasks"
+- [x] Apply silently, user can remove. Show AI-tagged glow on newly tagged
 
 ### T-026: Tag stats
-- [ ] GET /api/labels/stats — count + completion per label
-- [ ] Badge hover tooltip: total, done, open, completion %
-- [ ] Frontend: fetch stats, pass to Badge components
+- [x] GET /api/labels/stats — count + completion per label
+- [x] Badge hover tooltip: total, done, open, completion %
+- [x] Frontend: fetch stats, pass to Badge components
 
 ### T-027: Chat mode
 Read: Section 3.3
-- [ ] POST /api/chat endpoint with conversation_id
-- [ ] Chat/Paste toggle tabs on extraction page
-- [ ] Chat: conversational input, agent replies + proposals
-- [ ] Multi-turn via conversation_id
+- [x] POST /api/chat endpoint with conversation_id
+- [x] Chat/Paste toggle tabs on extraction page
+- [x] Chat: conversational input, agent replies + proposals
+- [x] Multi-turn via conversation_id
 
 ### T-028: Proposal editing
-- [ ] Edit button on proposal card expands inline
-- [ ] Editable: title, project (Dropdown), priority, due date, labels, estimate
-- [ ] Save via PUT /api/proposals/{id}
+- [x] Edit button on proposal card expands inline
+- [x] Editable: title, project (Dropdown), priority, due date, labels, estimate
+- [x] Save via PUT /api/proposals/{id}
 
 ### T-029: Extraction UX polish
-- [ ] Pulsing indicator on Extract button while running
-- [ ] Staggered fly-in for proposal cards
-- [ ] Success animation on approve (cards shrink away)
-- [ ] Error retry with preserved input
+- [x] Pulsing indicator on Extract button while running
+- [x] Staggered fly-in for proposal cards
+- [x] Success animation on approve (cards shrink away)
+- [x] Error retry with preserved input
 
 ### T-030: Error handling
 Read: Section 4.4
-- [ ] Backend: retry logic (Gemini 3x, Ollama 2x)
-- [ ] Backend: Gemini -> Ollama fallback on rate limit
-- [ ] Frontend: all errors -> toast, retry buttons, no silent failures
+- [x] Backend: retry logic (Gemini 3x, Ollama 2x)
+- [x] Backend: Gemini -> Ollama fallback on rate limit
+- [x] Frontend: all errors -> toast, retry buttons, no silent failures
 
 ---
 
-## Phase 4: Calendar + Mobile
+## Phase 4: Bubble View Migration
+
+Read `docs/DESIGN_PHILOSOPHY.md` before starting. Reference `docs/cognito-design-system.jsx` for the visual prototype (React — translate to Svelte). Read `docs/MIGRATION_PLAN.md` for implementation details.
+
+### T-033: ThoughtBubble component — collapsed & hover
+Read: Section 5.5
+- [ ] `components/features/ThoughtBubble.svelte` — collapsed state: title only (2-3 lines, -webkit-line-clamp), ~200px wide, 90px min-height, 10px border-radius, `--bg-surface` background
+- [ ] Project corner triangle: CSS border trick in top-right using project `hex_color`, 0.3 opacity
+- [ ] Priority-as-presence: opacity scaling (p5=100%, p4=100%, p3=85%, p2=65%, p1=55%), title colour brightness by priority, shadow weight by priority
+- [ ] Hover state: card lifts 1px (translateY), shadow increases, metadata fades in (due date, first label, attachment count, subtask count) in pre-allocated space — NO size change, 100ms fade
+- [ ] AI-tagged state: tangerine border + inset glow (reuse existing pattern)
+- [ ] `kanban` prop: full column width, reduced padding, 2-line title clamp
+- [ ] Test with mock data in isolation before wiring to stores
+
+### T-034: ThoughtBubble — expanded state
+Read: Sections 5.5, 5.9
+- [ ] Click toggles expanded: card grows to ~360px, pushes neighbours aside (CSS Grid transitions or manual FLIP layout)
+- [ ] Expanded fields: title (editable, 16px), description (textarea, auto-grow), priority dots (clickable), due date picker, project name (with colour), label badges + add picker, attachments, done/edit buttons
+- [ ] Global `expandedTaskId` state: only one bubble expanded at a time
+- [ ] Click outside or Escape collapses expanded bubble
+- [ ] Auto-save: 500ms debounce for text fields, immediate for toggles/selects
+- [ ] Created/updated timestamps at bottom
+- [ ] Delete button with confirmation
+
+### T-035: BubbleCluster component
+Read: Section 5.5
+- [ ] `components/features/BubbleCluster.svelte` — props: project, tasks
+- [ ] Muted project label (uppercase, small, `--text-tertiary`) + colour dot + task count
+- [ ] Flex-wrap layout with 12px gap, tasks sorted by priority descending
+- [ ] Collapsible: click project label to collapse/expand the cluster
+- [ ] Completed tasks: "N completed" toggle at bottom, reduced opacity when shown
+- [ ] 44px bottom margin between clusters
+
+### T-036: BubbleCanvas + home page route
+Read: Section 5.5
+- [ ] `components/features/BubbleCanvas.svelte` — groups all tasks by project, renders BubbleCluster per project
+- [ ] Add `tasksByProject` derived grouping to tasks store
+- [ ] Update `/` route to render BubbleCanvas instead of TaskList
+- [ ] Global expandedTaskId state; only one bubble expanded across all clusters
+- [ ] Skeleton loading state (placeholder bubble shapes)
+
+### T-037: KanbanBoard with ThoughtBubble + same-route toggle
+Read: Section 5.8
+- [ ] Replace KanbanCard with ThoughtBubble (kanban=true) in KanbanBoard
+- [ ] Same-route view toggle at `/project/[id]`: Bubbles (cluster) | Kanban | List — kanban is default
+- [ ] Remove separate `/project/[id]/kanban` route (views are now modes on the same route)
+- [ ] Kanban entrance animation: columns fade in with 80ms stagger, cards appear with 50ms stagger per card (CSS transitions on opacity + transform)
+
+### T-038: Extraction with ThoughtBubble
+Read: Section 5.10
+- [ ] Update `/extract` to render proposals as ThoughtBubble (aiTagged=true) instead of ProposalCard
+- [ ] Bubble entrance animation (scale + translateY, 280ms with 100ms stagger)
+- [ ] Expanded proposal shows editable fields (same as T-034)
+- [ ] Approve All / Reject actions remain; success toast on approve
+
+### T-039: View transition animations
+Read: Section 5.7
+- [ ] Svelte `crossfade` with `send`/`receive` between bubble cluster and kanban views (same route, so components share mount)
+- [ ] Shared transition keys based on task ID
+- [ ] Bubble → kanban: cards fly from cluster positions into kanban columns
+- [ ] Kanban → bubble: cards release from columns, settle into cluster layout
+- [ ] Total animation: 300-400ms with stagger. Speed > spectacle
+
+### T-040: Compact list view for projects
+Read: Section 5.6
+- [ ] List mode in same-route toggle at `/project/[id]`
+- [ ] Compact rows: priority dots + title + first label + due date, hover highlight
+- [ ] Click opens SlideOver (list rows don't expand in-place)
+- [ ] Sort dropdown and filter bar functional
+- [ ] Reuse existing TaskList/TaskRow components or build lightweight variant
+
+### T-041: Cleanup deprecated components
+- [ ] Remove KanbanCard.svelte (replaced by ThoughtBubble kanban mode)
+- [ ] Remove ProposalCard.svelte (replaced by ThoughtBubble aiTagged mode)
+- [ ] Remove TaskRow.svelte if fully replaced, or keep for list view
+- [ ] Remove `/project/[id]/kanban` route if still present
+- [ ] Verify no dead imports or references remain
+
+---
+
+## Phase 5: Calendar + Mobile
 
 ### T-031: Google Calendar
 - [ ] Add calendar scope to OAuth
@@ -245,7 +325,7 @@ Read: Section 4.4
 - [ ] Schedule view in frontend
 
 ### T-032: Mobile responsive
-Read: Section 5.12
+Read: Section 5.14
 - [ ] Sidebar hidden on mobile, hamburger toggle
 - [ ] Detail panel full-screen on mobile
 - [ ] Kanban horizontal scroll, touch-friendly

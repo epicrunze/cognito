@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Cognito is a task-agent app: users input freeform text, an LLM extracts structured tasks, and approved tasks sync to Vikunja (self-hosted task manager). FastAPI backend + SvelteKit frontend + SQLite.
 
-Full spec: `docs/SPEC.md`. Task queue: `TASKS.md`. Live component reference: `docs/cognito-design-system.jsx`.
+Full spec: `docs/SPEC.md`. Task queue: `TASKS.md`. Live component reference: `docs/cognito-design-system.jsx`. **Before any UI/UX work, read `docs/DESIGN_PHILOSOPHY.md` — it shapes how you approach design decisions and requires proposing changes before implementing.**
 
 ## Commands
 

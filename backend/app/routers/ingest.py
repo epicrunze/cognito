@@ -40,12 +40,6 @@ async def ingest(
     If the client sends `Accept: text/event-stream`, streams proposals as SSE
     events so they appear in the UI as each one is extracted.
     """
-    if body.model.startswith("ollama-"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Ollama models are coming in Phase 2.",
-        )
-
     if not body.text.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

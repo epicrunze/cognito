@@ -10,7 +10,7 @@
   import { filterStore, type SortMode } from '$lib/stores/filter.svelte';
   import type { FetchParams } from '$lib/stores/tasks.svelte';
   import { shortcuts } from '$lib/shortcuts';
-  import TaskRow from './TaskRow.svelte';
+  import ThoughtBubble from './ThoughtBubble.svelte';
   import TaskPanel from './TaskPanel.svelte';
   import Dropdown from '$components/ui/Dropdown.svelte';
   import Skeleton from '$components/ui/Skeleton.svelte';
@@ -290,10 +290,10 @@
   <!-- Active tasks -->
   {#each activeTasks as task, i (task.id)}
     <div use:trackRow={task.id}>
-      <TaskRow
+      <ThoughtBubble
         {task}
+        compact
         selected={selectedIndex === i}
-        viewed={filterStore.viewedTaskIds.has(task.id)}
         ontoggle={() => toggleDone(task.id)}
         onclick={() => { selectedIndex = i; openTask(task.id); }}
       />
@@ -314,8 +314,9 @@
     {#if showCompleted}
       <div style="opacity: 0.65;">
         {#each completedTasks as task (task.id)}
-          <TaskRow
+          <ThoughtBubble
             {task}
+            compact
             ontoggle={() => toggleDone(task.id)}
             onclick={() => openTask(task.id)}
           />

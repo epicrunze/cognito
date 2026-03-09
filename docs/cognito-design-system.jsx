@@ -1,743 +1,172 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 
-// ─── Tokens ──────────────────────────────────────────────────
 const t = {
-  bgBase: "#111110", bgSurface: "#1A1A19", bgSurfaceHover: "#222221",
-  bgSidebar: "#161615", bgOverlay: "rgba(0,0,0,0.6)", bgElevated: "#252524",
-  borderDefault: "#2A2A28", borderStrong: "#3A3A37", borderSubtle: "#1F1F1E",
-  textPrimary: "#EDEDEC", textSecondary: "#A1A09A", textTertiary: "#6B6A65", textOnAccent: "#111110",
-  accent: "#E8772E", accentHover: "#D4691F", accentSubtle: "rgba(232,119,46,0.1)", accentGlow: "rgba(232,119,46,0.25)",
-  priorityUrgent: "#EF5744", priorityHigh: "#E8772E", priorityMedium: "#E2C541",
-  priorityLow: "#5BBC6E", priorityNone: "#4A4A46",
-  done: "#5BBC6E", overdue: "#EF5744",
-  shadowSm: "0 1px 3px rgba(0,0,0,0.3)", shadowMd: "0 4px 12px rgba(0,0,0,0.4)", shadowLg: "0 8px 24px rgba(0,0,0,0.5)",
+  bgBase:"#111110",bgSurface:"#1C1C1B",bgSurfaceHover:"#242423",bgSidebar:"#161615",bgElevated:"#272726",
+  borderDefault:"#2A2A28",borderStrong:"#3A3A37",borderSubtle:"#1E1E1D",
+  textPrimary:"#EDEDEC",textSecondary:"#A1A09A",textTertiary:"#5A5955",textFaded:"#3D3D3A",textOnAccent:"#111110",
+  accent:"#E8772E",accentHover:"#D4691F",accentSubtle:"rgba(232,119,46,0.08)",accentGlow:"rgba(232,119,46,0.3)",accentBorder:"rgba(232,119,46,0.5)",
+  done:"#5BBC6E",overdue:"#EF5744",
+  shadowSm:"0 1px 4px rgba(0,0,0,0.2)",shadowMd:"0 4px 14px rgba(0,0,0,0.3)",shadowLift:"0 6px 20px rgba(0,0,0,0.4)",
 };
-const sans = "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif";
-const mono = "'IBM Plex Mono', 'Menlo', monospace";
+const sans="'IBM Plex Sans',-apple-system,BlinkMacSystemFont,sans-serif";
+const mono="'IBM Plex Mono','Menlo',monospace";
+if(!document.getElementById("cog-f")){const l=document.createElement("link");l.id="cog-f";l.href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap";l.rel="stylesheet";document.head.appendChild(l);}
 
-if (!document.getElementById("cog-f")) {
-  const l = document.createElement("link"); l.id = "cog-f";
-  l.href = "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap";
-  l.rel = "stylesheet"; document.head.appendChild(l);
-}
-
-// ─── Tooltip (positions to right for sidebar) ────────────────
-function Tip({ text, children, side = "top" }) {
-  const [h, setH] = useState(false);
-  const posStyle = side === "right"
-    ? { left: "calc(100% + 8px)", top: "50%", transform: "translateY(-50%)" }
-    : { bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)" };
-  const arrowStyle = side === "right"
-    ? { left: -4, top: "50%", transform: "translateY(-50%) rotate(45deg)", borderLeft: `1px solid ${t.borderStrong}`, borderBottom: `1px solid ${t.borderStrong}`, borderRight: "none", borderTop: "none" }
-    : { bottom: -4, left: "50%", transform: "translateX(-50%) rotate(45deg)", borderRight: `1px solid ${t.borderStrong}`, borderBottom: `1px solid ${t.borderStrong}`, borderLeft: "none", borderTop: "none" };
-  return (
-    <span style={{ position: "relative", display: "inline-flex" }}
-      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
-      {children}
-      {h && <span style={{
-        position: "absolute", ...posStyle, background: t.bgElevated, border: `1px solid ${t.borderStrong}`,
-        borderRadius: 6, padding: "5px 10px", fontSize: 12, fontFamily: sans, color: t.textSecondary,
-        whiteSpace: "nowrap", zIndex: 300, boxShadow: t.shadowMd, animation: "fadeIn 100ms ease-out",
-      }}>{text}<span style={{ position: "absolute", width: 7, height: 7, background: t.bgElevated, ...arrowStyle }} /></span>}
-    </span>
-  );
-}
-
-// ─── Button ──────────────────────────────────────────────────
-function Button({ children, variant = "accent", size = "md", loading = false, disabled = false, onClick, style: sx }) {
-  const [h, setH] = useState(false);
-  const s = size === "sm" ? { h: 34, p: "0 14px", fs: 13.5 } : { h: 40, p: "0 18px", fs: 14 };
-  const v = {
-    accent: { bg: h ? t.accentHover : t.accent, c: t.textOnAccent, b: "none" },
-    outline: { bg: h ? t.bgSurfaceHover : "transparent", c: h ? t.textPrimary : t.textSecondary, b: `1px solid ${h ? t.borderStrong : t.borderDefault}` },
-    ghost: { bg: h ? t.bgSurfaceHover : "transparent", c: h ? t.textPrimary : t.textSecondary, b: "1px solid transparent" },
-    danger: { bg: h ? "#DC2626" : "transparent", c: h ? "#fff" : t.overdue, b: `1px solid ${h ? "#DC2626" : t.borderStrong}` },
-    toggle: { bg: h ? t.bgSurfaceHover : t.bgElevated, c: t.textSecondary, b: `1px solid ${t.borderDefault}` },
-  }[variant];
-  return (
-    <button onClick={onClick} disabled={disabled || loading}
-      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
-      style={{
-        height: s.h, padding: s.p, fontSize: s.fs, fontWeight: 500, fontFamily: sans,
-        background: v.bg, color: v.c, border: v.b, borderRadius: 8,
-        cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1,
-        display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0,
-        transition: "all 150ms ease-out", lineHeight: 1, letterSpacing: "-0.01em", whiteSpace: "nowrap", ...sx,
-      }}>
-      {loading && <span style={{ display: "inline-flex", animation: "spin 0.8s linear infinite" }}>
-        <svg width={15} height={15} viewBox="0 0 15 15" fill="none">
-          <circle cx={7.5} cy={7.5} r={6} stroke="currentColor" strokeWidth={1.5} opacity={0.25} />
-          <path d="M13.5 7.5a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
-        </svg></span>}
-      {children}
-    </button>
-  );
-}
-
-// ─── Input ───────────────────────────────────────────────────
-function Input({ placeholder = "", value, onChange, style: sx }) {
-  const [f, setF] = useState(false);
-  return (
-    <input type="text" value={value} onChange={(e) => onChange?.(e.target.value)}
-      placeholder={placeholder} onFocus={() => setF(true)} onBlur={() => setF(false)}
-      style={{
-        height: 34, padding: "0 12px", fontSize: 13.5, fontFamily: sans, fontWeight: 400,
-        color: t.textPrimary, background: t.bgElevated,
-        border: `1px solid ${f ? t.accent : t.borderDefault}`, borderRadius: 8, outline: "none",
-        boxShadow: f ? `0 0 0 2px ${t.accent}25` : "none",
-        transition: "all 150ms ease-out", minWidth: 0, ...sx,
-      }} />
-  );
-}
-
-// ─── Textarea ────────────────────────────────────────────────
-function Textarea({ placeholder, value, onChange, rows = 3 }) {
-  const [f, setF] = useState(false);
-  return (
-    <textarea value={value} onChange={(e) => onChange?.(e.target.value)}
-      placeholder={placeholder} rows={rows}
-      onFocus={() => setF(true)} onBlur={() => setF(false)}
-      style={{
-        padding: "10px 14px", fontSize: 15, fontFamily: sans, fontWeight: 400,
-        color: t.textPrimary, background: t.bgElevated,
-        border: `1px solid ${f ? t.accent : t.borderDefault}`, borderRadius: 8, outline: "none",
-        boxShadow: f ? `0 0 0 2px ${t.accent}25` : "none",
-        transition: "all 150ms ease-out", width: "100%", resize: "vertical", lineHeight: 1.55,
-      }} />
-  );
-}
-
-// ─── Checkbox ────────────────────────────────────────────────
-function Checkbox({ checked = false, onChange, size = 20 }) {
-  const [h, setH] = useState(false);
-  return (
-    <button onClick={() => onChange?.(!checked)}
-      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
-      style={{
-        width: size, height: size, borderRadius: "50%",
-        border: checked ? "none" : `1.5px solid ${h ? t.textTertiary : t.borderStrong}`,
-        background: checked ? t.done : h ? t.bgSurfaceHover : "transparent",
-        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        transition: "all 200ms ease-out", padding: 0, flexShrink: 0,
-      }}>
-      {checked && <svg width={11} height={11} viewBox="0 0 11 11" fill="none">
-        <path d="M2.5 6L4.5 8L8.5 3.5" stroke={t.bgBase} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" /></svg>}
-    </button>
-  );
-}
-
-function PriorityIndicator({ level = 3, size = "md" }) {
-  const ds = size === "sm" ? 7 : 8;
-  const c = [t.priorityNone, t.priorityLow, t.priorityLow, t.priorityMedium, t.priorityHigh, t.priorityUrgent];
-  return (
-    <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
-      {[1,2,3,4,5].map(i => <div key={i} style={{ width: ds, height: ds, borderRadius: "50%", background: i <= level ? (c[level]||t.priorityNone) : t.borderDefault, transition: "all 150ms" }} />)}
-    </div>
-  );
-}
-
-// ─── Badge ───────────────────────────────────────────────────
-function Badge({ children, color, stats }) {
-  const [h, setH] = useState(false);
-  const bg = color ? `${color}20` : t.bgElevated; const fg = color || t.textSecondary;
-  return (
-    <span style={{ position: "relative", display: "inline-flex" }}
-      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}>
-      <span style={{ display: "inline-flex", alignItems: "center", height: 24, padding: "0 9px", fontSize: 12.5, fontWeight: 500, fontFamily: sans, color: fg, background: bg, borderRadius: 9999, lineHeight: 1, whiteSpace: "nowrap", cursor: stats ? "default" : "inherit" }}>{children}</span>
-      {stats && h && (
-        <div style={{ position: "absolute", bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)", background: t.bgElevated, border: `1px solid ${t.borderStrong}`, borderRadius: 8, padding: "10px 14px", boxShadow: t.shadowMd, zIndex: 200, minWidth: 170, animation: "fadeIn 100ms ease-out" }}>
-          <div style={{ fontSize: 13, fontWeight: 600, fontFamily: sans, color: fg, marginBottom: 8 }}>{children}</div>
-          {[["Total", stats.total], ["Done", stats.done], ["Open", stats.total - stats.done]].map(([l, v]) => (
-            <div key={l} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, fontFamily: sans, marginBottom: 3 }}>
-              <span style={{ color: t.textTertiary }}>{l}</span><span style={{ color: t.textSecondary, fontWeight: 500 }}>{v}</span>
-            </div>))}
-          <div style={{ height: 1, background: t.borderDefault, margin: "5px 0" }} />
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, fontFamily: sans }}>
-            <span style={{ color: t.textTertiary }}>Completion</span>
-            <span style={{ color: t.done, fontWeight: 500 }}>{Math.round((stats.done / stats.total) * 100)}%</span>
-          </div>
-          <div style={{ position: "absolute", bottom: -4, left: "50%", transform: "translateX(-50%) rotate(45deg)", width: 7, height: 7, background: t.bgElevated, borderRight: `1px solid ${t.borderStrong}`, borderBottom: `1px solid ${t.borderStrong}` }} />
-        </div>
-      )}
-    </span>
-  );
-}
-
-function DateDisplay({ date, overdue = false }) {
-  return <span style={{ fontSize: 13.5, fontFamily: sans, fontWeight: 400, color: overdue ? t.overdue : t.textTertiary, whiteSpace: "nowrap" }}>{date}</span>;
-}
-function Kbd({ children }) {
-  return <kbd style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 22, height: 22, padding: "0 6px", fontSize: 11.5, fontFamily: mono, fontWeight: 500, color: t.textTertiary, background: t.bgElevated, border: `1px solid ${t.borderDefault}`, borderRadius: 5, lineHeight: 1 }}>{children}</kbd>;
-}
-function Skeleton({ width = "100%", height = 14, radius = 6 }) {
-  return <div style={{ width, height, borderRadius: radius, background: t.bgElevated, animation: "pulse 1.5s ease-in-out infinite" }} />;
-}
-function Toast({ message, variant = "success", onClose }) {
-  const icons = { success: "✓", error: "✕", info: "→" };
-  const colors = { success: t.done, error: t.overdue, info: t.accent };
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: t.bgSurface, border: `1px solid ${t.borderDefault}`, borderRadius: 8, boxShadow: t.shadowMd, fontSize: 14, fontFamily: sans, color: t.textPrimary, minWidth: 280, animation: "slideUp 200ms ease-out" }}>
-      <span style={{ width: 22, height: 22, borderRadius: "50%", background: `${colors[variant]}18`, color: colors[variant], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{icons[variant]}</span>
-      <span style={{ flex: 1 }}>{message}</span>
-      <button onClick={onClose} style={{ background: "none", border: "none", color: t.textTertiary, cursor: "pointer", fontSize: 16, padding: 0, lineHeight: 1 }}>×</button>
-    </div>
-  );
-}
-
-// ─── Dropdown (NEW PRIMITIVE) ────────────────────────────────
-function Dropdown({ options, value, onChange, placeholder = "Select...", width = 200 }) {
-  const [open, setOpen] = useState(false);
-  const [hovered, setHovered] = useState(null);
-  const ref = useRef(null);
-  const selected = options.find(o => o.value === value);
-
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  return (
-    <div ref={ref} style={{ position: "relative", display: "inline-flex", width }}>
-      <button onClick={() => setOpen(!open)} style={{
-        width: "100%", height: 34, padding: "0 12px", fontSize: 13.5, fontFamily: sans, fontWeight: 400,
-        color: selected ? t.textPrimary : t.textTertiary, background: t.bgElevated,
-        border: `1px solid ${open ? t.accent : t.borderDefault}`, borderRadius: 8,
-        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",
-        transition: "all 150ms ease-out", outline: "none",
-        boxShadow: open ? `0 0 0 2px ${t.accent}25` : "none",
-      }}>
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {selected ? selected.label : placeholder}
-        </span>
-        <span style={{ fontSize: 10, color: t.textTertiary, marginLeft: 8, transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms" }}>▼</span>
-      </button>
-      {open && (
-        <div style={{
-          position: "absolute", top: "calc(100% + 4px)", left: 0, width: "100%", zIndex: 300,
-          background: t.bgElevated, border: `1px solid ${t.borderStrong}`, borderRadius: 8,
-          boxShadow: t.shadowLg, overflow: "hidden", animation: "fadeIn 100ms ease-out",
-          padding: "4px",
-        }}>
-          {options.map((opt) => (
-            <button key={opt.value}
-              onMouseEnter={() => setHovered(opt.value)} onMouseLeave={() => setHovered(null)}
-              onClick={() => { onChange(opt.value); setOpen(false); }}
-              style={{
-                width: "100%", padding: "8px 10px", fontSize: 13.5, fontFamily: sans,
-                fontWeight: opt.value === value ? 500 : 400,
-                color: opt.value === value ? t.accent : hovered === opt.value ? t.textPrimary : t.textSecondary,
-                background: opt.value === value ? t.accentSubtle : hovered === opt.value ? t.bgSurfaceHover : "transparent",
-                border: "none", borderRadius: 6, cursor: "pointer",
-                display: "flex", flexDirection: "column", gap: 2, textAlign: "left",
-                transition: "all 100ms ease-out",
-              }}>
-              <span>{opt.label}</span>
-              {opt.description && <span style={{ fontSize: 12, color: t.textTertiary, fontWeight: 400 }}>{opt.description}</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── TaskRow ─────────────────────────────────────────────────
-function TaskRow({ title, project, priority, dueDate, labels = [], done = false, overdue = false, selected = false, description, attachments = 0, subtasks, aiTagged = false, viewed = true }) {
-  const [hov, setHov] = useState(false);
-  const [checked, setChecked] = useState(done);
-  const glow = aiTagged && !viewed;
-  return (
-    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{
-        display: "grid", gridTemplateColumns: "20px 42px 1fr auto",
-        alignItems: "start", gap: 14, padding: "14px 20px",
-        background: selected ? t.accentSubtle : hov ? t.bgSurfaceHover : "transparent",
-        borderBottom: `1px solid ${t.borderSubtle}`,
-        borderLeft: selected ? `2px solid ${t.accent}` : glow ? `2px solid ${t.accent}` : "2px solid transparent",
-        boxShadow: glow ? `inset 3px 0 8px -4px ${t.accentGlow}` : "none",
-        cursor: "pointer", transition: "all 150ms ease-out", minHeight: 56,
-      }}>
-      <div style={{ paddingTop: 2 }}><Checkbox checked={checked} onChange={setChecked} /></div>
-      <div style={{ paddingTop: 3 }}><PriorityIndicator level={priority} size="sm" /></div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 500, fontFamily: sans, color: checked ? t.textTertiary : t.textPrimary, textDecoration: checked ? "line-through" : "none", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</div>
-        {description && !checked && <div style={{ fontSize: 13, fontFamily: sans, color: t.textTertiary, marginTop: 3, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "90%" }}>{description}</div>}
-        <div style={{ display: "flex", gap: 7, marginTop: 5, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, color: t.textTertiary, fontFamily: sans }}>{project}</span>
-          {labels.map((l, i) => <Badge key={i} color={l.color} stats={l.stats}>{l.name}</Badge>)}
-          {attachments > 0 && <Tip text={`${attachments} attachment${attachments > 1 ? "s" : ""}`}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, color: t.textTertiary }}>
-              <svg width={13} height={13} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M13.5 7.5l-5.4 5.4a3.2 3.2 0 01-4.5-4.5l5.4-5.4a2 2 0 012.8 2.8L6.4 11.2a.8.8 0 01-1.1-1.1l4.5-4.5" strokeLinecap="round" /></svg>{attachments}
-            </span></Tip>}
-          {subtasks && <Tip text={`${subtasks.done} of ${subtasks.total} subtasks complete`}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: t.textTertiary }}>
-              <svg width={13} height={13} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x={2} y={2} width={5} height={5} rx={1} /><rect x={9} y={9} width={5} height={5} rx={1} /><path d="M4.5 7v2.5h4.5" /></svg>{subtasks.done}/{subtasks.total}
-            </span></Tip>}
-        </div>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, paddingTop: 2 }}>
-        <DateDisplay date={dueDate} overdue={overdue} />
-        <span style={{ opacity: hov ? 0.4 : 0, transition: "opacity 150ms", color: t.textTertiary, fontSize: 16 }}>›</span>
-      </div>
-    </div>
-  );
-}
-
-// ─── ProposalCard ────────────────────────────────────────────
-function ProposalCard({ title, project, priority, dueDate, labels = [], estimate }) {
-  const [checked, setChecked] = useState(true);
-  const [hov, setHov] = useState(false);
-  return (
-    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{
-        display: "flex", gap: 14, padding: "16px 18px", background: t.bgSurface,
-        border: `1px solid ${hov ? t.borderStrong : t.borderDefault}`, borderRadius: 10,
-        borderLeft: `2px solid ${t.accent}`, boxShadow: hov ? t.shadowSm : `inset 3px 0 8px -4px ${t.accentGlow}`,
-        transition: "all 150ms ease-out", alignItems: "flex-start",
-      }}>
-      <Checkbox checked={checked} onChange={setChecked} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 7 }}>
-          <PriorityIndicator level={priority} size="sm" />
-          <span style={{ fontSize: 15, fontWeight: 500, fontFamily: sans, color: t.textPrimary, lineHeight: 1.3 }}>{title}</span>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, color: t.textTertiary }}>{project}</span>
-          <span style={{ fontSize: 13, color: t.borderStrong }}>·</span><DateDisplay date={dueDate} />
-          {estimate && <><span style={{ fontSize: 13, color: t.borderStrong }}>·</span><span style={{ fontSize: 13, color: t.textTertiary }}>{estimate}</span></>}
-          {labels.map((l, i) => <Badge key={i} color={l.color}>{l.name}</Badge>)}
-        </div>
-      </div>
-      <button style={{ opacity: hov ? 1 : 0, fontSize: 13, fontFamily: sans, fontWeight: 500, color: t.textSecondary, background: "none", border: `1px solid ${t.borderStrong}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", transition: "opacity 150ms" }}>edit</button>
-    </div>
-  );
-}
-
-function RawResponse({ data }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div style={{ marginTop: 16 }}>
-      <button onClick={() => setOpen(!open)} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: t.textTertiary, fontSize: 13, fontFamily: sans, cursor: "pointer", padding: 0 }}>
-        <span style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 150ms", fontSize: 10 }}>▶</span>Raw AI Response
-      </button>
-      {open && <pre style={{ marginTop: 10, padding: 16, background: t.bgBase, border: `1px solid ${t.borderDefault}`, borderRadius: 8, fontSize: 12.5, fontFamily: mono, color: t.textSecondary, lineHeight: 1.6, overflow: "auto", maxHeight: 300, whiteSpace: "pre-wrap" }}>{data}</pre>}
-    </div>
-  );
-}
-
-// ─── Sidebar ─────────────────────────────────────────────────
-function Sidebar({ activeNav, setActiveNav, collapsed, setCollapsed }) {
-  const w = collapsed ? 56 : 240;
-  const nav = [
-    { id: "all", label: "All Tasks", icon: "☰", count: 12 },
-    { id: "upcoming", label: "Upcoming", icon: "◷", count: 5 },
-    { id: "overdue", label: "Overdue", icon: "!", count: 2, cc: t.overdue },
-  ];
-  const projects = [
-    { name: "PhD", color: "#E8772E", count: 8 },
-    { name: "Admin", color: "#5BBC6E", count: 3 },
-    { name: "Teaching", color: "#6B9BD2", count: 1 },
-  ];
-
-  return (
-    <div style={{ width: w, background: t.bgSidebar, borderRight: `1px solid ${t.borderSubtle}`, display: "flex", flexDirection: "column", padding: collapsed ? "16px 0 12px" : "20px 0", flexShrink: 0, height: "100%", transition: "width 200ms ease-out", overflow: collapsed ? "visible" : "hidden", position: "relative", zIndex: 50 }}>
-      {/* Header */}
-      <div style={{ padding: collapsed ? "0" : "0 20px", marginBottom: collapsed ? 16 : 28, display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "space-between" }}>
-        {!collapsed && <span style={{ fontSize: 18, fontWeight: 600, fontFamily: sans, color: t.textPrimary, letterSpacing: "-0.03em" }}>cognito</span>}
-        <Tip text={collapsed ? "Expand" : "Collapse"} side={collapsed ? "right" : "top"}>
-          <button onClick={() => setCollapsed(!collapsed)} style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: t.textTertiary, cursor: "pointer", borderRadius: 6, fontSize: 14 }}>
-            {collapsed ? "»" : "«"}
-          </button>
-        </Tip>
-      </div>
-
-      {/* Nav */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: collapsed ? "0 8px" : "0 8px" }}>
-        {nav.map(item => {
-          const active = activeNav === item.id;
-          return collapsed ? (
-            <Tip key={item.id} text={`${item.label} (${item.count})`} side="right">
-              <SNavBtn active={active} onClick={() => setActiveNav(item.id)} center>
-                <span style={{ fontSize: 15, color: active ? t.accent : t.textSecondary }}>{item.icon}</span>
-              </SNavBtn>
-            </Tip>
-          ) : (
-            <SNavBtn key={item.id} active={active} onClick={() => setActiveNav(item.id)}>
-              <span style={{ fontSize: 14, fontFamily: sans, fontWeight: active ? 500 : 400, color: active ? t.accent : t.textSecondary }}>{item.label}</span>
-              <span style={{ fontSize: 12, fontFamily: sans, fontWeight: 500, color: item.cc || t.textTertiary, marginLeft: "auto" }}>{item.count}</span>
-            </SNavBtn>
-          );
-        })}
-      </div>
-
-      {/* Projects */}
-      {!collapsed && <div style={{ padding: "0 20px", marginTop: 28, marginBottom: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, fontFamily: sans, color: t.textTertiary, textTransform: "uppercase", letterSpacing: "0.08em" }}>Projects</span>
-      </div>}
-      <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 8px", marginTop: collapsed ? 16 : 0 }}>
-        {projects.map(p => collapsed ? (
-          <Tip key={p.name} text={`${p.name} (${p.count})`} side="right">
-            <SNavBtn center>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: p.color }} />
-            </SNavBtn>
-          </Tip>
-        ) : (
-          <SNavBtn key={p.name}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: p.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 14, fontFamily: sans, color: t.textSecondary, flex: 1, textAlign: "left" }}>{p.name}</span>
-            <span style={{ fontSize: 12, fontFamily: sans, color: t.textTertiary }}>{p.count}</span>
-          </SNavBtn>
-        ))}
-      </div>
-
-      <div style={{ flex: 1 }} />
-
-      {/* AI Extract */}
-      <div style={{ padding: "0 8px", marginBottom: 4 }}>
-        {collapsed ? (
-          <Tip text="AI Extract" side="right">
-            <SNavBtn center style={{ border: `1px solid ${t.accent}30`, background: t.accentSubtle }}>
-              <span style={{ color: t.accent, fontSize: 16, fontWeight: 700 }}>◆</span>
-            </SNavBtn>
-          </Tip>
-        ) : (
-          <SNavBtn style={{ border: `1px solid ${t.accent}30`, background: t.accentSubtle }}>
-            <span style={{ color: t.accent, fontSize: 14, fontFamily: sans, fontWeight: 600 }}>◆ AI Extract</span>
-          </SNavBtn>
-        )}
-      </div>
-
-      {collapsed ? (
-        <div style={{ padding: "0 8px" }}>
-          <Tip text="Settings" side="right">
-            <SNavBtn center><span style={{ fontSize: 15, color: t.textTertiary }}>⚙</span></SNavBtn>
-          </Tip>
-        </div>
-      ) : (
-        <>
-          <div style={{ padding: "0 8px" }}><SNavBtn><span style={{ fontSize: 13, fontFamily: sans, color: t.textTertiary }}>Settings</span></SNavBtn></div>
-          <div style={{ padding: "12px 20px", marginTop: 8, borderTop: `1px solid ${t.borderSubtle}` }}>
-            <span style={{ fontSize: 13, fontFamily: sans, color: t.textTertiary }}>s.martinez@uni.edu</span>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function SNavBtn({ children, active, onClick, center, style: sx }) {
-  const [h, setH] = useState(false);
-  return (
-    <button onClick={onClick} onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
-      style={{
-        display: "flex", alignItems: "center", gap: 10,
-        padding: center ? "8px 0" : "8px 12px",
-        justifyContent: center ? "center" : "flex-start",
-        borderRadius: 7, border: "none",
-        background: active ? t.accentSubtle : h ? t.bgSurfaceHover : "transparent",
-        cursor: "pointer", transition: "all 100ms ease-out", width: "100%", ...sx,
-      }}>{children}</button>
-  );
-}
-
-// ─── Tag stats ───────────────────────────────────────────────
-const tagStats = { ethics: { total: 4, done: 2 }, admin: { total: 6, done: 3 }, writing: { total: 8, done: 5 }, presentation: { total: 3, done: 1 }, grading: { total: 5, done: 4 }, booking: { total: 2, done: 2 } };
-
-const modelOptions = [
-  { value: "gemini-flash", label: "Gemini 2.0 Flash", description: "Fast, good for most tasks" },
-  { value: "gemini-pro", label: "Gemini 2.0 Pro", description: "Higher quality, slower" },
-  { value: "ollama-qwen", label: "Qwen 3.x (Local)", description: "Private, runs on your machine" },
-  { value: "ollama-llama", label: "Llama 3.3 (Local)", description: "Private, larger model" },
+const projects=[{id:1,name:"PhD",color:"#E8772E"},{id:2,name:"Admin",color:"#5BBC6E"},{id:3,name:"Teaching",color:"#6B9BD2"}];
+const pMap=Object.fromEntries(projects.map(p=>[p.id,p]));
+const allTasks=[
+  {id:1,title:"Submit ethics amendment",desc:"Final submission to ethics board. Compile revised consent forms and updated protocol.",project:1,priority:5,due:"Mar 3",overdue:true,labels:["ethics","admin"],attachments:2,aiTagged:true,bucket:"todo"},
+  {id:2,title:"Revise chapter 3",desc:"Full revision — methodology section and literature review update.",project:1,priority:4,due:"Mar 7",labels:["writing"],subtasks:"1/4",bucket:"doing"},
+  {id:3,title:"Prepare lab presentation",desc:"Slides covering recent results on ultrasound modality.",project:1,priority:3,due:"Mar 10",labels:["presentation"],attachments:1,bucket:"doing"},
+  {id:4,title:"Email supervisor about extension",project:1,priority:2,due:"Mar 12",bucket:"todo"},
+  {id:5,title:"Analyze experimental dataset",desc:"Remove outliers, normalize values. Focus on platelet correlations.",project:1,priority:4,due:"In 2 days",labels:["data-analysis"],aiTagged:true,bucket:"todo"},
+  {id:6,title:"Clean experimental dataset",desc:"Handle missing values, standardize columns.",project:1,priority:3,due:"Mar 9",labels:["data-analysis"],bucket:"doing"},
+  {id:7,title:"Book room for lab meeting",project:2,priority:2,due:"Mar 8",labels:["booking"],done:true,bucket:"done"},
+  {id:8,title:"Order lab supplies",project:2,priority:1,due:"Mar 15",bucket:"todo"},
+  {id:9,title:"Complete TA form",desc:"Fill out hours and submit.",project:2,priority:3,due:"Mar 14",labels:["admin"],bucket:"todo"},
+  {id:10,title:"Grade midterm papers",desc:"30 papers, use rubric from last semester.",project:3,priority:3,due:"Mar 14",labels:["grading"],subtasks:"12/30",bucket:"doing"},
+  {id:11,title:"Prepare tutorial materials",project:3,priority:2,due:"Mar 11",labels:["teaching"],bucket:"todo"},
+  {id:12,title:"Schedule advisor meeting",desc:"Progress update meeting for next week.",project:1,priority:2,due:"Tomorrow",aiTagged:true,bucket:"todo"},
 ];
+const bkts=[{id:"todo",title:"To Do"},{id:"doing",title:"In Progress"},{id:"done",title:"Done"}];
+const priC=[,"#5BBC6E","#5BBC6E","#E2C541","#E8772E","#EF5744"];
 
-// ─── Main ────────────────────────────────────────────────────
-export default function App() {
-  const [inputVal, setInputVal] = useState("");
-  const [textareaVal, setTextareaVal] = useState("");
-  const [showToasts, setShowToasts] = useState(false);
-  const [activeSection, setActiveSection] = useState("app");
-  const [activeNav, setActiveNav] = useState("all");
-  const [collapsed, setCollapsed] = useState(false);
-  const [localProcessing, setLocalProcessing] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(true);
-  const [selectedModel, setSelectedModel] = useState("gemini-flash");
-  const [dropdownDemo, setDropdownDemo] = useState("gemini-flash");
-
-  const rawAI = `{
-  "model": "${selectedModel}",
-  "tool_calls": [
-    {"name": "lookup_projects", "args": {}},
-    {"name": "resolve_project", "args": {"name": "PhD"}},
-    {"name": "resolve_project", "args": {"name": "Admin"}},
-    {"name": "check_existing_tasks", "args": {"title": "Book room"}}
-  ],
-  "proposals": [
-    {
-      "title": "Revise chapter 3",
-      "project_id": 1, "priority": 4, "due_date": "2026-03-07",
-      "labels": ["writing"],
-      "auto_tag_reason": "Matched 'writing': drafting, revision, or editing of thesis chapters"
-    },
-    {
-      "title": "Prepare lab meeting presentation",
-      "project_id": 1, "priority": 3, "due_date": "2026-03-10",
-      "labels": ["presentation"],
-      "auto_tag_reason": "Matched 'presentation': slide decks, talks, demo prep"
-    },
-    {
-      "title": "Book room for lab meeting",
-      "project_id": 2, "priority": 2, "due_date": "2026-03-08",
-      "labels": ["booking"],
-      "auto_tag_reason": "Matched 'booking': room reservations, equipment bookings"
-    }
-  ],
-  "tokens_used": 1247, "latency_ms": 890
-}`;
-
-  return (
-    <div style={{ background: t.bgBase, minHeight: "100vh", fontFamily: sans, color: t.textPrimary }}>
-      <style>{`
-        @keyframes pulse{0%,100%{opacity:.4}50%{opacity:.8}}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-        *{box-sizing:border-box;margin:0}
-        ::placeholder{color:${t.textTertiary}}
-        ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${t.borderDefault};border-radius:3px}
-      `}</style>
-
-      {/* Top tabs */}
-      <div style={{ display: "flex", gap: 2, padding: "12px 24px", borderBottom: `1px solid ${t.borderSubtle}`, background: t.bgSurface }}>
-        <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
-          <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.03em" }}>cognito</span>
-          <span style={{ fontSize: 13, color: t.textTertiary, marginLeft: 12 }}>design system</span>
+function Bubble({task,expanded,onToggle,kanban}){
+  const[hov,setHov]=useState(false);const p=task.priority||0;const proj=pMap[task.project];
+  const presO=task.done?.35:p>=4?1:p===3?.85:p===2?.65:.45;
+  const titleC=task.done?t.textTertiary:p>=4?t.textPrimary:p===3?"#C8C8C6":t.textSecondary;
+  return(
+    <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      onClick={e=>{e.stopPropagation();onToggle?.(task.id);}}
+      style={{position:"relative",background:expanded?t.bgElevated:t.bgSurface,border:`1px solid ${expanded?t.borderStrong:task.aiTagged?t.accentBorder:hov?t.borderStrong:t.borderDefault}`,borderRadius:10,padding:expanded?"18px 20px":kanban?"10px 12px":"14px 16px",cursor:"pointer",boxShadow:task.aiTagged&&!expanded?`${shadow(p)}, inset 0 0 12px -4px ${t.accentGlow}`:hov&&!expanded?t.shadowLift:shadow(p),transform:hov&&!expanded?"translateY(-1px)":"translateY(0)",transition:"transform 200ms ease-out, box-shadow 200ms ease-out, border-color 200ms ease-out",opacity:presO,width:kanban?"100%":expanded?360:200,minHeight:kanban?void 0:expanded?void 0:90,maxWidth:kanban?"100%":expanded?400:200,overflow:"hidden",display:"flex",flexDirection:"column"}}>
+      {proj&&!kanban&&<div style={{position:"absolute",top:0,right:0,width:0,height:0,borderLeft:"18px solid transparent",borderTop:`18px solid ${proj.color}`,borderTopRightRadius:9,opacity:expanded?.6:.3,transition:"opacity 200ms"}}/>}
+      <div style={{fontSize:kanban&&!expanded?13.5:expanded?16:14.5,fontWeight:p>=4?500:400,fontFamily:sans,color:titleC,textDecoration:task.done?"line-through":"none",lineHeight:1.4,letterSpacing:"-0.01em",marginBottom:expanded?12:0,display:expanded?"block":"-webkit-box",WebkitLineClamp:expanded?void 0:kanban?2:3,WebkitBoxOrient:"vertical",overflow:expanded?"visible":"hidden",paddingRight:!kanban&&!expanded?14:0}}>{task.title}</div>
+      {!expanded&&!kanban&&<div style={{flex:1}}/>}
+      {hov&&!expanded&&<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",animation:"fadeIn 100ms ease-out",marginTop:kanban?4:0,minHeight:20}}>
+        {task.due&&<span style={{fontSize:12,color:task.overdue?t.overdue:t.textTertiary,fontFamily:sans}}>{task.due}</span>}
+        {task.labels?.[0]&&<span style={{fontSize:11.5,color:t.textTertiary,fontFamily:sans}}>{task.labels[0]}</span>}
+        {task.attachments&&<span style={{fontSize:11.5,color:t.textTertiary}}>📎{task.attachments}</span>}
+        {task.subtasks&&<span style={{fontSize:11.5,color:t.textTertiary}}>☐ {task.subtasks}</span>}
+      </div>}
+      {expanded&&<div style={{animation:"expandIn 200ms ease-out"}}>
+        {task.desc&&<div style={{fontSize:13.5,color:t.textSecondary,lineHeight:1.55,fontFamily:sans,marginBottom:14}}>{task.desc}</div>}
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12,alignItems:"center"}}>
+          <div style={{display:"flex",gap:3,marginRight:6}}>{[1,2,3,4,5].map(i=><div key={i} style={{width:7,height:7,borderRadius:"50%",background:i<=p?priC[p]:t.borderDefault}}/>)}</div>
+          <span style={{fontSize:12.5,color:task.overdue?t.overdue:t.textTertiary,fontFamily:sans}}>{task.due}</span>
+          {proj&&<span style={{fontSize:12,color:proj.color,fontFamily:sans,opacity:.7}}>{proj.name}</span>}
+          {task.labels?.map((l,i)=><span key={i} style={{fontSize:11.5,fontWeight:500,fontFamily:sans,color:t.textSecondary,background:t.bgSurfaceHover,borderRadius:9999,padding:"2px 8px"}}>{l}</span>)}
+          {task.attachments&&<span style={{fontSize:12,color:t.textTertiary}}>📎 {task.attachments}</span>}
+          {task.subtasks&&<span style={{fontSize:12,color:t.textTertiary}}>☐ {task.subtasks}</span>}
         </div>
-        {["app", "primitives", "extraction"].map(s => (
-          <TabBtn key={s} active={activeSection === s} onClick={() => setActiveSection(s)}>
-            {s === "app" ? "App Preview" : s.charAt(0).toUpperCase() + s.slice(1)}
-          </TabBtn>
-        ))}
-      </div>
+        <div style={{display:"flex",gap:8}}><Btn c={t.done}>✓ Done</Btn><Btn>Edit</Btn></div>
+      </div>}
+    </div>);
+}
+function shadow(p){return p>=4?t.shadowMd:t.shadowSm;}
+function Btn({children,c}){const[h,setH]=useState(false);return <button onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)} style={{fontSize:12.5,fontFamily:sans,fontWeight:500,color:c||t.textTertiary,background:h?t.bgSurfaceHover:"none",border:`1px solid ${t.borderDefault}`,borderRadius:6,padding:"4px 10px",cursor:"pointer",transition:"all 120ms"}}>{children}</button>;}
 
-      {/* ═══ APP ═══ */}
-      {activeSection === "app" && (
-        <div style={{ display: "flex", height: "calc(100vh - 50px)" }}>
-          <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} collapsed={collapsed} setCollapsed={setCollapsed} />
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-            {/* Top bar — fixed single row */}
-            <div style={{ display: "flex", alignItems: "center", padding: "10px 24px", borderBottom: `1px solid ${t.borderSubtle}`, gap: 10, flexShrink: 0 }}>
-              <span style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em", flexShrink: 0, marginRight: "auto" }}>All Tasks</span>
-              <Input placeholder="Search..." value="" onChange={() => {}} style={{ width: 180, flexShrink: 1 }} />
-              <Button variant="outline" size="sm">Filter</Button>
-              <Button variant="accent" size="sm">◆ Extract</Button>
-              <Button variant="accent" size="sm">+ New</Button>
-            </div>
-
-            {/* Quick add */}
-            <div style={{ padding: "11px 24px", color: t.textTertiary, fontSize: 15, borderBottom: `1px solid ${t.borderSubtle}`, cursor: "text", flexShrink: 0 }}>
-              <span style={{ opacity: 0.5 }}>+</span><span style={{ marginLeft: 10 }}>Add task...</span>
-            </div>
-
-            <div style={{ flex: 1, overflowY: "auto" }}>
-              <TaskRow title="Submit ethics amendment" project="PhD" priority={5} dueDate="Mar 3" overdue
-                description="Final submission to ethics board — deadline extended from Feb 28"
-                labels={[{ name: "ethics", color: "#5BBC6E", stats: tagStats.ethics }, { name: "admin", color: "#E8772E", stats: tagStats.admin }]}
-                attachments={2} subtasks={{ done: 3, total: 5 }} selected />
-              <TaskRow title="Revise chapter 3" project="PhD" priority={4} dueDate="Mar 7"
-                description="Full revision based on supervisor feedback"
-                labels={[{ name: "writing", color: "#6B9BD2", stats: tagStats.writing }]}
-                subtasks={{ done: 1, total: 4 }} aiTagged viewed={false} />
-              <TaskRow title="Prepare lab meeting presentation" project="PhD" priority={3} dueDate="Mar 10"
-                labels={[{ name: "presentation", color: "#A78BFA", stats: tagStats.presentation }]} attachments={1} />
-              <TaskRow title="Email supervisor about extension" project="PhD" priority={2} dueDate="Mar 12" />
-              <TaskRow title="Grade midterm papers" project="Teaching" priority={3} dueDate="Mar 14"
-                description="30 papers, use rubric from last semester"
-                labels={[{ name: "grading", color: "#E2C541", stats: tagStats.grading }]} subtasks={{ done: 12, total: 30 }} />
-
-              {/* Completed divider */}
-              <button onClick={() => setShowCompleted(!showCompleted)} style={{
-                display: "flex", alignItems: "center", gap: 10, padding: "16px 24px", width: "100%",
-                color: t.textTertiary, fontSize: 13, fontFamily: sans, background: "none", border: "none", cursor: "pointer",
-              }}>
-                <span style={{ flex: 1, height: 1, background: t.borderDefault }} />
-                <span>Completed (2)</span>
-                <span style={{ fontSize: 10, transition: "transform 150ms", transform: showCompleted ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
-                <span style={{ flex: 1, height: 1, background: t.borderDefault }} />
-              </button>
-              {showCompleted && <div style={{ opacity: 0.65 }}>
-                <TaskRow title="Book room for lab meeting" project="Admin" priority={2} dueDate="Mar 8" done labels={[{ name: "booking", color: "#A78BFA", stats: tagStats.booking }]} />
-                <TaskRow title="Order lab supplies" project="Admin" priority={1} dueDate="Mar 15" done />
-              </div>}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ PRIMITIVES ═══ */}
-      {activeSection === "primitives" && (
-        <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px", display: "flex", flexDirection: "column", gap: 48 }}>
-          <Sec title="Buttons">
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-              <Button>Approve All</Button>
-              <Button>◆ Extract</Button>
-              <Button variant="outline">Cancel</Button>
-              <Button variant="ghost">Settings</Button>
-              <Button variant="danger" size="sm">Delete</Button>
-              <Button variant="toggle" size="sm">🔒 Local</Button>
-              <Button size="sm">Small</Button>
-              <Button loading>Saving</Button>
-              <Button disabled>Disabled</Button>
-            </div>
-          </Sec>
-
-          <Sec title="Dropdown">
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ fontSize: 13, color: t.textTertiary, marginBottom: 8 }}>Model selector</div>
-                <Dropdown options={modelOptions} value={dropdownDemo} onChange={setDropdownDemo} width={220} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13, color: t.textTertiary, marginBottom: 8 }}>Sort by</div>
-                <Dropdown options={[
-                  { value: "priority", label: "Priority" },
-                  { value: "due", label: "Due date" },
-                  { value: "created", label: "Created" },
-                  { value: "alpha", label: "Alphabetical" },
-                ]} value="priority" onChange={() => {}} width={160} placeholder="Sort by..." />
-              </div>
-            </div>
-          </Sec>
-
-          <Sec title="Input & Textarea">
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 400 }}>
-              <Input placeholder="Add a task..." value={inputVal} onChange={setInputVal} style={{ height: 40, fontSize: 15 }} />
-              <Textarea placeholder="Write a description..." value={textareaVal} onChange={setTextareaVal} rows={3} />
-            </div>
-          </Sec>
-
-          <Sec title="Checkbox & Priority">
-            <div style={{ display: "flex", gap: 32, alignItems: "center", flexWrap: "wrap" }}>
-              <R><Checkbox /><L>Unchecked</L></R>
-              <R><Checkbox checked /><L>Done</L></R>
-              <div style={{ width: 1, height: 24, background: t.borderDefault }} />
-              {[1,3,5].map(p => <R key={p}><PriorityIndicator level={p} /><span style={{ fontSize: 13, color: t.textTertiary, fontFamily: mono }}>{["","low","","med","","urgent"][p]}</span></R>)}
-            </div>
-          </Sec>
-
-          <Sec title="Badges (hover for stats)">
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <Badge color="#5BBC6E" stats={tagStats.ethics}>ethics</Badge>
-              <Badge color="#E8772E" stats={tagStats.admin}>admin</Badge>
-              <Badge color="#6B9BD2" stats={tagStats.writing}>writing</Badge>
-              <Badge color="#A78BFA" stats={tagStats.presentation}>presentation</Badge>
-              <Badge color="#E2C541" stats={tagStats.grading}>grading</Badge>
-              <Badge color="#EF5744">urgent</Badge>
-              <Badge>untagged</Badge>
-            </div>
-          </Sec>
-
-          <Sec title="AI-tagged indicator">
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 520 }}>
-              <div style={{ padding: "14px 18px", background: t.bgSurface, borderRadius: 10, border: `1px solid ${t.borderDefault}`, borderLeft: `2px solid ${t.accent}`, boxShadow: `inset 3px 0 8px -4px ${t.accentGlow}` }}>
-                <div style={{ fontSize: 14, fontFamily: sans, color: t.textPrimary, fontWeight: 500 }}>Unviewed — orange border + glow</div>
-                <div style={{ fontSize: 13, fontFamily: sans, color: t.textTertiary, marginTop: 4 }}>Fades to default after the user opens/views the task</div>
-              </div>
-              <div style={{ padding: "14px 18px", background: t.bgSurface, borderRadius: 10, border: `1px solid ${t.borderDefault}`, borderLeft: "2px solid transparent" }}>
-                <div style={{ fontSize: 14, fontFamily: sans, color: t.textPrimary, fontWeight: 500 }}>Viewed — standard appearance</div>
-              </div>
-            </div>
-          </Sec>
-
-          <Sec title="Keyboard Shortcuts">
-            <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-              {[["N","New"],["E","Edit"],["X","Done"],["/","Search"],["Ctrl+↵","Submit"],["Esc","Close"],["J","Down"],["K","Up"]].map(([k,l]) =>
-                <R key={k}><Kbd>{k}</Kbd><span style={{ fontSize: 13, color: t.textTertiary }}>{l}</span></R>
-              )}
-            </div>
-          </Sec>
-
-          <Sec title="Skeleton Loading">
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 520 }}>
-              {[.65,.45,.75].map((w,i) => (
-                <div key={i} style={{ display: "flex", gap: 14, alignItems: "center" }}>
-                  <Skeleton width={20} height={20} radius={10} /><Skeleton width={42} height={8} />
-                  <div style={{ flex: 1 }}><Skeleton width={`${w*100}%`} height={15} /><div style={{ height: 6 }} /><Skeleton width="40%" height={10} /></div>
-                  <Skeleton width={52} height={13} />
-                </div>
-              ))}
-            </div>
-          </Sec>
-
-          <Sec title="Toast Notifications">
-            <Button variant="outline" size="sm" onClick={() => setShowToasts(!showToasts)}>{showToasts ? "Hide" : "Show"} Toasts</Button>
-            {showToasts && <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16, maxWidth: 380 }}>
-              <Toast message="3 tasks created" variant="success" onClose={() => {}} />
-              <Toast message="Failed to update task" variant="error" onClose={() => {}} />
-              <Toast message="Extracting tasks..." variant="info" onClose={() => {}} />
-            </div>}
-          </Sec>
-        </div>
-      )}
-
-      {/* ═══ EXTRACTION ═══ */}
-      {activeSection === "extraction" && (
-        <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
-          <Sec title="AI Task Extraction">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-              <span style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em", color: t.accent }}>◆ Extract Tasks</span>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <Dropdown options={modelOptions} value={selectedModel} onChange={setSelectedModel} width={210} />
-                <Button variant="toggle" size="sm" onClick={() => setLocalProcessing(!localProcessing)}
-                  style={localProcessing ? { background: t.accentSubtle, borderColor: `${t.accent}40`, color: t.accent } : {}}>
-                  {localProcessing ? "🔒 Local" : "🔓 Cloud"}
-                </Button>
-              </div>
-            </div>
-
-            {localProcessing && <div style={{ padding: "10px 16px", marginBottom: 16, borderRadius: 8, background: t.accentSubtle, border: `1px solid ${t.accent}25`, fontSize: 13, fontFamily: sans, color: t.accent }}>
-              Processing locally via Ollama — your data stays on this device
-            </div>}
-
-            <Textarea placeholder="Paste meeting notes, an email, or describe what needs doing..." rows={4}
-              value="I had a meeting with my supervisor today. We agreed I need to revise chapter 3 by next Friday and she wants me to present at the lab meeting on March 10. Oh and I need to book a room for that."
-              onChange={() => {}} />
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14, gap: 10, alignItems: "center" }}>
-              <Kbd>Ctrl+↵</Kbd>
-              <Button>◆ Extract Tasks</Button>
-            </div>
-
-            <RawResponse data={rawAI} />
-
-            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "24px 0 16px", color: t.textTertiary, fontSize: 13 }}>
-              <span style={{ height: 1, width: 20, background: t.borderDefault }} />Extracted 3 tasks<span style={{ flex: 1, height: 1, background: t.borderDefault }} />
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <ProposalCard title="Revise chapter 3" project="PhD" priority={4} dueDate="Mar 7" estimate="3h" labels={[{ name: "writing", color: "#6B9BD2" }]} />
-              <ProposalCard title="Prepare lab meeting presentation" project="PhD" priority={3} dueDate="Mar 10" estimate="2h" labels={[{ name: "presentation", color: "#A78BFA" }]} />
-              <ProposalCard title="Book room for lab meeting" project="Admin" priority={2} dueDate="Mar 8" estimate="10m" labels={[{ name: "booking", color: "#A78BFA" }]} />
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
-              <Button variant="ghost" size="sm">Reject Selected</Button>
-              <Button>Approve All (3)</Button>
-            </div>
-          </Sec>
-        </div>
-      )}
+function Cluster({project,tasks,expanded,onToggle}){
+  const active=[...tasks].filter(x=>!x.done).sort((a,b)=>(b.priority||0)-(a.priority||0));
+  const done=tasks.filter(x=>x.done);const[sd,setSd]=useState(false);
+  return(<div style={{marginBottom:44}}>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14,paddingLeft:2}}>
+      <div style={{width:8,height:8,borderRadius:"50%",background:project.color}}/><span style={{fontSize:12,fontWeight:600,fontFamily:sans,color:t.textTertiary,textTransform:"uppercase",letterSpacing:"0.07em"}}>{project.name}</span><span style={{fontSize:12,fontFamily:sans,color:t.textFaded}}>{active.length}</span>
     </div>
-  );
+    <div style={{display:"flex",flexWrap:"wrap",gap:12,alignItems:"flex-start",alignContent:"flex-start"}}>{active.map(task=><Bubble key={task.id} task={task} expanded={expanded===task.id} onToggle={onToggle}/>)}</div>
+    {done.length>0&&<><button onClick={()=>setSd(!sd)} style={{fontSize:12,fontFamily:sans,color:t.textTertiary,background:"none",border:"none",cursor:"pointer",marginTop:14,padding:0,opacity:.5}}>{sd?"▾":"▸"} {done.length} completed</button>
+    {sd&&<div style={{display:"flex",flexWrap:"wrap",gap:10,marginTop:10}}>{done.map(task=><Bubble key={task.id} task={task} expanded={expanded===task.id} onToggle={onToggle}/>)}</div>}</>}
+  </div>);
 }
 
-// ─── Helpers ─────────────────────────────────────────────────
-function Sec({ title, children }) {
-  return <div><div style={{ fontSize: 11.5, fontWeight: 600, fontFamily: sans, color: t.textTertiary, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 18 }}>{title}</div>{children}</div>;
+function Kanban({tasks,expanded,onToggle,anim}){
+  return(<div style={{display:"flex",gap:14,padding:"0 24px",overflowX:"auto",flex:1,alignItems:"flex-start"}}>
+    {bkts.map((b,ci)=>{const bt=tasks.filter(x=>x.bucket===b.id);return(
+      <div key={b.id} style={{flex:"0 0 280px",display:"flex",flexDirection:"column"}}>
+        <div style={{fontSize:13,fontWeight:600,fontFamily:sans,color:t.textTertiary,textTransform:"uppercase",letterSpacing:"0.05em",padding:"0 4px 10px",display:"flex",justifyContent:"space-between",opacity:anim>=1?1:0,transition:"opacity 250ms ease-out",transitionDelay:`${ci*80}ms`}}><span>{b.title}</span><span style={{opacity:.4}}>{bt.length}</span></div>
+        <div style={{display:"flex",flexDirection:"column",gap:8,background:anim>=1?t.bgBase:"transparent",borderRadius:10,padding:anim>=1?8:0,border:anim>=1?`1px solid ${t.borderSubtle}`:"1px solid transparent",minHeight:120,flex:1,opacity:anim>=1?1:0,transition:"all 300ms ease-out",transitionDelay:`${ci*80}ms`}}>
+          {bt.map((task,i)=>{const d=150+ci*80+i*50;return(
+            <div key={task.id} style={{opacity:anim>=2?1:0,transform:anim>=2?"translateY(0) scale(1)":"translateY(-12px) scale(0.92)",transition:"all 300ms cubic-bezier(0.2,0.8,0.2,1)",transitionDelay:`${d}ms`}}>
+              <Bubble task={task} expanded={expanded===task.id} onToggle={onToggle} kanban/>
+            </div>);})}
+        </div>
+      </div>);})}
+  </div>);
 }
-function R({ children }) { return <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{children}</div>; }
-function L({ children }) { return <span style={{ fontSize: 14, color: t.textSecondary }}>{children}</span>; }
-function TabBtn({ children, active, onClick }) {
-  const [h, setH] = useState(false);
-  return <button onClick={onClick} onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
-    style={{ padding: "7px 14px", fontSize: 13.5, fontFamily: sans, fontWeight: 500, color: active ? t.accent : h ? t.textPrimary : t.textSecondary, background: active ? t.accentSubtle : h ? t.bgSurfaceHover : "transparent", border: "none", borderRadius: 7, cursor: "pointer", transition: "all 150ms ease-out" }}>{children}</button>;
+
+function List({tasks,onToggle}){
+  const s=[...tasks].filter(x=>!x.done).sort((a,b)=>(b.priority||0)-(a.priority||0));
+  return(<div style={{padding:"0 24px"}}>{s.map(task=>{const p=task.priority||0;return(
+    <div key={task.id} onClick={()=>onToggle(task.id)} style={{display:"flex",alignItems:"center",gap:14,padding:"8px 12px",borderBottom:`1px solid ${t.borderSubtle}`,cursor:"pointer",transition:"background 100ms"}}
+      onMouseEnter={e=>e.currentTarget.style.background=t.bgSurfaceHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+      <div style={{display:"flex",gap:2}}>{[1,2,3,4,5].map(i=><div key={i} style={{width:5,height:5,borderRadius:"50%",background:i<=p?priC[p]:t.borderDefault}}/>)}</div>
+      <span style={{flex:1,fontSize:14,fontFamily:sans,fontWeight:p>=4?500:400,color:p>=3?t.textPrimary:t.textSecondary,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{task.title}</span>
+      {task.labels?.[0]&&<span style={{fontSize:11.5,color:t.textTertiary,fontFamily:sans}}>{task.labels[0]}</span>}
+      <span style={{fontSize:12.5,color:task.overdue?t.overdue:t.textTertiary,fontFamily:sans,whiteSpace:"nowrap"}}>{task.due}</span>
+    </div>);})}</div>);
+}
+
+function Extract(){
+  const[ps,setPs]=useState([]);const[st,setSt]=useState(false);const[exp,setExp]=useState(null);const[sr,setSr]=useState(false);
+  const mk=[{id:101,title:"Revise introduction section",project:1,priority:4,due:"Mar 7",labels:["writing"],aiTagged:true,bucket:"todo"},{id:102,title:"Run stats on cohort B",project:1,priority:3,due:"Mar 9",labels:["data-analysis"],aiTagged:true,bucket:"todo"},{id:103,title:"Book conference room Thursday",project:2,priority:2,due:"Mar 6",labels:["booking"],aiTagged:true,bucket:"todo"}];
+  const go=()=>{setPs([]);setSt(true);mk.forEach((p,i)=>setTimeout(()=>{setPs(v=>[...v,p]);if(i===mk.length-1)setSt(false);},500+i*450));};
+  return(<div style={{padding:"32px 24px",maxWidth:660,margin:"0 auto"}}>
+    <div style={{fontSize:20,fontWeight:600,fontFamily:sans,color:t.accent,marginBottom:24,letterSpacing:"-0.02em"}}>◆ Extract Thoughts</div>
+    <textarea defaultValue="I had a meeting with my supervisor today. We agreed I need to revise the introduction by Friday and run the stats on cohort B by next week. Also need to book a room for Thursday." rows={4} style={{width:"100%",padding:"12px 14px",fontSize:15,fontFamily:sans,color:t.textPrimary,background:t.bgElevated,border:`1px solid ${t.borderDefault}`,borderRadius:10,outline:"none",resize:"vertical",lineHeight:1.55}}/>
+    <div style={{display:"flex",justifyContent:"flex-end",marginTop:14,gap:10,alignItems:"center"}}>
+      <kbd style={{fontSize:11.5,fontFamily:mono,color:t.textTertiary,background:t.bgElevated,border:`1px solid ${t.borderDefault}`,borderRadius:5,padding:"2px 6px"}}>Ctrl+↵</kbd>
+      <button onClick={go} style={{height:40,padding:"0 18px",fontSize:14,fontWeight:500,fontFamily:sans,background:st?t.accentHover:t.accent,color:t.textOnAccent,border:"none",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center",gap:7}}>
+        {st&&<span style={{animation:"spin 0.8s linear infinite",display:"inline-flex"}}><svg width={15} height={15} viewBox="0 0 15 15" fill="none"><circle cx={7.5} cy={7.5} r={6} stroke="currentColor" strokeWidth={1.5} opacity={.25}/><path d="M13.5 7.5a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"/></svg></span>}◆ Extract</button>
+    </div>
+    {ps.length>0&&<button onClick={()=>setSr(!sr)} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:t.textTertiary,fontSize:12.5,fontFamily:sans,cursor:"pointer",padding:0,marginTop:20}}><span style={{transform:sr?"rotate(90deg)":"rotate(0)",transition:"transform 150ms",fontSize:9}}>▶</span> Raw response</button>}
+    {sr&&<pre style={{marginTop:8,padding:14,background:t.bgBase,border:`1px solid ${t.borderDefault}`,borderRadius:8,fontSize:12,fontFamily:mono,color:t.textTertiary,lineHeight:1.5,overflow:"auto",maxHeight:180}}>{`{ "model": "gemini-2.0-flash", "proposals": ${ps.length} }`}</pre>}
+    {ps.length>0&&<>
+      <div style={{display:"flex",alignItems:"center",gap:10,margin:"20px 0 16px",color:t.textTertiary,fontSize:13,fontFamily:sans}}><span style={{height:1,width:16,background:t.borderDefault}}/>{ps.length} thoughts extracted<span style={{flex:1,height:1,background:t.borderDefault}}/></div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:12}}>{ps.map((p,i)=><div key={p.id} style={{animation:`bubbleIn 280ms ${i*100}ms both`}}><Bubble task={p} expanded={exp===p.id} onToggle={setExp}/></div>)}</div>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:20}}>
+        <button style={{fontSize:13.5,fontFamily:sans,fontWeight:500,color:t.textTertiary,background:"none",border:`1px solid ${t.borderDefault}`,borderRadius:8,padding:"8px 14px",cursor:"pointer"}}>Reject</button>
+        <button style={{fontSize:13.5,fontFamily:sans,fontWeight:500,color:t.textOnAccent,background:t.accent,border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer"}}>Approve All ({ps.length})</button>
+      </div>
+    </>}
+  </div>);
+}
+
+function Side({view,setView,proj,setProj}){
+  const[hov,setHov]=useState(null);
+  const NI=({id,label,count,cc,onClick})=>{const a=view===id&&!proj;const h=hov===id;return <button onClick={onClick} onMouseEnter={()=>setHov(id)} onMouseLeave={()=>setHov(null)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"7px 12px",borderRadius:7,border:"none",background:a?t.accentSubtle:h?t.bgSurfaceHover:"transparent",cursor:"pointer",transition:"all 100ms"}}><span style={{fontSize:13.5,fontFamily:sans,fontWeight:a?500:400,color:a?t.accent:h?t.textPrimary:t.textSecondary}}>{label}</span>{count!=null&&<span style={{fontSize:12,fontFamily:sans,fontWeight:500,color:cc||t.textTertiary}}>{count}</span>}</button>;};
+  return(<div style={{width:200,background:t.bgSidebar,borderRight:`1px solid ${t.borderSubtle}`,display:"flex",flexDirection:"column",padding:"20px 0",flexShrink:0,height:"100%"}}>
+    <div style={{padding:"0 16px",marginBottom:28}}><span style={{fontSize:17,fontWeight:600,fontFamily:sans,color:t.textPrimary,letterSpacing:"-0.04em"}}>cognito</span></div>
+    <div style={{display:"flex",flexDirection:"column",gap:1,padding:"0 6px"}}>
+      <NI id="all" label="All Thoughts" count={allTasks.filter(x=>!x.done).length} onClick={()=>{setView("all");setProj(null);}}/>
+      <NI id="upcoming" label="Upcoming" count={3} onClick={()=>{setView("upcoming");setProj(null);}}/>
+      <NI id="overdue" label="Overdue" count={1} cc={t.overdue} onClick={()=>{setView("overdue");setProj(null);}}/>
+    </div>
+    <div style={{padding:"0 16px",marginTop:28,marginBottom:10}}><span style={{fontSize:11,fontWeight:600,fontFamily:sans,color:t.textTertiary,textTransform:"uppercase",letterSpacing:"0.08em"}}>Projects</span></div>
+    <div style={{display:"flex",flexDirection:"column",gap:1,padding:"0 6px"}}>{projects.map(p=><button key={p.id} onMouseEnter={()=>setHov(`p${p.id}`)} onMouseLeave={()=>setHov(null)} onClick={()=>{setProj(p.id);setView("project");}} style={{display:"flex",alignItems:"center",gap:9,padding:"7px 12px",borderRadius:7,border:"none",width:"100%",cursor:"pointer",background:proj===p.id?t.accentSubtle:hov===`p${p.id}`?t.bgSurfaceHover:"transparent",transition:"all 100ms"}}><div style={{width:7,height:7,borderRadius:"50%",background:p.color}}/><span style={{fontSize:13.5,fontFamily:sans,color:proj===p.id?t.accent:t.textSecondary,flex:1,textAlign:"left"}}>{p.name}</span><span style={{fontSize:12,fontFamily:sans,color:t.textTertiary}}>{allTasks.filter(x=>x.project===p.id&&!x.done).length}</span></button>)}</div>
+    <div style={{flex:1}}/>
+    <div style={{padding:"0 6px"}}><button onMouseEnter={()=>setHov("ext")} onMouseLeave={()=>setHov(null)} onClick={()=>{setView("extract");setProj(null);}} style={{display:"flex",alignItems:"center",gap:8,padding:"9px 12px",borderRadius:8,border:`1px solid ${t.accent}25`,width:"100%",background:view==="extract"?t.accentSubtle:hov==="ext"?t.bgSurfaceHover:t.accentSubtle,cursor:"pointer",transition:"all 100ms"}}><span style={{color:t.accent,fontSize:13.5,fontFamily:sans,fontWeight:600}}>◆ Extract</span></button></div>
+    <div style={{padding:"12px 16px",marginTop:8,borderTop:`1px solid ${t.borderSubtle}`}}><span style={{fontSize:12,fontFamily:sans,color:t.textTertiary}}>you@email.com</span></div>
+  </div>);
+}
+
+export default function App(){
+  const[view,setView]=useState("all");const[proj,setProj]=useState(null);const[exp,setExp]=useState(null);const[pv,setPv]=useState("kanban");const[anim,setAnim]=useState(3);
+  const toggle=id=>setExp(prev=>prev===id?null:id);
+  useEffect(()=>{if(view==="project"&&pv==="kanban"){setAnim(0);const a=setTimeout(()=>setAnim(1),50);const b=setTimeout(()=>setAnim(2),200);const c=setTimeout(()=>setAnim(3),800);return()=>{clearTimeout(a);clearTimeout(b);clearTimeout(c);}}},[proj,pv,view]);
+  const pt=proj?allTasks.filter(x=>x.project===proj):[];const po=proj?pMap[proj]:null;
+  return(<div style={{background:t.bgBase,minHeight:"100vh",fontFamily:sans,color:t.textPrimary,display:"flex"}} onClick={()=>setExp(null)}>
+    <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes expandIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes bubbleIn{from{opacity:0;transform:scale(.92) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}*{box-sizing:border-box;margin:0}::placeholder{color:${t.textTertiary}}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${t.borderDefault};border-radius:3px}`}</style>
+    <Side view={view} setView={v=>{setView(v);setExp(null);setPv("kanban");}} proj={proj} setProj={p=>{setProj(p);setView("project");setExp(null);setPv("kanban");}}/>
+    <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      <div style={{display:"flex",alignItems:"center",padding:"12px 24px",borderBottom:`1px solid ${t.borderSubtle}`,gap:10,flexShrink:0}}>
+        <span style={{fontSize:18,fontWeight:600,letterSpacing:"-0.02em",marginRight:"auto",display:"flex",alignItems:"center",gap:8}}>
+          {view==="extract"?"Extract":proj?<><div style={{width:8,height:8,borderRadius:"50%",background:po?.color}}/>{po?.name}</>:"All Thoughts"}
+        </span>
+        {view==="project"&&<div style={{display:"flex",gap:2,marginRight:8}}>{["kanban","list"].map(m=><button key={m} onClick={()=>setPv(m)} style={{fontSize:12.5,fontFamily:sans,fontWeight:500,padding:"5px 11px",borderRadius:6,border:"none",cursor:"pointer",color:pv===m?t.accent:t.textTertiary,background:pv===m?t.accentSubtle:"transparent",transition:"all 150ms",textTransform:"capitalize"}}>{m}</button>)}</div>}
+        <input placeholder="Search..." style={{height:32,padding:"0 12px",fontSize:13,fontFamily:sans,color:t.textPrimary,background:t.bgElevated,border:`1px solid ${t.borderDefault}`,borderRadius:7,outline:"none",width:160}}/>
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:view==="extract"?0:"24px 0 24px 24px"}}>
+        {view==="extract"?<Extract/>:view==="project"&&pv==="kanban"?<Kanban tasks={pt} expanded={exp} onToggle={toggle} anim={anim}/>:view==="project"&&pv==="list"?<List tasks={pt} onToggle={toggle}/>:projects.map(p=><Cluster key={p.id} project={p} tasks={allTasks.filter(x=>x.project===p.id)} expanded={exp} onToggle={toggle}/>)}
+      </div>
+    </div>
+  </div>);
 }

@@ -109,6 +109,39 @@ def init_schema(conn: sqlite3.Connection) -> None:
         )
     """)
 
+    # ── Label descriptions ────────────────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS label_descriptions (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            label_id    INTEGER NOT NULL UNIQUE,
+            title       TEXT NOT NULL,
+            description TEXT NOT NULL,
+            created_at  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S', 'now')),
+            updated_at  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S', 'now'))
+        )
+    """)
+
+    # ── Conversations (chat mode) ──────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS conversations (
+            id         TEXT PRIMARY KEY,
+            user_id    TEXT NOT NULL,
+            created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S', 'now')),
+            updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S', 'now'))
+        )
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS conversation_messages (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id TEXT NOT NULL REFERENCES conversations(id),
+            role            TEXT NOT NULL,
+            content         TEXT NOT NULL,
+            proposals_json  TEXT,
+            created_at      TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S', 'now'))
+        )
+    """)
+
     # Seed the singleton config row if it doesn't exist
     conn.execute("INSERT OR IGNORE INTO agent_config (id) VALUES (1)")
 
