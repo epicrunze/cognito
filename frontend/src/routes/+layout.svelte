@@ -19,7 +19,6 @@
 
   let { children }: { children: Snippet } = $props();
 
-  let collapsed = $state(false);
   let searchRef = $state<HTMLInputElement | undefined>(undefined);
   let searchValue = $state('');
   let createOpen = $state(false);
@@ -107,7 +106,7 @@
 {:else if authStore.authenticated}
   <div style="display: flex; height: 100vh;">
     <div style="flex-shrink: 0;">
-      <Sidebar bind:collapsed />
+      <Sidebar />
     </div>
     <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;">
       <!-- Top bar -->
@@ -115,7 +114,6 @@
         <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; flex-shrink: 0; margin-right: auto;">{pageTitle}</span>
         <Input placeholder="Search..." bind:value={searchValue} bind:ref={searchRef} height={34} oninput={handleSearchInput} style="width: 180px; flex-shrink: 1;" />
         <Button variant={filterOpen || filterStore.activeFilterCount > 0 ? 'accent' : 'outline'} size="sm" onclick={() => filterOpen = !filterOpen}>Filter{filterStore.activeFilterCount > 0 ? ` (${filterStore.activeFilterCount})` : ''}</Button>
-        <Button variant="accent" size="sm" onclick={() => goto('/extract')}>&diams; Extract</Button>
         <Button variant="accent" size="sm" onclick={() => createOpen = true}>+ New</Button>
       </div>
 

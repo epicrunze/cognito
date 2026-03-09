@@ -46,6 +46,9 @@
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
   --shadow-slide-over: -8px 0 32px rgba(0, 0, 0, 0.5);
 
+  /* Sidebar */
+  --sidebar-width: 64px;
+
   /* Typography */
   --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'IBM Plex Mono', 'Menlo', monospace;
@@ -125,6 +128,38 @@
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@keyframes cluster-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+@keyframes dot-glow {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.4); }
+  100% { filter: brightness(1); }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.12; }
+  50% { opacity: 0.22; }
+}
+
+@keyframes diamond-drift {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes dot-appear {
+  from { opacity: 0; transform: scale(0); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes underline-in {
+  from { transform: translateX(-50%) scaleX(0); }
+  to { transform: translateX(-50%) scaleX(1); }
 }
 
 /* View Transitions API */
