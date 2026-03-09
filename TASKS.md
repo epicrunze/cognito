@@ -128,7 +128,7 @@ Read: Section 5.5
 ### T-017: Smart sort
 - [x] Default: overdue first, then priority desc, then due date asc
 - [x] Sort dropdown (Dropdown component): priority, due date, created, alphabetical
-- [ ] Translate to Vikunja sort_by + order_by params
+- [x] Translate to Vikunja sort_by + order_by params (via filterStore.vikunjaSort)
 
 ### T-018: AI extraction page
 Read: Section 5.8
@@ -151,30 +151,33 @@ Read: Section 5.8
 Read: Section 5.7
 - [x] SlideOver, opens on task row click
 - [x] Editable: title (16px), done, project (Dropdown + inline create), priority (clickable dots), due date (DatePicker), labels (badges + add picker), description (textarea), estimated minutes
-- [ ] Attachments section (list files/images, upload area) — uses Vikunja attachments API
+- [x] Attachments section (list files/images, upload area) — uses Vikunja attachments API
 - [x] Auto-save: debounce 500ms text, immediate toggles/selects
-- [ ] Clear AI-tagged glow when task is opened (mark as viewed)
+- [x] Clear AI-tagged glow when task is opened (mark as viewed via filterStore.markViewed)
 - [x] Delete button + confirmation. Created/updated timestamps
 
 ### T-020: Filter bar
 Read: Section 5.5
 - [x] FilterBar.svelte with chips: status (All/Active/Completed), priority, label
-- [ ] Translate to Vikunja filter syntax
+- [x] Translate to Vikunja filter syntax (via filterStore.vikunjaFilter)
 - [x] Filter button in header shows active filter count
 
 ### T-021: Kanban board
 Read: Section 5.6
-- [ ] Route: `/project/[id]/kanban`
-- [ ] Fetch views -> find view_kind=3 -> buckets -> tasks per bucket
-- [ ] Cards: priority, title, date, first label. Hover shadow
-- [ ] View toggle [List] [Kanban] in header
-- [ ] "+ Add task" per column. "+ Column" to create buckets
+- [x] Route: `/project/[id]/kanban`
+- [x] Fetch views -> find view_kind=kanban -> buckets -> tasks per bucket (auto-creates kanban view if missing)
+- [x] Cards: priority, title, date, first label. Hover shadow
+- [x] View toggle [List] [Kanban] in header
+- [x] "+ Add task" per column. "+ Column" to create buckets
+- [x] KanbanBoard, KanbanColumn, KanbanCard components
+- [x] kanbanStore with fetchBoard, moveTask, createBucket, createTaskInBucket
+- [x] Bucket name badges on list view TaskRows (via fetchBucketMap)
 
 ### T-022: Kanban drag-and-drop
-- [ ] `svelte-dnd-action` for between-column and within-column
-- [ ] Position = midpoint between neighbours
-- [ ] POST to bucket/tasks endpoint
-- [ ] Optimistic update with rollback
+- [x] `svelte-dnd-action` for between-column and within-column
+- [x] Position = midpoint between neighbours
+- [x] POST to bucket/tasks endpoint (moveTaskToBucket + updateTaskPosition)
+- [x] Optimistic update with rollback
 
 ### T-023: Search + keyboard navigation
 Read: Section 5.10
@@ -261,6 +264,12 @@ Read: Section 5.12
 - `ShortcutsModal.svelte` — `?` key opens slide-over with full keyboard shortcuts reference (Navigation, Actions, Global sections)
 - Bottom hint bar in TaskList — dismissible shortcut hints, persists dismiss state in localStorage
 - `lib/stores/filter.svelte.ts` + `FilterBar.svelte` — client-side filtering by status, priority, labels with active count badge
+- `lib/stores/kanban.svelte.ts` — kanbanStore with full board management, bucket CRUD, DnD, bucket name lookup for list view
+- `lib/api.ts` kanbanApi — views, buckets, moveTask, position endpoints
+- `lib/stores/taskMutations.ts` — unified update/toggleDone/delete that syncs both tasksStore and kanbanStore with optimistic updates + rollback
+- Backend kanban endpoints: views, buckets, move task, view tasks, task position (in projects.py + tasks.py)
+- `services/vikunja.py` expanded: create_bucket, update_bucket, delete_bucket, move_task_to_bucket, update_task_position, create_view, list_view_tasks
+- `proposals.py` approve-all returns `task_ids` array for AI glow tracking
 
 ---
 

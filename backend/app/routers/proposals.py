@@ -284,6 +284,7 @@ async def approve_all(
     errors = []
     created_projects: dict[str, int] = {}  # project_name -> project_id dedup
     new_projects: list[str] = []
+    task_ids: list[int] = []
 
     for row in rows:
         proposal = _row_to_proposal(row)
@@ -340,7 +341,8 @@ async def approve_all(
                     [vikunja_task_id, utc_now(), proposal.id],
                 )
             approved += 1
+            task_ids.append(vikunja_task_id)
         except VikunjaError as e:
             errors.append({"id": proposal.id, "title": proposal.title, "error": str(e)})
 
-    return {"approved": approved, "errors": errors, "new_projects": new_projects}
+    return {"approved": approved, "errors": errors, "new_projects": new_projects, "task_ids": task_ids}

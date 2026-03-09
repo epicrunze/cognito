@@ -37,7 +37,11 @@
   };
   const pageTitle = $derived.by(() => {
     const path = $page.url.pathname;
-    if (path.startsWith('/project/')) return projectsStore.projects.find(p => p.id === Number(path.split('/')[2]))?.title ?? 'Project';
+    if (path.startsWith('/project/')) {
+      const project = projectsStore.projects.find(p => p.id === Number(path.split('/')[2]));
+      const suffix = path.endsWith('/kanban') ? ' — Kanban' : '';
+      return (project?.title ?? 'Project') + suffix;
+    }
     return pageTitles[path] ?? 'Cognito';
   });
 
@@ -48,7 +52,7 @@
       return;
     }
     if (authStore.authenticated) {
-      tasksStore.fetchAll();
+      // tasksStore.fetchAll() is handled reactively by TaskList's $effect
       projectsStore.fetchAll();
       labelsStore.fetchAll();
     }

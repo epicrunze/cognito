@@ -17,9 +17,9 @@ export interface ProjectView {
   id: number;
   title: string;
   project_id: number;
-  view_kind: 0 | 1 | 2 | 3; // 0=list, 1=gantt, 2=table, 3=kanban
+  view_kind: 'list' | 'gantt' | 'table' | 'kanban';
   filter: string;
-  bucket_configuration_mode: number;
+  bucket_configuration_mode: string;
   default_bucket_id: number;
   done_bucket_id: number;
   position: number;
@@ -44,6 +44,8 @@ export interface Bucket {
   position: number;
   limit: number;
   project_view_id: number;
+  count: number;
+  tasks?: Task[];
   created_by: User;
   created: string;
   updated: string;
@@ -61,6 +63,7 @@ export interface Task {
   end_date: string | null;
   project_id: number;
   labels: Label[];
+  attachments: TaskAttachment[];
   percent_done: number;
   hex_color: string;
   repeat_after: number;
@@ -70,9 +73,35 @@ export interface Task {
   is_favorite: boolean;
   position: number;
   bucket_id: number;
+  subtask_done?: number;
+  subtask_total?: number;
   created_by: User | null;
   created: string;
   updated: string;
+}
+
+export interface AttachmentFile {
+  id: number;
+  name: string;
+  mime: string;
+  size: number;
+  created: string;
+}
+
+export interface TaskAttachment {
+  id: number;
+  task_id: number;
+  file: AttachmentFile;
+  created: string;
+  created_by: User;
+}
+
+export interface Subtask {
+  id: number;
+  title: string;
+  done: boolean;
+  priority: 0 | 1 | 2 | 3 | 4 | 5;
+  created: string;
 }
 
 // Agent data types

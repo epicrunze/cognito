@@ -96,6 +96,148 @@ def _add_project_to_cache(project: dict) -> None:
         )
 
 
+# ── Views & Buckets (Kanban) ───────────────────────────────────────────────
+
+
+@router.get("/{project_id}/views")
+async def list_views(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    """List all views for a project."""
+    try:
+        views = await vikunja.list_project_views(project_id)
+        return {"views": views}
+    except VikunjaError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+class CreateViewRequest(BaseModel):
+    title: str
+    view_kind: str = "kanban"
+
+
+@router.put("/{project_id}/views")
+async def create_view(
+    project_id: int,
+    body: CreateViewRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Create a view for a project."""
+    try:
+        view = await vikunja.create_view(project_id, body.title, body.view_kind)
+        return view
+    except VikunjaError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+@router.get("/{project_id}/views/{view_id}/buckets")
+async def list_buckets(
+    project_id: int,
+    view_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    """List buckets for a kanban view."""
+    try:
+        buckets = await vikunja.list_buckets(project_id, view_id)
+        return {"buckets": buckets}
+    except VikunjaError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+class CreateBucketRequest(BaseModel):
+    title: str
+    limit: int = 0
+
+
+@router.put("/{project_id}/views/{view_id}/buckets")
+async def create_bucket(
+    project_id: int,
+    view_id: int,
+    body: CreateBucketRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Create a bucket in a kanban view."""
+    try:
+        bucket = await vikunja.create_bucket(project_id, view_id, body.title, body.limit)
+        return bucket
+    except VikunjaError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+@router.post("/{project_id}/views/{view_id}/buckets/{bucket_id}")
+async def update_bucket(
+    project_id: int,
+    view_id: int,
+    bucket_id: int,
+    body: dict,
+    current_user: User = Depends(get_current_user),
+):
+    """Update a bucket."""
+    try:
+        return await vikunja.update_bucket(project_id, view_id, bucket_id, body)
+    except VikunjaError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+@router.delete("/{project_id}/views/{view_id}/buckets/{bucket_id}")
+async def delete_bucket(
+    project_id: int,
+    view_id: int,
+    bucket_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a bucket."""
+    try:
+        await vikunja.delete_bucket(project_id, view_id, bucket_id)
+        return {"success": True}
+    except VikunjaError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+@router.get("/{project_id}/views/{view_id}/tasks")
+async def list_view_tasks(
+    project_id: int,
+    view_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    """List tasks for a view. For kanban views, returns buckets with nested tasks."""
+    try:
+        data = await vikunja.list_view_tasks(project_id, view_id)
+        # Filter subtasks from kanban buckets
+        if isinstance(data, list):
+            for bucket in data:
+                if isinstance(bucket, dict) and "tasks" in bucket and bucket["tasks"]:
+                    bucket["tasks"] = [
+                        t for t in bucket["tasks"]
+                        if not bool((t.get("related_tasks") or {}).get("parenttask"))
+                    ]
+        return data
+    except VikunjaError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+class MoveTaskRequest(BaseModel):
+    task_id: int
+
+
+@router.post("/{project_id}/views/{view_id}/buckets/{bucket_id}/tasks")
+async def move_task_to_bucket(
+    project_id: int,
+    view_id: int,
+    bucket_id: int,
+    body: MoveTaskRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Move a task to a bucket."""
+    try:
+        return await vikunja.move_task_to_bucket(
+            project_id, view_id, body.task_id, bucket_id
+        )
+    except VikunjaError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
 def _update_cache(projects: list[dict]) -> None:
     """Replace the vikunja_projects cache with fresh data."""
     now = utc_now()

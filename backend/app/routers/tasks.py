@@ -11,7 +11,8 @@ NOTE: Vikunja uses PUT to create and POST to update (opposite of standard REST).
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
@@ -41,6 +42,27 @@ class TaskUpdate(BaseModel):
     project_id: Optional[int] = None
 
 
+class SubtaskCreate(BaseModel):
+    title: str
+    project_id: Optional[int] = None
+
+
+def _is_subtask(task: dict) -> bool:
+    """Return True if this task is a child of another task (has a parenttask relation)."""
+    related = task.get("related_tasks") or {}
+    return bool(related.get("parenttask"))
+
+
+def _enrich_subtask_counts(task: dict) -> dict:
+    """Add subtask_done / subtask_total counts from related_tasks.subtask."""
+    related = task.get("related_tasks") or {}
+    subtasks = related.get("subtask", [])
+    if subtasks:
+        task["subtask_total"] = len(subtasks)
+        task["subtask_done"] = sum(1 for s in subtasks if s.get("done"))
+    return task
+
+
 @router.get("")
 async def list_tasks(
     project_id: Optional[int] = Query(None),
@@ -65,6 +87,8 @@ async def list_tasks(
             per_page=per_page,
             s=s,
         )
+        tasks = [_enrich_subtask_counts(t) for t in tasks]
+        tasks = [t for t in tasks if not _is_subtask(t)]
         return {"tasks": tasks}
     except VikunjaError as e:
         logger.error("Failed to list tasks: %s", e)
@@ -78,7 +102,8 @@ async def get_task(
 ):
     """Get a single task by ID."""
     try:
-        return await vikunja.get_task(task_id)
+        task = await vikunja.get_task(task_id)
+        return _enrich_subtask_counts(task)
     except VikunjaError as e:
         logger.error("Failed to get task %s: %s", task_id, e)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
@@ -152,6 +177,27 @@ async def delete_task(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
 
 
+class UpdatePositionRequest(BaseModel):
+    position: float
+    project_view_id: int
+
+
+@router.post("/{task_id}/position")
+async def update_task_position(
+    task_id: int,
+    body: UpdatePositionRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Update a task's position within a view."""
+    try:
+        return await vikunja.update_task_position(
+            task_id, body.position, body.project_view_id
+        )
+    except VikunjaError as e:
+        logger.error("Failed to update position for task %s: %s", task_id, e)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
 @router.put("/{task_id}/labels")
 async def add_label(
     task_id: int,
@@ -181,4 +227,153 @@ async def remove_label(
         return {"success": True}
     except VikunjaError as e:
         logger.error("Failed to remove label %s from task %s: %s", label_id, task_id, e)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+# ── Attachments ──────────────────────────────────────────────────────────
+
+MAX_UPLOAD_SIZE = 20 * 1024 * 1024  # 20 MB
+
+
+@router.get("/{task_id}/attachments")
+async def list_attachments(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    """List attachments for a task."""
+    try:
+        return await vikunja.list_attachments(task_id)
+    except VikunjaError as e:
+        logger.error("Failed to list attachments for task %s: %s", task_id, e)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+@router.put("/{task_id}/attachments")
+async def upload_attachment(
+    task_id: int,
+    files: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload an attachment to a task."""
+    content = await files.read()
+    if len(content) > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large (max {MAX_UPLOAD_SIZE // (1024 * 1024)} MB)",
+        )
+    try:
+        return await vikunja.upload_attachment(
+            task_id,
+            files.filename or "file",
+            content,
+            files.content_type or "application/octet-stream",
+        )
+    except VikunjaError as e:
+        logger.error("Failed to upload attachment to task %s: %s", task_id, e)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+@router.get("/{task_id}/attachments/{attachment_id}")
+async def download_attachment(
+    task_id: int,
+    attachment_id: int,
+    preview_size: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+):
+    """Download an attachment, optionally as a preview thumbnail."""
+    try:
+        content, content_type, filename = await vikunja.download_attachment(
+            task_id, attachment_id, preview_size=preview_size
+        )
+        return Response(
+            content=content,
+            media_type=content_type,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except VikunjaError as e:
+        logger.error("Failed to download attachment %s: %s", attachment_id, e)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+@router.delete("/{task_id}/attachments/{attachment_id}")
+async def delete_attachment(
+    task_id: int,
+    attachment_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    """Delete an attachment."""
+    try:
+        await vikunja.delete_attachment(task_id, attachment_id)
+        return {"success": True}
+    except VikunjaError as e:
+        logger.error("Failed to delete attachment %s: %s", attachment_id, e)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+# ── Subtasks ────────────────────────────────────────────────────────────
+
+
+@router.get("/{task_id}/subtasks")
+async def list_subtasks(
+    task_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    """List subtasks for a task."""
+    try:
+        subtasks = await vikunja.get_subtasks(task_id)
+        return {"subtasks": subtasks}
+    except VikunjaError as e:
+        logger.error("Failed to list subtasks for task %s: %s", task_id, e)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+@router.put("/{task_id}/subtasks")
+async def create_subtask(
+    task_id: int,
+    body: SubtaskCreate,
+    current_user: User = Depends(get_current_user),
+):
+    """Create a subtask. Inherits parent's project_id if not specified."""
+    try:
+        project_id = body.project_id
+        if not project_id:
+            parent = await vikunja.get_task(task_id)
+            project_id = parent["project_id"]
+        result = await vikunja.create_subtask(task_id, body.title, project_id)
+        return result
+    except VikunjaError as e:
+        logger.error("Failed to create subtask for task %s: %s", task_id, e)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+@router.post("/{task_id}/subtasks/{subtask_id}")
+async def update_subtask(
+    task_id: int,
+    subtask_id: int,
+    body: TaskUpdate,
+    current_user: User = Depends(get_current_user),
+):
+    """Update a subtask."""
+    data = body.model_dump(exclude_none=True)
+    if not data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
+    try:
+        return await vikunja.update_task(subtask_id, data)
+    except VikunjaError as e:
+        logger.error("Failed to update subtask %s: %s", subtask_id, e)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+
+@router.delete("/{task_id}/subtasks/{subtask_id}")
+async def delete_subtask(
+    task_id: int,
+    subtask_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a subtask and its relation."""
+    try:
+        await vikunja.delete_subtask(task_id, subtask_id)
+        return {"message": "ok"}
+    except VikunjaError as e:
+        logger.error("Failed to delete subtask %s: %s", subtask_id, e)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))

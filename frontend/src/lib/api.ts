@@ -7,7 +7,7 @@
 
 import { goto } from '$app/navigation';
 import { PUBLIC_API_URL } from '$env/static/public';
-import type { Label, Project, Task, TaskProposal } from '$lib/types';
+import type { Bucket, Label, Project, ProjectView, Subtask, Task, TaskAttachment, TaskProposal } from '$lib/types';
 
 const BASE = PUBLIC_API_URL ? `${PUBLIC_API_URL}/api` : '/api';
 
@@ -150,11 +150,149 @@ export const projectsApi = {
   },
 };
 
+// ── Kanban ─────────────────────────────────────────────────────────────
+
+export const kanbanApi = {
+  listViews(projectId: number) {
+    return request<{ views: ProjectView[] }>(`/projects/${projectId}/views`);
+  },
+
+  createView(projectId: number, title: string, viewKind: string = 'kanban') {
+    return request<ProjectView>(`/projects/${projectId}/views`, {
+      method: 'PUT',
+      body: JSON.stringify({ title, view_kind: viewKind }),
+    });
+  },
+
+  listBuckets(projectId: number, viewId: number) {
+    return request<{ buckets: Bucket[] }>(`/projects/${projectId}/views/${viewId}/buckets`);
+  },
+
+  createBucket(projectId: number, viewId: number, title: string) {
+    return request<Bucket>(`/projects/${projectId}/views/${viewId}/buckets`, {
+      method: 'PUT',
+      body: JSON.stringify({ title }),
+    });
+  },
+
+  updateBucket(projectId: number, viewId: number, bucketId: number, data: Partial<Bucket>) {
+    return request<Bucket>(`/projects/${projectId}/views/${viewId}/buckets/${bucketId}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteBucket(projectId: number, viewId: number, bucketId: number) {
+    return request<{ success: boolean }>(`/projects/${projectId}/views/${viewId}/buckets/${bucketId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  listViewTasks(projectId: number, viewId: number) {
+    return request<Bucket[]>(`/projects/${projectId}/views/${viewId}/tasks`);
+  },
+
+  moveTaskToBucket(projectId: number, viewId: number, bucketId: number, taskId: number) {
+    return request<unknown>(`/projects/${projectId}/views/${viewId}/buckets/${bucketId}/tasks`, {
+      method: 'POST',
+      body: JSON.stringify({ task_id: taskId }),
+    });
+  },
+
+  updateTaskPosition(taskId: number, position: number, viewId: number) {
+    return request<unknown>(`/tasks/${taskId}/position`, {
+      method: 'POST',
+      body: JSON.stringify({ position, project_view_id: viewId }),
+    });
+  },
+};
+
+// ── Subtasks ──────────────────────────────────────────────────────────────
+
+export const subtasksApi = {
+  list(taskId: number) {
+    return request<{ subtasks: Subtask[] }>(`/tasks/${taskId}/subtasks`).then(r => r.subtasks);
+  },
+
+  create(taskId: number, data: { title: string; project_id?: number }) {
+    return request<Subtask>(`/tasks/${taskId}/subtasks`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+
+  update(taskId: number, subtaskId: number, data: Partial<Subtask>) {
+    return request<Subtask>(`/tasks/${taskId}/subtasks/${subtaskId}`, { method: 'POST', body: JSON.stringify(data) });
+  },
+
+  delete(taskId: number, subtaskId: number) {
+    return request<void>(`/tasks/${taskId}/subtasks/${subtaskId}`, { method: 'DELETE' });
+  },
+};
+
+// ── Attachments ────────────────────────────────────────────────────────────
+
+export const attachmentsApi = {
+  list(taskId: number) {
+    return request<TaskAttachment[]>(`/tasks/${taskId}/attachments`);
+  },
+
+  async upload(taskId: number, file: File): Promise<TaskAttachment> {
+    const formData = new FormData();
+    formData.append('files', file);
+
+    const doFetch = (url: string) =>
+      fetch(url, {
+        method: 'PUT',
+        credentials: 'include',
+        body: formData,
+      });
+
+    const url = BASE + `/tasks/${taskId}/attachments`;
+    let res = await doFetch(url);
+
+    if (res.status === 401) {
+      const refreshRes = await fetch(BASE + '/auth/refresh', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (refreshRes.ok) {
+        res = await doFetch(url);
+      } else {
+        goto('/login');
+        throw new ApiError(401, 'Session expired');
+      }
+    }
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new ApiError(res.status, body.detail ?? `Upload failed (${res.status})`);
+    }
+
+    return res.json() as Promise<TaskAttachment>;
+  },
+
+  downloadUrl(taskId: number, attachmentId: number) {
+    return `${BASE}/tasks/${taskId}/attachments/${attachmentId}`;
+  },
+
+  previewUrl(taskId: number, attachmentId: number, size: 'sm' | 'md' | 'lg' | 'xl' = 'md') {
+    return `${BASE}/tasks/${taskId}/attachments/${attachmentId}?preview_size=${size}`;
+  },
+
+  delete(taskId: number, attachmentId: number) {
+    return request<{ success: boolean }>(`/tasks/${taskId}/attachments/${attachmentId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 // ── Labels ─────────────────────────────────────────────────────────────────
 
 export const labelsApi = {
   list() {
     return request<{ labels: Label[] }>('/labels');
+  },
+
+  create(data: { title: string; hex_color?: string }) {
+    return request<Label>('/labels', { method: 'PUT', body: JSON.stringify(data) });
   },
 };
 
@@ -185,7 +323,7 @@ export const proposalsApi = {
   },
 
   approveAll(ids?: string[]) {
-    return request<{ approved: number; errors: Array<{ id: string; title?: string; error: string }>; new_projects?: string[] }>(
+    return request<{ approved: number; errors: Array<{ id: string; title?: string; error: string }>; new_projects?: string[]; task_ids?: number[] }>(
       '/proposals/approve-all',
       { method: 'POST', body: JSON.stringify(ids ? { ids } : {}) },
     );

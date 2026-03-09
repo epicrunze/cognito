@@ -3,9 +3,12 @@
   import { SvelteMap } from 'svelte/reactivity';
   import type { Task } from '$lib/types';
   import { tasksStore, projectsStore } from '$lib/stores.svelte';
+  import { kanbanStore } from '$lib/stores/kanban.svelte';
+  import { updateTask, toggleDone } from '$lib/stores/taskMutations';
   import { addToast } from '$lib/stores/toast.svelte';
   import { searchStore } from '$lib/stores/search.svelte';
   import { filterStore, type SortMode } from '$lib/stores/filter.svelte';
+  import type { FetchParams } from '$lib/stores/tasks.svelte';
   import { shortcuts } from '$lib/shortcuts';
   import TaskRow from './TaskRow.svelte';
   import TaskPanel from './TaskPanel.svelte';
@@ -82,6 +85,34 @@
     });
   }
 
+  // Re-fetch when sort/filter/projectId changes (server-side optimization)
+  $effect(() => {
+    const sort = filterStore.vikunjaSort;
+    const vikunjaFilter = filterStore.vikunjaFilter;
+
+    const params: FetchParams = {};
+    if (sort) {
+      params.sort_by = sort.sort_by;
+      params.order_by = sort.order_by;
+    }
+    if (vikunjaFilter) {
+      params.filter = vikunjaFilter;
+    }
+
+    const fetchParams = Object.keys(params).length ? params : undefined;
+
+    if (projectId != null) {
+      tasksStore.fetchByProject(projectId, fetchParams);
+      kanbanStore.fetchBucketMap(projectId);
+    } else {
+      tasksStore.fetchAll(fetchParams);
+      // Fetch bucket maps for all projects so badges show in All Tasks view
+      for (const p of projectsStore.projects) {
+        kanbanStore.fetchBucketMap(p.id);
+      }
+    }
+  });
+
   const allTasks = $derived.by(() => {
     let t = tasksStore.tasks;
     if (projectId != null) t = t.filter(task => task.project_id === projectId);
@@ -90,7 +121,7 @@
       const q = searchStore.query.toLowerCase();
       t = t.filter(task => task.title.toLowerCase().includes(q) || task.description?.toLowerCase().includes(q));
     }
-    // Apply filters
+    // Client-side filters (labels can't be done server-side cleanly)
     if (filterStore.priorities.length > 0) {
       t = t.filter(task => filterStore.priorities.includes(task.priority));
     }
@@ -145,7 +176,7 @@
       selectedIndex = Math.max(selectedIndex - 1, 0);
     });
     shortcuts.register('x', () => {
-      if (selectedTask) tasksStore.toggleDone(selectedTask.id);
+      if (selectedTask) toggleDone(selectedTask.id);
     });
     shortcuts.register('e', () => {
       if (selectedTask) openTask(selectedTask.id);
@@ -165,7 +196,7 @@
     // Priority shortcuts 1-5
     for (let i = 1; i <= 5; i++) {
       shortcuts.register(String(i), () => {
-        if (selectedTask) tasksStore.update(selectedTask.id, { priority: i as Task['priority'] });
+        if (selectedTask) updateTask(selectedTask.id, { priority: i as Task['priority'] });
       });
     }
 
@@ -263,7 +294,7 @@
         {task}
         selected={selectedIndex === i}
         viewed={filterStore.viewedTaskIds.has(task.id)}
-        ontoggle={() => tasksStore.toggleDone(task.id)}
+        ontoggle={() => toggleDone(task.id)}
         onclick={() => { selectedIndex = i; openTask(task.id); }}
       />
     </div>
@@ -285,7 +316,7 @@
         {#each completedTasks as task (task.id)}
           <TaskRow
             {task}
-            ontoggle={() => tasksStore.toggleDone(task.id)}
+            ontoggle={() => toggleDone(task.id)}
             onclick={() => openTask(task.id)}
           />
         {/each}

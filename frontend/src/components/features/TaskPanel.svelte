@@ -1,9 +1,10 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import type { Task, TaskProposal, Label } from '$lib/types';
+  import type { Task, TaskProposal, Label, TaskAttachment, Subtask } from '$lib/types';
   import { tasksStore, projectsStore, labelsStore } from '$lib/stores.svelte';
+  import { updateTask, toggleDone, deleteTask } from '$lib/stores/taskMutations';
   import { addToast } from '$lib/stores/toast.svelte';
-  import { tasksApi, proposalsApi } from '$lib/api';
+  import { tasksApi, proposalsApi, attachmentsApi, subtasksApi } from '$lib/api';
   import SlideOver from '$components/ui/SlideOver.svelte';
   import Input from '$components/ui/Input.svelte';
   import Textarea from '$components/ui/Textarea.svelte';
@@ -46,10 +47,29 @@
   let proposalLabelNames = $state<string[]>([]);
   let showLabelPicker = $state(false);
 
+  // Attachments
+  let attachments = $state<TaskAttachment[]>([]);
+  let attachmentsLoading = $state(false);
+  let uploading = $state(false);
+  let dragOver = $state(false);
+  let fileInputRef = $state<HTMLInputElement | undefined>(undefined);
+
+  // Subtasks
+  let subtasks = $state<Subtask[]>([]);
+  let subtasksLoading = $state(false);
+  let newSubtaskTitle = $state('');
+  let addingSubtask = $state(false);
+
   // New project inline create
   let creatingProject = $state(false);
   let newProjectName = $state('');
   let newProjectLoading = $state(false);
+
+  // New label inline create
+  let creatingLabel = $state(false);
+  let newLabelTitle = $state('');
+  let newLabelColor = $state('#E8772E');
+  let newLabelLoading = $state(false);
 
   // Debounce timer for auto-save
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -94,6 +114,15 @@
       creatingProject = false;
       newProjectName = '';
       showLabelPicker = false;
+      creatingLabel = false;
+      newLabelTitle = '';
+      newLabelColor = '#E8772E';
+      attachments = [];
+      attachmentsLoading = false;
+      subtasks = [];
+      subtasksLoading = false;
+      newSubtaskTitle = '';
+      addingSubtask = false;
 
       if (mode === 'create') {
         title = '';
@@ -116,6 +145,25 @@
         currentLabels = [...(task.labels ?? [])];
         proposalLabelNames = [];
         projectValue = String(task.project_id);
+        // Fetch attachments
+        const taskId = task.id;
+        attachmentsLoading = true;
+        attachmentsApi.list(taskId).then(data => {
+          attachments = data;
+        }).catch(() => {
+          attachments = [];
+        }).finally(() => {
+          attachmentsLoading = false;
+        });
+        // Fetch subtasks
+        subtasksLoading = true;
+        subtasksApi.list(taskId).then(data => {
+          subtasks = data;
+        }).catch(() => {
+          subtasks = [];
+        }).finally(() => {
+          subtasksLoading = false;
+        });
       } else if (mode === 'proposal' && proposal) {
         title = proposal.title;
         description = proposal.description || '';
@@ -159,7 +207,7 @@
       } else {
         data[field] = value;
       }
-      await tasksStore.update(task.id, data as Partial<Task>);
+      await updateTask(task.id, data as Partial<Task>);
     } catch {
       addToast('Failed to save changes', 'error');
     }
@@ -234,7 +282,7 @@
 
   async function handleDoneToggle() {
     if (mode === 'edit' && task) {
-      await tasksStore.toggleDone(task.id);
+      await toggleDone(task.id);
     }
   }
 
@@ -279,6 +327,121 @@
     immediateSave('labels', proposalLabelNames);
   }
 
+  async function handleCreateLabel() {
+    if (!newLabelTitle.trim()) return;
+    newLabelLoading = true;
+    try {
+      const label = await labelsStore.create({ title: newLabelTitle.trim(), hex_color: newLabelColor });
+      addLabel(label);
+      creatingLabel = false;
+      newLabelTitle = '';
+      addToast(`Label "${label.title}" created`, 'success');
+    } catch {
+      addToast('Failed to create label', 'error');
+    } finally {
+      newLabelLoading = false;
+    }
+  }
+
+  // ── Attachments ────────────────────────────────────────────────────
+
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function getFileIcon(mime: string): string {
+    if (mime.startsWith('image/')) return '🖼';
+    if (mime.startsWith('video/')) return '🎬';
+    if (mime.startsWith('audio/')) return '🎵';
+    if (mime.includes('pdf')) return '📄';
+    if (mime.includes('zip') || mime.includes('tar') || mime.includes('gz')) return '📦';
+    if (mime.includes('spreadsheet') || mime.includes('csv') || mime.includes('excel')) return '📊';
+    return '📎';
+  }
+
+  async function handleFileUpload(files: FileList | null) {
+    if (!files || !task) return;
+    uploading = true;
+    for (const file of Array.from(files)) {
+      try {
+        const result = await attachmentsApi.upload(task.id, file);
+        // Vikunja returns the attachment wrapped or directly
+        if (result) {
+          // Refetch to get clean data
+          attachments = await attachmentsApi.list(task.id);
+        }
+        addToast(`Uploaded ${file.name}`, 'success');
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Upload failed';
+        addToast(msg, 'error');
+      }
+    }
+    uploading = false;
+    if (fileInputRef) fileInputRef.value = '';
+  }
+
+  async function handleDeleteAttachment(att: TaskAttachment) {
+    if (!task || !confirm(`Delete "${att.file.name}"?`)) return;
+    const prev = attachments;
+    attachments = attachments.filter(a => a.id !== att.id);
+    try {
+      await attachmentsApi.delete(task.id, att.id);
+      addToast('Attachment deleted', 'success');
+    } catch {
+      attachments = prev;
+      addToast('Failed to delete attachment', 'error');
+    }
+  }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    dragOver = false;
+    handleFileUpload(e.dataTransfer?.files ?? null);
+  }
+
+  // ── Subtask handlers ───────────────────────────────────────────────
+
+  async function toggleSubtask(st: Subtask) {
+    const prev = st.done;
+    st.done = !prev;
+    subtasks = [...subtasks];
+    try {
+      await subtasksApi.update(task!.id, st.id, { done: !prev });
+    } catch {
+      st.done = prev;
+      subtasks = [...subtasks];
+      addToast('Failed to update subtask', 'error');
+    }
+  }
+
+  async function handleAddSubtask() {
+    if (!newSubtaskTitle.trim() || !task) return;
+    addingSubtask = true;
+    try {
+      const created = await subtasksApi.create(task.id, { title: newSubtaskTitle.trim() });
+      subtasks = [created, ...subtasks];
+      newSubtaskTitle = '';
+    } catch {
+      addToast('Failed to add subtask', 'error');
+    } finally {
+      addingSubtask = false;
+    }
+  }
+
+  async function deleteSubtask(st: Subtask) {
+    if (!task) return;
+    const prev = subtasks;
+    subtasks = subtasks.filter(s => s.id !== st.id);
+    try {
+      await subtasksApi.delete(task.id, st.id);
+    } catch {
+      subtasks = prev;
+      addToast('Failed to delete subtask', 'error');
+    }
+  }
+
   // ── Create / Delete ────────────────────────────────────────────────
 
   async function handleCreate() {
@@ -297,24 +460,16 @@
         due_date: dueDate || undefined,
         description: description.trim() || undefined,
       });
-      // Attach labels after creation
-      // Note: tasksStore.create returns void (optimistic), so we attach labels
-      // by looking up the most recent task
-      if (currentLabels.length > 0) {
-        // Small delay to ensure task is created in Vikunja
-        await new Promise(r => setTimeout(r, 300));
-        const tasks = tasksStore.tasks;
-        const newTask = tasks.find(t => t.title === title.trim());
-        if (newTask && newTask.id > 0) {
-          for (const label of currentLabels) {
-            try {
-              await tasksApi.addLabel(newTask.id, label.id);
-            } catch {
-              // Non-critical, label attachment can fail
-            }
+      // Attach labels after creation using the returned task ID
+      if (created && currentLabels.length > 0) {
+        for (const label of currentLabels) {
+          try {
+            await tasksApi.addLabel(created.id, label.id);
+          } catch {
+            // Non-critical, label attachment can fail
           }
-          await tasksStore.fetchAll();
         }
+        await tasksStore.fetchAll();
       }
       addToast('Task created', 'success');
       onclose?.();
@@ -332,7 +487,7 @@
     onclose?.();
     deleting = true;
     try {
-      await tasksStore.delete(taskId);
+      await deleteTask(taskId);
       addToast('Task deleted', 'success');
     } catch {
       addToast('Failed to delete task', 'error');
@@ -348,6 +503,11 @@
     }
   }
 
+  const labelColors = [
+    '#E8772E', '#EF5744', '#E2C541', '#5BBC6E',
+    '#4AADCC', '#7B6FE8', '#D46AB3', '#A1A09A',
+  ];
+
   const priorityColors = [
     'var(--priority-none)',
     'var(--priority-low)',
@@ -360,7 +520,7 @@
 
 <SlideOver {open} {onclose}>
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div onkeydown={handleKeydown} style="padding: 28px 28px 32px; display: flex; flex-direction: column; gap: 22px;">
+  <div onkeydown={handleKeydown} style="padding: 28px 28px 32px; display: flex; flex-direction: column; gap: 22px; overflow-y: auto; max-height: 100vh;">
     <!-- Header -->
     <div style="display: flex; align-items: center; justify-content: space-between;">
       <span style="font-size: 18px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-primary);">{headerText}</span>
@@ -472,27 +632,205 @@
         <div style="position: relative;">
           <button
             type="button"
-            onclick={() => showLabelPicker = !showLabelPicker}
+            onclick={() => {
+              showLabelPicker = !showLabelPicker;
+              if (showLabelPicker && labelsStore.labels.length === 0) {
+                labelsStore.fetchAll();
+              }
+            }}
             style="height: 24px; padding: 0 9px; font-size: 12.5px; font-weight: 500; color: var(--text-tertiary); background: var(--bg-elevated); border: 1px dashed var(--border-default); border-radius: 9999px; cursor: pointer; font-family: var(--font-sans);"
           >+ Add</button>
 
-          {#if showLabelPicker && availableLabels.length > 0}
-            <div style="position: absolute; top: calc(100% + 4px); left: 0; z-index: 300; background: var(--bg-elevated); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow-lg); padding: 4px; min-width: 160px; max-height: 200px; overflow-y: auto; animation: fadeIn 100ms ease-out;">
-              {#each availableLabels as label (label.id)}
-                <button
-                  type="button"
-                  onclick={() => addLabel(label)}
-                  style="width: 100%; padding: 6px 10px; font-size: 13px; color: {label.hex_color || 'var(--text-secondary)'}; background: transparent; border: none; border-radius: 6px; cursor: pointer; text-align: left; font-family: var(--font-sans); display: flex; align-items: center; gap: 8px;"
-                >
-                  <span style="width: 8px; height: 8px; border-radius: 50%; background: {label.hex_color || 'var(--text-tertiary)'}; flex-shrink: 0;"></span>
-                  {label.title}
-                </button>
-              {/each}
+          {#if showLabelPicker}
+            <div style="position: absolute; top: calc(100% + 4px); left: 0; z-index: 300; background: var(--bg-elevated); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow-lg); padding: 4px; min-width: 180px; max-height: 260px; overflow-y: auto; animation: fadeIn 100ms ease-out;">
+              {#if labelsStore.loading}
+                <div style="padding: 10px 12px; font-size: 13px; color: var(--text-tertiary);">Loading...</div>
+              {:else}
+                {#if availableLabels.length > 0}
+                  {#each availableLabels as label (label.id)}
+                    <button
+                      type="button"
+                      onclick={() => addLabel(label)}
+                      style="width: 100%; padding: 6px 10px; font-size: 13px; color: {label.hex_color || 'var(--text-secondary)'}; background: transparent; border: none; border-radius: 6px; cursor: pointer; text-align: left; font-family: var(--font-sans); display: flex; align-items: center; gap: 8px;"
+                    >
+                      <span style="width: 8px; height: 8px; border-radius: 50%; background: {label.hex_color || 'var(--text-tertiary)'}; flex-shrink: 0;"></span>
+                      {label.title}
+                    </button>
+                  {/each}
+                {:else}
+                  <div style="padding: 10px 12px; font-size: 13px; color: var(--text-tertiary);">No labels available</div>
+                {/if}
+
+                <!-- Divider + Create Label -->
+                <div style="border-top: 1px solid var(--border-default); margin: 4px 0;"></div>
+                {#if creatingLabel}
+                  <!-- svelte-ignore a11y_no_static_element_interactions -->
+                  <div style="padding: 6px 8px; display: flex; flex-direction: column; gap: 6px;" onkeydown={(e) => { if (e.key === 'Escape') { creatingLabel = false; } }}>
+                    <input
+                      type="text"
+                      placeholder="Label name..."
+                      bind:value={newLabelTitle}
+                      onkeydown={(e) => { if (e.key === 'Enter') handleCreateLabel(); }}
+                      style="width: 100%; height: 28px; padding: 0 8px; font-size: 13px; font-family: var(--font-sans); color: var(--text-primary); background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 6px; outline: none; box-sizing: border-box;"
+                    />
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                      <div style="display: flex; gap: 4px; align-items: center;">
+                        {#each labelColors as color (color)}
+                          <button
+                            type="button"
+                            aria-label="Color {color}"
+                            onclick={() => { newLabelColor = color; }}
+                            style="width: 20px; height: 20px; border-radius: 50%; background: {color}; border: 2px solid {newLabelColor === color ? 'var(--text-primary)' : 'transparent'}; cursor: pointer; padding: 0; transition: all 150ms; transform: {newLabelColor === color ? 'scale(1.15)' : 'scale(1)'};"
+                          ></button>
+                        {/each}
+                      </div>
+                      <Button variant="accent" size="sm" loading={newLabelLoading} onclick={handleCreateLabel}>Create</Button>
+                    </div>
+                  </div>
+                {:else}
+                  <button
+                    type="button"
+                    onclick={() => { creatingLabel = true; }}
+                    style="width: 100%; padding: 6px 10px; font-size: 13px; color: var(--text-tertiary); background: transparent; border: none; border-radius: 6px; cursor: pointer; text-align: left; font-family: var(--font-sans);"
+                  >+ Create Label</button>
+                {/if}
+              {/if}
             </div>
           {/if}
         </div>
       </div>
     </div>
+
+    <!-- Attachments (edit mode only) -->
+    {#if mode === 'edit' && task}
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <!-- svelte-ignore a11y_label_has_associated_control -->
+        <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Attachments</label>
+
+        {#if attachmentsLoading}
+          <div style="font-size: 13px; color: var(--text-tertiary);">Loading...</div>
+        {:else}
+          <!-- Image previews -->
+          {#if attachments.some(a => a.file.mime.startsWith('image/'))}
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              {#each attachments.filter(a => a.file.mime.startsWith('image/')) as att (att.id)}
+                <div style="position: relative; border-radius: 6px; overflow: hidden; background: var(--bg-elevated);">
+                  <a href={attachmentsApi.downloadUrl(task.id, att.id)} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={attachmentsApi.previewUrl(task.id, att.id, 'md')}
+                      alt={att.file.name}
+                      style="display: block; max-width: 200px; max-height: 150px; object-fit: cover; border-radius: 6px;"
+                    />
+                  </a>
+                  <div style="display: flex; align-items: center; gap: 4px; padding: 4px 6px; font-size: 12px;">
+                    <span style="color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title={att.file.name}>{att.file.name}</span>
+                    <span style="color: var(--text-tertiary); flex-shrink: 0;">{formatFileSize(att.file.size)}</span>
+                    <button
+                      type="button"
+                      onclick={() => handleDeleteAttachment(att)}
+                      aria-label="Delete attachment"
+                      style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--text-tertiary); cursor: pointer; border-radius: 4px; font-size: 13px; flex-shrink: 0;"
+                    >&times;</button>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+
+          <!-- Non-image attachment list -->
+          {#if attachments.some(a => !a.file.mime.startsWith('image/'))}
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              {#each attachments.filter(a => !a.file.mime.startsWith('image/')) as att (att.id)}
+                <div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--bg-elevated); border-radius: 6px; font-size: 13px;">
+                  <span>{getFileIcon(att.file.mime)}</span>
+                  <a
+                    href={attachmentsApi.downloadUrl(task.id, att.id)}
+                    style="color: var(--text-primary); text-decoration: none; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                    title={att.file.name}
+                  >{att.file.name}</a>
+                  <span style="color: var(--text-tertiary); font-size: 12px; flex-shrink: 0;">{formatFileSize(att.file.size)}</span>
+                  <button
+                    type="button"
+                    onclick={() => handleDeleteAttachment(att)}
+                    aria-label="Delete attachment"
+                    style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--text-tertiary); cursor: pointer; border-radius: 4px; font-size: 14px; flex-shrink: 0;"
+                  >&times;</button>
+                </div>
+              {/each}
+            </div>
+          {/if}
+
+          <!-- Drop zone -->
+          <div
+            ondragover={(e) => { e.preventDefault(); dragOver = true; }}
+            ondragleave={() => { dragOver = false; }}
+            ondrop={handleDrop}
+            onclick={() => fileInputRef?.click()}
+            role="button"
+            tabindex="0"
+            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef?.click(); }}
+            style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px; border: 1.5px dashed {dragOver ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-tertiary); background: {dragOver ? 'var(--accent-ghost)' : 'transparent'}; transition: all 150ms;"
+          >
+            {#if uploading}
+              <span>Uploading...</span>
+            {:else}
+              <span>Drop files here or click to upload</span>
+            {/if}
+          </div>
+
+          <input
+            type="file"
+            multiple
+            bind:this={fileInputRef}
+            onchange={(e) => handleFileUpload(e.currentTarget.files)}
+            style="display: none;"
+          />
+        {/if}
+      </div>
+    {/if}
+
+    <!-- Subtasks (edit mode only) -->
+    {#if mode === 'edit' && task}
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <!-- svelte-ignore a11y_label_has_associated_control -->
+        <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Subtasks</label>
+
+        {#if subtasksLoading}
+          <div style="font-size: 13px; color: var(--text-tertiary);">Loading...</div>
+        {:else}
+          {#if subtasks.length > 0}
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              {#each subtasks as st (st.id)}
+                <div style="display: flex; align-items: center; gap: 8px; padding: 5px 8px; background: var(--bg-elevated); border-radius: 6px; font-size: 13px;">
+                  <Checkbox checked={st.done} onchange={() => toggleSubtask(st)} />
+                  <span style="flex: 1; color: {st.done ? 'var(--text-tertiary)' : 'var(--text-primary)'}; text-decoration: {st.done ? 'line-through' : 'none'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {st.title}
+                  </span>
+                  <button
+                    type="button"
+                    onclick={() => deleteSubtask(st)}
+                    aria-label="Delete subtask"
+                    style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--text-tertiary); cursor: pointer; border-radius: 4px; font-size: 14px; flex-shrink: 0; opacity: 0.6; transition: opacity 150ms;"
+                  >&times;</button>
+                </div>
+              {/each}
+            </div>
+          {/if}
+
+          <!-- Add subtask input -->
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <Input
+              placeholder="Add subtask..."
+              bind:value={newSubtaskTitle}
+              height={32}
+              onkeydown={(e) => { if (e.key === 'Enter') handleAddSubtask(); }}
+              style="flex: 1;"
+            />
+            <Button variant="ghost" size="sm" loading={addingSubtask} onclick={handleAddSubtask}>Add</Button>
+          </div>
+        {/if}
+      </div>
+    {/if}
 
     <!-- Description -->
     <div style="display: flex; flex-direction: column; gap: 6px;">

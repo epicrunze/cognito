@@ -58,6 +58,8 @@ data/
 
 # Vikunja data
 vikunja-data/
+vikunja-db/
+vikunja-files/
 
 # Logs
 *.log

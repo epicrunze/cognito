@@ -2,6 +2,12 @@ import { tasksApi } from '$lib/api';
 import { optimisticUpdate } from '$lib/optimistic';
 import type { Task } from '$lib/types';
 
+export interface FetchParams {
+  sort_by?: string;
+  order_by?: string;
+  filter?: string;
+}
+
 function normalizeTask(t: Task): Task {
   return { ...t, labels: t.labels ?? [] };
 }
@@ -22,11 +28,11 @@ function createTasksStore() {
       return error;
     },
 
-    async fetchAll() {
+    async fetchAll(params?: FetchParams) {
       loading = true;
       error = null;
       try {
-        const res = await tasksApi.list({});
+        const res = await tasksApi.list({ ...params });
         tasks = res.tasks.map(normalizeTask);
       } catch (e) {
         error = e instanceof Error ? e.message : 'Failed to load tasks';
@@ -35,11 +41,11 @@ function createTasksStore() {
       }
     },
 
-    async fetchByProject(projectId: number) {
+    async fetchByProject(projectId: number, params?: FetchParams) {
       loading = true;
       error = null;
       try {
-        const res = await tasksApi.list({ project_id: projectId });
+        const res = await tasksApi.list({ project_id: projectId, ...params });
         tasks = res.tasks.map(normalizeTask);
       } catch (e) {
         error = e instanceof Error ? e.message : 'Failed to load tasks';
@@ -48,7 +54,7 @@ function createTasksStore() {
       }
     },
 
-    async create(data: { project_id: number; title: string; priority?: number; due_date?: string; description?: string }) {
+    async create(data: { project_id: number; title: string; priority?: number; due_date?: string; description?: string }): Promise<Task | undefined> {
       const tempId = -Date.now();
       const temp: Task = {
         id: tempId,
@@ -58,6 +64,7 @@ function createTasksStore() {
         due_date: data.due_date ?? null,
         project_id: data.project_id,
         labels: [],
+        attachments: [],
         description: data.description ?? '',
         done_at: null,
         start_date: null,
@@ -76,67 +83,33 @@ function createTasksStore() {
         updated: new Date().toISOString(),
       };
 
-      await optimisticUpdate({
+      const result = await optimisticUpdate({
         apply: () => {
           tasks = [temp, ...tasks];
         },
         apiCall: async () => {
           const created = await tasksApi.create(data);
           tasks = tasks.map((t) => (t.id === tempId ? normalizeTask(created) : t));
+          return normalizeTask(created);
         },
         rollback: () => {
           tasks = tasks.filter((t) => t.id !== tempId);
         },
         errorMessage: 'Failed to create task',
       });
+      return result;
     },
 
-    async toggleDone(id: number) {
-      const task = tasks.find((t) => t.id === id);
-      if (!task) return;
-      const newDone = !task.done;
-
-      await optimisticUpdate({
-        apply: () => {
-          tasks = tasks.map((t) => (t.id === id ? { ...t, done: newDone } : t));
-        },
-        apiCall: () => tasksApi.update(id, { done: newDone }),
-        rollback: () => {
-          tasks = tasks.map((t) => (t.id === id ? { ...t, done: !newDone } : t));
-        },
-        errorMessage: 'Failed to update task',
-      });
+    patchTask(id: number, data: Partial<Task>) {
+      tasks = tasks.map(t => t.id === id ? { ...t, ...data } : t);
     },
 
-    async update(id: number, data: Partial<Task>) {
-      const original = tasks.find((t) => t.id === id);
-      if (!original) return;
-
-      await optimisticUpdate({
-        apply: () => {
-          tasks = tasks.map((t) => (t.id === id ? { ...t, ...data } : t));
-        },
-        apiCall: () => tasksApi.update(id, data),
-        rollback: () => {
-          tasks = tasks.map((t) => (t.id === id ? original : t));
-        },
-        errorMessage: 'Failed to update task',
-      });
+    removeTask(id: number) {
+      tasks = tasks.filter(t => t.id !== id);
     },
 
-    async delete(id: number) {
-      const snapshot = [...tasks];
-
-      await optimisticUpdate({
-        apply: () => {
-          tasks = tasks.filter((t) => t.id !== id);
-        },
-        apiCall: () => tasksApi.delete(id),
-        rollback: () => {
-          tasks = snapshot;
-        },
-        errorMessage: 'Failed to delete task',
-      });
+    restoreTasks(snapshot: Task[]) {
+      tasks = snapshot;
     },
   };
 }

@@ -1,5 +1,6 @@
 import { proposalsApi } from '$lib/api';
 import { optimisticUpdate } from '$lib/optimistic';
+import { filterStore } from '$lib/stores/filter.svelte';
 import type { TaskProposal } from '$lib/types';
 
 function createProposalsStore() {
@@ -42,7 +43,13 @@ function createProposalsStore() {
         apply: () => {
           proposals = proposals.map((p) => (p.id === id ? { ...p, status: 'approved' as const } : p));
         },
-        apiCall: () => proposalsApi.approve(id),
+        apiCall: async () => {
+          const res = await proposalsApi.approve(id);
+          if (res.vikunja_task_id) {
+            filterStore.addAiTagged(res.vikunja_task_id);
+          }
+          return res;
+        },
         rollback: () => {
           proposals = original;
         },
@@ -68,7 +75,7 @@ function createProposalsStore() {
     async approveAll(ids?: string[]) {
       const original = [...proposals];
       const targetIds = ids ? new Set(ids) : new Set(proposals.filter((p) => p.status === 'pending').map((p) => p.id));
-      if (targetIds.size === 0) return { approved: 0, errors: [] as Array<{ id: string; title?: string; error: string }> };
+      if (targetIds.size === 0) return { approved: 0, errors: [] as Array<{ id: string; title?: string; error: string }>, task_ids: [] as number[] };
 
       const res = await optimisticUpdate({
         apply: () => {
@@ -76,14 +83,20 @@ function createProposalsStore() {
             targetIds.has(p.id) && p.status === 'pending' ? { ...p, status: 'approved' as const } : p,
           );
         },
-        apiCall: () => proposalsApi.approveAll(ids),
+        apiCall: async () => {
+          const res = await proposalsApi.approveAll(ids);
+          if (res.task_ids && res.task_ids.length > 0) {
+            filterStore.addAiTaggedBatch(res.task_ids);
+          }
+          return res;
+        },
         rollback: () => {
           proposals = original;
         },
         errorMessage: 'Failed to approve proposals',
       });
 
-      return res ?? { approved: 0, errors: [] as Array<{ id: string; title?: string; error: string }> };
+      return res ?? { approved: 0, errors: [] as Array<{ id: string; title?: string; error: string }>, task_ids: [] as number[] };
     },
   };
 }

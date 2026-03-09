@@ -137,12 +137,10 @@ class VikunjaClient:
         return task
 
     async def update_task(self, task_id: int, data: dict) -> dict:
-        """
-        Update task fields.
-
-        POST updates in Vikunja (opposite of standard REST).
-        """
-        return await self._request("POST", f"/tasks/{task_id}", json=data)
+        """Update task fields. Fetches current state first to avoid Go zero-value wipe."""
+        current = await self.get_task(task_id)
+        current.update(data)
+        return await self._request("POST", f"/tasks/{task_id}", json=current)
 
     async def delete_task(self, task_id: int) -> dict:
         """Delete a task."""
@@ -150,11 +148,31 @@ class VikunjaClient:
 
     async def _add_labels_to_task(self, task_id: int, labels: list[str]) -> None:
         """
-        Add labels to a task.
-
-        For Phase 1, we log missing labels but don't fail.
+        Add labels to a task by name. Creates missing labels on the fly.
+        Never fails the whole operation — logs warnings for individual failures.
         """
-        pass
+        try:
+            all_labels = await self.list_labels()
+        except Exception:
+            logger.warning("Failed to fetch labels for task %d, skipping label attachment", task_id)
+            return
+
+        lookup = {l["title"].lower(): l["id"] for l in all_labels}
+        added = 0
+
+        for name in labels:
+            try:
+                label_id = lookup.get(name.lower())
+                if label_id is None:
+                    created = await self.create_label({"title": name})
+                    label_id = created["id"]
+                    lookup[name.lower()] = label_id
+                await self.add_label_to_task(task_id, label_id)
+                added += 1
+            except Exception:
+                logger.warning("Failed to add label '%s' to task %d", name, task_id)
+
+        logger.info("Added %d/%d labels to task %d", added, len(labels), task_id)
 
     async def add_label_to_task(self, task_id: int, label_id: int) -> dict:
         """Add an existing label to a task. Uses PUT (Vikunja convention)."""
@@ -178,8 +196,11 @@ class VikunjaClient:
         return await self._request("PUT", "/labels", json=data)
 
     async def update_label(self, label_id: int, data: dict) -> dict:
-        """Update a label. PUT updates in Vikunja."""
-        return await self._request("PUT", f"/labels/{label_id}", json=data)
+        """Update a label. Fetches current state first to avoid Go zero-value wipe."""
+        labels = await self.list_labels()
+        current = next((l for l in labels if l["id"] == label_id), {})
+        current.update(data)
+        return await self._request("PUT", f"/labels/{label_id}", json=current)
 
     async def delete_label(self, label_id: int) -> dict:
         """Delete a label."""
@@ -194,20 +215,154 @@ class VikunjaClient:
         )
         return data if isinstance(data, list) else []
 
+    async def create_bucket(
+        self, project_id: int, view_id: int, title: str, limit: int = 0
+    ) -> dict:
+        """Create a bucket in a kanban view. PUT creates in Vikunja."""
+        return await self._request(
+            "PUT",
+            f"/projects/{project_id}/views/{view_id}/buckets",
+            json={"title": title, "limit": limit},
+        )
+
+    async def update_bucket(
+        self, project_id: int, view_id: int, bucket_id: int, data: dict
+    ) -> dict:
+        """Update a bucket. Fetches current state first to avoid Go zero-value wipe."""
+        buckets = await self.list_buckets(project_id, view_id)
+        current = next((b for b in buckets if b["id"] == bucket_id), {})
+        current.update(data)
+        return await self._request(
+            "POST",
+            f"/projects/{project_id}/views/{view_id}/buckets/{bucket_id}",
+            json=current,
+        )
+
+    async def delete_bucket(
+        self, project_id: int, view_id: int, bucket_id: int
+    ) -> dict:
+        """Delete a bucket."""
+        return await self._request(
+            "DELETE",
+            f"/projects/{project_id}/views/{view_id}/buckets/{bucket_id}",
+        )
+
     async def move_task_to_bucket(
         self,
         project_id: int,
         view_id: int,
         task_id: int,
         bucket_id: int,
-        position: float,
     ) -> dict:
         """Move a task to a different kanban bucket."""
         return await self._request(
             "POST",
             f"/projects/{project_id}/views/{view_id}/buckets/{bucket_id}/tasks",
-            json={"task_id": task_id, "position": position},
+            json={"task_id": task_id},
         )
+
+    async def update_task_position(
+        self, task_id: int, position: float, view_id: int
+    ) -> dict:
+        """Update a task's position within a view."""
+        return await self._request(
+            "POST",
+            f"/tasks/{task_id}/position",
+            json={"position": position, "project_view_id": view_id},
+        )
+
+    async def create_view(
+        self, project_id: int, title: str, view_kind: str = "kanban"
+    ) -> dict:
+        """Create a project view. PUT creates in Vikunja."""
+        return await self._request(
+            "PUT",
+            f"/projects/{project_id}/views",
+            json={"title": title, "view_kind": view_kind, "bucket_configuration_mode": "manual"},
+        )
+
+    async def list_view_tasks(
+        self, project_id: int, view_id: int
+    ) -> list[dict]:
+        """List tasks for a view. For kanban views, returns buckets with nested tasks."""
+        data = await self._request(
+            "GET", f"/projects/{project_id}/views/{view_id}/tasks"
+        )
+        return data if isinstance(data, list) else []
+
+    # ── Attachments ───────────────────────────────────────────────────────────
+
+    async def list_attachments(self, task_id: int) -> list[dict]:
+        """List attachments for a task."""
+        data = await self._request("GET", f"/tasks/{task_id}/attachments")
+        return data if isinstance(data, list) else []
+
+    async def upload_attachment(
+        self, task_id: int, filename: str, content: bytes, content_type: str
+    ) -> dict:
+        """Upload a file attachment to a task. Uses raw httpx (multipart, not JSON)."""
+        url = f"{self.base_url}/api/v1/tasks/{task_id}/attachments"
+        headers = {"Authorization": f"Bearer {self.api_token}"}
+        files = {"files": (filename, content, content_type)}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.put(url, headers=headers, files=files)
+            if not response.is_success:
+                raise VikunjaError(
+                    f"PUT /tasks/{task_id}/attachments failed: {response.status_code} {response.text}"
+                )
+            return response.json()
+
+    async def download_attachment(
+        self, task_id: int, attachment_id: int, preview_size: str | None = None
+    ) -> tuple[bytes, str, str]:
+        """Download an attachment. Returns (content, content_type, filename)."""
+        url = f"{self.base_url}/api/v1/tasks/{task_id}/attachments/{attachment_id}"
+        if preview_size:
+            url += f"?preview_size={preview_size}"
+        headers = {"Authorization": f"Bearer {self.api_token}"}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, headers=headers)
+            if not response.is_success:
+                raise VikunjaError(
+                    f"GET /tasks/{task_id}/attachments/{attachment_id} failed: {response.status_code}"
+                )
+            ct = response.headers.get("content-type", "application/octet-stream")
+            # Extract filename from content-disposition header
+            cd = response.headers.get("content-disposition", "")
+            fname = "attachment"
+            if "filename=" in cd:
+                fname = cd.split("filename=")[-1].strip('" ')
+            return response.content, ct, fname
+
+    async def delete_attachment(self, task_id: int, attachment_id: int) -> dict:
+        """Delete an attachment from a task."""
+        return await self._request("DELETE", f"/tasks/{task_id}/attachments/{attachment_id}")
+
+    # ── Subtasks (Relations) ─────────────────────────────────────────────────
+
+    async def get_subtasks(self, task_id: int) -> list[dict]:
+        """Get subtasks via the related_tasks.subtask field."""
+        task = await self.get_task(task_id)
+        related = task.get("related_tasks") or {}
+        return related.get("subtask", [])
+
+    async def create_subtask(self, parent_id: int, title: str, project_id: int) -> dict:
+        """Create a child task and link it as a subtask of the parent."""
+        child = await self.create_task(project_id, title)
+        await self._request(
+            "PUT",
+            f"/tasks/{parent_id}/relations",
+            json={"other_task_id": child["id"], "relation_kind": "subtask"},
+        )
+        return child
+
+    async def delete_subtask(self, parent_id: int, subtask_id: int) -> None:
+        """Remove the subtask relation and delete the child task."""
+        await self._request(
+            "DELETE",
+            f"/tasks/{parent_id}/relations/subtask/{subtask_id}",
+        )
+        await self.delete_task(subtask_id)
 
     # ── Search ────────────────────────────────────────────────────────────────
 

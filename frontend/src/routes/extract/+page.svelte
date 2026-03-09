@@ -7,11 +7,8 @@
   import Button from '$components/ui/Button.svelte';
   import Dropdown from '$components/ui/Dropdown.svelte';
   import Kbd from '$components/ui/Kbd.svelte';
-  import Checkbox from '$components/ui/Checkbox.svelte';
-  import PriorityIndicator from '$components/ui/PriorityIndicator.svelte';
-  import Badge from '$components/ui/Badge.svelte';
-  import DateDisplay from '$components/ui/DateDisplay.svelte';
   import TaskPanel from '$components/features/TaskPanel.svelte';
+  import ProposalCard from '$components/features/ProposalCard.svelte';
   import { fly } from 'svelte/transition';
   import { onMount } from 'svelte';
 
@@ -36,6 +33,7 @@
   let rawResponse = $state('');
   let showRaw = $state(false);
   let editingProposal = $state<TaskProposal | null>(null);
+  let hoveringCardId = $state<string | null>(null);
 
   const isLocal = $derived(selectedModel.startsWith('ollama'));
 
@@ -129,7 +127,7 @@
 <div style="max-width: 720px; margin: 0 auto; padding: 32px 24px;">
   <!-- Header -->
   <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
-    <span style="font-size: 20px; font-weight: 600; color: var(--accent);">&diams; Extract Tasks</span>
+    <span style="font-size: 20px; font-weight: 600; color: var(--accent);">&#9670; Extract Tasks</span>
   </div>
 
   <!-- Controls -->
@@ -201,50 +199,16 @@
 
     <div style="display: flex; flex-direction: column; gap: 10px;">
       {#each proposals as proposal, i (proposal.id)}
-        <div
-          in:fly={{ y: 20, duration: 200, delay: i * 50 }}
-          style="display: flex; gap: 14px; padding: 16px 18px; background: var(--bg-surface); border: 1px solid {proposal.status === 'approved' ? 'var(--done)' : 'var(--border-default)'}; border-radius: 10px; border-left: 2px solid var(--accent); box-shadow: inset 3px 0 8px -4px var(--accent-glow); transition: all 150ms ease-out; align-items: flex-start; opacity: {proposal.status === 'approved' ? 0.5 : 1};"
-        >
-          <Checkbox
-            checked={selectedIds.has(proposal.id)}
-            onchange={() => toggleSelected(proposal.id)}
+        <div in:fly={{ y: 20, duration: 200, delay: i * 50 }}>
+          <ProposalCard
+            {proposal}
+            selected={selectedIds.has(proposal.id)}
+            hovered={hoveringCardId === proposal.id}
+            onselect={() => toggleSelected(proposal.id)}
+            onedit={() => { if (proposal.status === 'pending') editingProposal = proposal; }}
+            onmouseenter={() => hoveringCardId = proposal.id}
+            onmouseleave={() => { if (hoveringCardId === proposal.id) hoveringCardId = null; }}
           />
-          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-          <div style="flex: 1; min-width: 0; cursor: pointer;" onclick={() => { if (proposal.status === 'pending') editingProposal = proposal; }}>
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 7px;">
-              <PriorityIndicator level={proposal.priority} size="sm" />
-              <span style="font-size: 15px; font-weight: 500; color: var(--text-primary); line-height: 1.3;">
-                {proposal.title}
-              </span>
-              {#if proposal.status === 'pending'}
-                <span style="font-size: 13px; color: var(--text-tertiary); opacity: 0.5;">&#9998;</span>
-              {/if}
-              {#if proposal.status === 'approved'}
-                <span style="font-size: 12px; color: var(--done); font-weight: 500;">Approved</span>
-              {/if}
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-              {#if proposal.project_name && !proposal.project_id}
-                <Badge color="var(--accent)">{proposal.project_name}</Badge>
-                <span style="font-size: 11px; color: var(--accent); font-weight: 500;">New project</span>
-                <span style="font-size: 13px; color: var(--border-strong);">&middot;</span>
-              {:else if proposal.project_name}
-                <span style="font-size: 13px; color: var(--text-tertiary);">{proposal.project_name}</span>
-                <span style="font-size: 13px; color: var(--border-strong);">&middot;</span>
-              {:else if !proposal.project_id}
-                <span style="font-size: 12px; color: var(--danger, #ef4444); font-weight: 500;">No project</span>
-                <span style="font-size: 13px; color: var(--border-strong);">&middot;</span>
-              {/if}
-              <DateDisplay date={proposal.due_date} />
-              {#if proposal.estimated_minutes}
-                <span style="font-size: 13px; color: var(--border-strong);">&middot;</span>
-                <span style="font-size: 13px; color: var(--text-tertiary);">{proposal.estimated_minutes}min</span>
-              {/if}
-              {#each proposal.labels as label (label)}
-                <Badge>{label}</Badge>
-              {/each}
-            </div>
-          </div>
         </div>
       {/each}
     </div>

@@ -24,6 +24,12 @@ function createLabelsStore() {
         loading = false;
       }
     },
+
+    async create(data: { title: string; hex_color?: string }): Promise<Label> {
+      const label = await labelsApi.create(data);
+      labels = [...labels, label];
+      return label;
+    },
   };
 }
 
