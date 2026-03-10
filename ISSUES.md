@@ -30,7 +30,7 @@ When we filter, the UI is not very user friendly. There's no way to select/desel
 
 We need to bring back the icon indicators from the template where we indicate any attachments/subtasks. This is linked with the next issue
 
-The cards/bubbles are too minimalistic, we should still have some icons that tell us important information about that task just from a glance. We also need to decide on what exactly we show when we hover over the card. Trello adds a checkoff circle when we hover over their cards. Are there pieces of info that would be relevant if we're just barely interested in the card or any ways to interact with the card that would follow our design philosophy and give users a better user experience?
+The cards/bubbles are too minimalistic, we should still have some icons that tell us important information about that task just from a glance. We also need to decide on what exactly we show when we hover over the card. Trello adds a checkoff circle when we hover over their cards. Are there pieces of info that would be relevant if we're just barely interested in the card or any ways to interact with the card that would follow our design philosophy and give users a better user experience? One more thing is that we should highlight subtly that a card is overdue.
 
 There should be a little bit of an accent around the new though seed bubble, maybe the same color as the project color?
 
@@ -52,3 +52,14 @@ There should be a way to control the max number of cards that's displayed or ano
 
 There should be multiple ways to sort in the all tasks page. The default sort should take into account the due date and also when the task is set to be done. If the task is set to be done now or soon, it should put that task at the top. If a task doesn't have a set time to be done, but has a due date, it should be sorted by which ever due date is sooner, but also weighed by the priority, and also the length of time that the task will take. We should figure out a good algorithm for sorting
 
+We should remove the ability to highlight when we're looking at the card view, it breaks up the visual flow and it's not that needed.
+
+When we make a task while we have the side window open, it should snap to our new task
+
+There should be another auto label option that lives with the editor when we add a label.
+
+The AI behaviour tab in the settings should include the full system prompt. This app is for me to use, not for non-technical users. Also describe the tools that the model has access to so it's easier for me to see if the agent is working well. We should also store all the chat histories to review afterwards.
+
+Need to add the label statistics from the design system
+
+The updated timestamp doesnt update until the page is refreshed
