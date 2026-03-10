@@ -67,102 +67,134 @@ export function animateFlights(
 
   if (allNames.length === 0) return;
 
-  // Inject style to suppress default cross-fade on unmatched cards
+  // Inject style to suppress default cross-fade and hide new pseudo-elements until animation applies
   const style = document.createElement('style');
+  const enterNames = new Set(entering.map(c => c.viewTransitionName));
   style.textContent = allNames
     .map(
-      name =>
-        `::view-transition-old(${name}),::view-transition-new(${name}){animation:none!important;}`
+      name => {
+        const hideNew = enterNames.has(name)
+          ? `::view-transition-new(${name}){animation:none!important;opacity:0;}`
+          : `::view-transition-new(${name}){animation:none!important;}`;
+        return `::view-transition-old(${name}){animation:none!important;}${hideNew}`;
+      }
     )
     .join('\n');
   document.head.appendChild(style);
 
-  // Animate on transition.ready
+  // Add will-change hints to cards about to animate (GPU layer promotion)
+  const animatingEls: HTMLElement[] = [];
+  for (const card of [...entering, ...leaving]) {
+    const el = document.querySelector<HTMLElement>(`[data-transition-id="${card.id}"]`);
+    if (el) {
+      el.style.willChange = 'transform, opacity';
+      el.style.contain = 'layout';
+      animatingEls.push(el);
+    }
+  }
+
+  // Animate on transition.ready — wrap in rAF to ensure layout is settled
   transition.ready.then(() => {
-    // Sort entering: priority DESC (urgent first)
-    const sortedEntering = [...entering].sort((a, b) => b.priority - a.priority);
-    // Sort leaving: priority ASC (least important first)
-    const sortedLeaving = [...leaving].sort((a, b) => a.priority - b.priority);
+    requestAnimationFrame(() => {
+      // Sort entering: priority DESC (urgent first)
+      const sortedEntering = [...entering].sort((a, b) => b.priority - a.priority);
+      // Sort leaving: priority ASC (least important first)
+      const sortedLeaving = [...leaving].sort((a, b) => a.priority - b.priority);
 
-    // Animate entering cards
-    sortedEntering.forEach((card, i) => {
-      const cardCenter = {
-        x: card.rect.left + card.rect.width / 2,
-        y: card.rect.top + card.rect.height / 2,
-      };
-      const dx = config.enterFrom.x - cardCenter.x;
-      const dy = config.enterFrom.y - cardCenter.y;
+      const animations: Animation[] = [];
 
-      if (i < MAX_ANIMATED) {
-        try {
-          document.documentElement.animate(
-            [
-              { transform: `translate(${dx}px, ${dy}px) scale(${SCALE_AT_SIDEBAR})`, opacity: 0 },
-              { transform: 'translate(0, 0) scale(1)', opacity: 1 },
-            ],
-            {
-              duration: ENTER_DURATION,
-              easing: ENTER_EASING,
-              delay: i * ENTER_STAGGER,
-              fill: 'both',
-              pseudoElement: `::view-transition-new(${card.viewTransitionName})`,
-            }
-          );
-        } catch {
-          // Browser doesn't support pseudoElement option — fallback is fine
+      // Animate entering cards
+      sortedEntering.forEach((card, i) => {
+        const cardCenter = {
+          x: card.rect.left + card.rect.width / 2,
+          y: card.rect.top + card.rect.height / 2,
+        };
+        const dx = config.enterFrom.x - cardCenter.x;
+        const dy = config.enterFrom.y - cardCenter.y;
+
+        if (i < MAX_ANIMATED) {
+          try {
+            const anim = document.documentElement.animate(
+              [
+                { transform: `translate(${dx}px, ${dy}px) scale(${SCALE_AT_SIDEBAR})`, opacity: 0 },
+                { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+              ],
+              {
+                duration: ENTER_DURATION,
+                easing: ENTER_EASING,
+                delay: i * ENTER_STAGGER,
+                fill: 'both',
+                pseudoElement: `::view-transition-new(${card.viewTransitionName})`,
+              }
+            );
+            animations.push(anim);
+          } catch {
+            // Browser doesn't support pseudoElement option — fallback is fine
+          }
+        } else {
+          // Overflow cards: instant appear
+          try {
+            const anim = document.documentElement.animate(
+              [{ opacity: 0 }, { opacity: 1 }],
+              {
+                duration: 50,
+                fill: 'both',
+                pseudoElement: `::view-transition-new(${card.viewTransitionName})`,
+              }
+            );
+            animations.push(anim);
+          } catch { /* ignore */ }
         }
-      } else {
-        // Overflow cards: instant appear
-        try {
-          document.documentElement.animate(
-            [{ opacity: 0 }, { opacity: 1 }],
-            {
-              duration: 50,
-              fill: 'both',
-              pseudoElement: `::view-transition-new(${card.viewTransitionName})`,
-            }
-          );
-        } catch { /* ignore */ }
-      }
-    });
+      });
 
-    // Animate leaving cards
-    sortedLeaving.forEach((card, i) => {
-      const cardCenter = {
-        x: card.rect.left + card.rect.width / 2,
-        y: card.rect.top + card.rect.height / 2,
-      };
-      const dx = config.leaveTo.x - cardCenter.x;
-      const dy = config.leaveTo.y - cardCenter.y;
+      // Animate leaving cards
+      sortedLeaving.forEach((card, i) => {
+        const cardCenter = {
+          x: card.rect.left + card.rect.width / 2,
+          y: card.rect.top + card.rect.height / 2,
+        };
+        const dx = config.leaveTo.x - cardCenter.x;
+        const dy = config.leaveTo.y - cardCenter.y;
 
-      if (i < MAX_ANIMATED) {
-        try {
-          document.documentElement.animate(
-            [
-              { transform: 'translate(0, 0) scale(1)', opacity: 1 },
-              { transform: `translate(${dx}px, ${dy}px) scale(${SCALE_AT_SIDEBAR})`, opacity: 0 },
-            ],
-            {
-              duration: LEAVE_DURATION,
-              easing: LEAVE_EASING,
-              delay: i * LEAVE_STAGGER,
-              fill: 'both',
-              pseudoElement: `::view-transition-old(${card.viewTransitionName})`,
-            }
-          );
-        } catch { /* ignore */ }
-      } else {
-        try {
-          document.documentElement.animate(
-            [{ opacity: 1 }, { opacity: 0 }],
-            {
-              duration: 50,
-              fill: 'both',
-              pseudoElement: `::view-transition-old(${card.viewTransitionName})`,
-            }
-          );
-        } catch { /* ignore */ }
-      }
+        if (i < MAX_ANIMATED) {
+          try {
+            const anim = document.documentElement.animate(
+              [
+                { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+                { transform: `translate(${dx}px, ${dy}px) scale(${SCALE_AT_SIDEBAR})`, opacity: 0 },
+              ],
+              {
+                duration: LEAVE_DURATION,
+                easing: LEAVE_EASING,
+                delay: i * LEAVE_STAGGER,
+                fill: 'both',
+                pseudoElement: `::view-transition-old(${card.viewTransitionName})`,
+              }
+            );
+            animations.push(anim);
+          } catch { /* ignore */ }
+        } else {
+          try {
+            const anim = document.documentElement.animate(
+              [{ opacity: 1 }, { opacity: 0 }],
+              {
+                duration: 50,
+                fill: 'both',
+                pseudoElement: `::view-transition-old(${card.viewTransitionName})`,
+              }
+            );
+            animations.push(anim);
+          } catch { /* ignore */ }
+        }
+      });
+
+      // Remove will-change after all animations complete (avoid GPU memory leaks)
+      Promise.all(animations.map(a => a.finished.catch(() => {}))).then(() => {
+        for (const el of animatingEls) {
+          el.style.willChange = '';
+          el.style.contain = '';
+        }
+      });
     });
   });
 

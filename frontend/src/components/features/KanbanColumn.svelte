@@ -85,7 +85,7 @@
   >
     {#each localItems as task (task.id)}
       <div>
-        <ThoughtBubble {task} kanbanCompact={density === 'compact'} onclick={() => onTaskClick?.(task.id)} />
+        <ThoughtBubble {task} kanban={true} kanbanCompact={density === 'compact'} onclick={() => onTaskClick?.(task.id)} />
       </div>
     {/each}
   </div>

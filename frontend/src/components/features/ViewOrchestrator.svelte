@@ -6,6 +6,7 @@
   import { bubbleStore } from '$lib/stores/bubble.svelte';
   import { kanbanStore } from '$lib/stores/kanban.svelte';
   import { sidebarRectsStore } from '$lib/stores/sidebarRects.svelte';
+  import { viewModeStore } from '$lib/stores/viewMode.svelte';
   import { snapshotCards, diffSnapshots, animateFlights } from '$lib/viewTransitionAnimator';
   import BubbleCanvas from './BubbleCanvas.svelte';
   import KanbanBoard from './KanbanBoard.svelte';
@@ -20,6 +21,7 @@
   );
 
   let viewMode = $state<'bubbles' | 'kanban' | 'list'>('bubbles');
+  $effect(() => { viewModeStore.set(viewMode); });
   let prevPathname = $state('');
 
   // Buffered values — only update inside startViewTransition callback

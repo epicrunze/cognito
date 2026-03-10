@@ -167,26 +167,24 @@ Overdue tasks also get a subtle warm 2px left-border (`var(--overdue)` color) th
 
 | # | Issue | Status |
 |---|-------|--------|
-| 2 | View transition stuttering | TODO |
-| 21 | List→bubble animation wrong | TODO |
-| 20 | Kanban task opening broken | TODO |
+| 2 | View transition stuttering | DONE |
+| 21 | List→bubble animation wrong | DONE |
+| 20 | Kanban task opening broken | DONE |
 
 ### Issue 2 — View transition animations stutter
 **Problem:** Switching views and opening/closing bubbles sometimes stutters.
-**Solution:** **Needs deeper investigation before changes.** Build a testbed environment first to isolate and reproduce stuttering. Then systematically test fixes: reduce `MAX_ANIMATED`, add `will-change` hints, use `requestAnimationFrame` scheduling, test with different card counts. If View Transitions API remains unreliable, evaluate simpler CSS-based fallback. Do not change production code until testbed validates the approach.
-**Files:** `viewTransitionAnimator.ts`, `ViewOrchestrator.svelte`
+**Solution:** Added `will-change: transform, opacity` and `contain: layout` hints to animating card elements before animation starts (GPU layer promotion). Wrapped animation start in `requestAnimationFrame` to ensure layout is settled. Cleanup removes `will-change`/`contain` after all animations complete via `Promise.all(animation.finished)` to avoid GPU memory leaks.
+**Files:** `viewTransitionAnimator.ts`
 
 ### Issue 21 — Cards display big then shrink
 **Problem:** When switching from list to bubbles/kanban, cards render large then shrink — looks trippy.
-**Solution:** Same testbed as Issue #2. Root cause: entering cards render at full size before flight animation applies scale-down. Fix: set entering cards to `opacity: 0` initially, animate opacity+transform together so cards are invisible until the flight animation starts. Test in testbed first.
-**Files:** `viewTransitionAnimator.ts`
+**Solution:** Set `opacity: 0` on entering `::view-transition-new()` pseudo-elements in the injected CSS, so cards are invisible until the flight animation applies `opacity: 1` via keyframes. Also removed `padding` from ThoughtBubble's CSS transition list to prevent labels reflowing during expand (padding animated from 16px→20px, shrinking content area and causing label wrap).
+**Files:** `viewTransitionAnimator.ts`, `ThoughtBubble.svelte`
 
 ### Issue 20 — Kanban task opening broken
 **Problem:** Clicking a kanban card tries to expand inline instead of opening the side viewer. Side viewer also competes for screen space with kanban columns.
-**Solution:** Two fixes:
-1. Pass `kanban={true}` to ThoughtBubble in KanbanColumn — disable inline expand, only call `taskDetailStore.open(taskId)` on click.
-2. In kanban mode, TaskDetail renders as a **draggable overlay panel** (absolute positioned, z-index above kanban) rather than taking flex space. Kanban columns stay full width underneath. Panel can be repositioned by dragging its header bar. Click outside or Esc to close. Store last position in localStorage so it remembers between sessions.
-**Files:** `KanbanColumn.svelte`, `ThoughtBubble.svelte`, `TaskDetail.svelte`
+**Solution:** Added `kanban` prop to ThoughtBubble — when true, `handleBubbleClick()` skips `bubbleStore.toggle()` and directly calls `onclick?.()` (which triggers `taskDetailStore.open()`). KanbanColumn passes `kanban={true}`. Created `viewModeStore` so TaskDetail can detect kanban mode. In kanban mode, TaskDetail renders as a fixed overlay panel (z-index 100, rounded corners, drop shadow) with a sticky drag handle bar at top for repositioning. Position persists in localStorage (`cognito:taskdetail-pos`). Non-kanban mode keeps existing flex behavior.
+**Files:** `KanbanColumn.svelte`, `ThoughtBubble.svelte`, `TaskDetail.svelte`, `ViewOrchestrator.svelte`, new `lib/stores/viewMode.svelte.ts`
 
 **Test after batch:** `npm run check`, manual visual verification
 
