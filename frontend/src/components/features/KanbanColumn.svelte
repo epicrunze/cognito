@@ -2,17 +2,22 @@
   import type { Bucket, Task } from '$lib/types';
   import { dndzone } from 'svelte-dnd-action';
   import { bubbleStore } from '$lib/stores/bubble.svelte';
+  import { toggleDone } from '$lib/stores/taskMutations';
   import ThoughtBubble from './ThoughtBubble.svelte';
 
   let {
     bucket,
     tasks = [],
+    columnColor = 'var(--border-default)',
+    isDoneBucket = false,
     onTaskClick,
     onTaskFinalized,
     onCreateTask,
   }: {
     bucket: Bucket;
     tasks: Task[];
+    columnColor?: string;
+    isDoneBucket?: boolean;
     onTaskClick?: (taskId: number) => void;
     onTaskFinalized?: (bucketId: number, tasks: Task[]) => void;
     onCreateTask?: (title: string) => void;
@@ -38,6 +43,14 @@
     isDragging = false;
     localItems = e.detail.items;
     onTaskFinalized?.(bucket.id, e.detail.items);
+    // Auto-complete tasks dragged to Done bucket
+    if (isDoneBucket) {
+      for (const task of e.detail.items) {
+        if (!task.done) {
+          toggleDone(task.id);
+        }
+      }
+    }
   }
 
   function handleQuickAdd(e: KeyboardEvent) {
@@ -49,8 +62,13 @@
 
 <div style="width: 280px; flex-shrink: 0; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 10px; display: flex; flex-direction: column; max-height: 100%;">
   <!-- Header -->
-  <div style="padding: 14px 16px 10px; display: flex; align-items: center; justify-content: space-between;">
-    <span style="font-size: 14px; font-weight: 600; color: var(--text-primary);">{bucket.title}</span>
+  <div style="padding: 14px 16px 10px; display: flex; align-items: center; justify-content: space-between; border-top: 2px solid {columnColor}; border-radius: 10px 10px 0 0;">
+    <span style="font-size: 14px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+      {#if isDoneBucket}
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--done)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5" /><path d="M5.5 8l2 2 3.5-3.5" /></svg>
+      {/if}
+      {bucket.title}
+    </span>
     <span style="font-size: 12px; color: var(--text-tertiary); background: var(--bg-elevated); padding: 2px 8px; border-radius: 9999px;">{tasks.length}</span>
   </div>
 

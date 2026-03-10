@@ -1,5 +1,6 @@
 services:
   vikunja:
+    container_name: vikunja
     image: vikunja/vikunja:2.1.0
     volumes:
       - ./vikunja-files:/app/vikunja/files
@@ -12,7 +13,8 @@ services:
       - cognito-network
     restart: unless-stopped
 
-  cognito-backend:
+  backend:
+    container_name: cognito-backend
     build: ./backend
     volumes:
       - ./data:/app/data          # SQLite database file
@@ -40,7 +42,8 @@ services:
       - vikunja
     restart: unless-stopped
 
-  cognito-frontend:
+  frontend:
+    container_name: cognito-frontend
     build:
       context: ./frontend
       target: production
@@ -49,7 +52,7 @@ services:
     networks:
       - cognito-network
     depends_on:
-      - cognito-backend
+      - backend
     restart: unless-stopped
 
 networks:

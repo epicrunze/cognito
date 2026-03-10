@@ -56,6 +56,8 @@
     labels: { id?: number; title: string; hex_color?: string }[];
     done: boolean;
     attachmentCount: number;
+    subtaskDone: number;
+    subtaskTotal: number;
     estimatedMinutes: number | null;
     isProposal: boolean;
     status: string | null;
@@ -74,6 +76,8 @@
         labels: proposal.labels.map(l => ({ title: l })),
         done: false,
         attachmentCount: 0,
+        subtaskDone: 0,
+        subtaskTotal: 0,
         estimatedMinutes: proposal.estimated_minutes,
         isProposal: true,
         status: proposal.status,
@@ -91,12 +95,14 @@
         labels: task.labels,
         done: task.done,
         attachmentCount: task.attachments?.length ?? 0,
+        subtaskDone: task.subtask_done ?? 0,
+        subtaskTotal: task.subtask_total ?? 0,
         estimatedMinutes: null,
         isProposal: false,
         status: null,
       };
     }
-    return { id: 0, title: '', description: '', priority: 3, dueDate: null, projectId: null, projectName: null, labels: [], done: false, attachmentCount: 0, estimatedMinutes: null, isProposal: false, status: null };
+    return { id: 0, title: '', description: '', priority: 3, dueDate: null, projectId: null, projectName: null, labels: [], done: false, attachmentCount: 0, subtaskDone: 0, subtaskTotal: 0, estimatedMinutes: null, isProposal: false, status: null };
   });
 
   const project = $derived(data.projectId ? projectsStore.projects.find(p => p.id === data.projectId) : null);
@@ -106,6 +112,7 @@
   const viewed = $derived(typeof data.id === 'number' && filterStore.viewedTaskIds.has(data.id));
   const showGlow = $derived(isAiTagged && (!viewed || data.isProposal));
 
+  const hasIndicators = $derived(isOverdue || data.attachmentCount > 0 || data.subtaskTotal > 0);
   const expanded = $derived(bubbleStore.expandedTaskId === data.id);
   const supportsVT = $derived(typeof document !== 'undefined' && !!document.startViewTransition);
 
@@ -129,6 +136,7 @@
 
   // --- Priority as presence ---
   const presenceOpacity = $derived.by(() => {
+    if (expanded) return 1;
     if (data.done) return 0.35;
     const p = data.priority;
     if (p >= 4) return 1;
@@ -424,10 +432,11 @@
       if (showGlow) return '1px solid var(--bg-surface); border-left: 2px solid var(--accent)';
       return '1px solid transparent';
     }
-    if (expanded) return `1px solid var(--border-strong)`;
-    if (showGlow) return `1px solid rgba(232,119,46,0.5)`;
-    if (hovering) return `1px solid var(--border-strong)`;
-    return `1px solid var(--border-default)`;
+    const overdueLeft = isOverdue && !data.done ? 'border-left: 2px solid color-mix(in srgb, var(--overdue) 50%, transparent);' : '';
+    if (expanded) return `1px solid var(--border-strong); ${overdueLeft}`;
+    if (showGlow) return `1px solid rgba(232,119,46,0.5); ${overdueLeft}`;
+    if (hovering) return `1px solid var(--border-strong); ${overdueLeft}`;
+    return `1px solid var(--border-default); ${overdueLeft}`;
   });
 
   // Compact-mode border-left for AI-tagged
@@ -512,20 +521,44 @@
       <div style="font-size: 14.5px; font-weight: {data.priority >= 4 ? 500 : 400}; color: {titleColor}; text-decoration: {data.done ? 'line-through' : 'none'}; line-height: 1.4; letter-spacing: -0.01em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; padding-right: {projectColor ? '14px' : '0'}; {proposalMode ? 'margin-left: 28px;' : ''}">
         {data.title}
       </div>
-      <div style="flex: 1;"></div>
-      <!-- Hover info zone -->
-      <div style="min-height: 20px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; {proposalMode ? 'margin-left: 28px;' : ''}">
-        {#if hovering}
-          {#if data.dueDate}
-            <span style="font-size: 12px; color: {isOverdue ? 'var(--overdue)' : 'var(--text-tertiary)'};">{formatDate(data.dueDate)}</span>
+      <!-- Unified bottom row: indicators + quick-complete + hover meta -->
+      <div class="card-bottom-row" style="{proposalMode ? 'margin-left: 28px;' : ''}">
+        {#if !data.done && !data.isProposal && !proposalMode}
+          <button
+            class="quick-complete"
+            onclick={handleDoneToggle}
+            aria-label="Complete task"
+          >
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 8.5l3 3 6-6" />
+            </svg>
+          </button>
+        {/if}
+        {#if hasIndicators && !data.done}
+          {#if isOverdue}
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--overdue); flex-shrink: 0;"></span>
           {/if}
-          {#if data.labels.length > 0}
-            <span style="font-size: 11.5px; color: var(--text-tertiary);">{data.labels[0].title}</span>
+          {#if data.subtaskTotal > 0}
+            <span class="card-indicator">
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2" /><path d="M5 8l2 2 4-4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              {data.subtaskDone}/{data.subtaskTotal}
+            </span>
           {/if}
           {#if data.attachmentCount > 0}
-            <span style="font-size: 11.5px; color: var(--text-tertiary);">&#128206;{data.attachmentCount}</span>
+            <span class="card-indicator">
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 7.5l-5.4 5.4a3.2 3.2 0 01-4.5-4.5l5.4-5.4a2 2 0 012.8 2.8L6.4 11.2a.8.8 0 01-1.1-1.1l4.5-4.5" stroke-linecap="round" /></svg>
+              {data.attachmentCount}
+            </span>
           {/if}
         {/if}
+        <span class="hover-meta">
+          {#if data.dueDate}
+            <span style="color: {isOverdue ? 'var(--overdue)' : 'inherit'};">{formatDate(data.dueDate)}</span>
+          {/if}
+          {#if data.labels.length > 0}
+            <span>{data.labels[0].title}</span>
+          {/if}
+        </span>
       </div>
 
     {:else}
@@ -771,6 +804,67 @@
 
   .subtask-row:hover .subtask-delete {
     opacity: 1 !important;
+  }
+
+  /* Unified bottom row */
+  .card-bottom-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    min-height: 20px;
+    margin-top: auto;
+    padding-top: 6px;
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+
+  .card-indicator {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0.55;
+  }
+
+  /* Quick-complete: inline, hidden by default, shown on card hover */
+  .quick-complete {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid var(--text-tertiary);
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    color: transparent;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 150ms, background 150ms, border-color 150ms, color 150ms;
+  }
+
+  :global([role="button"]:hover) .quick-complete {
+    opacity: 0.6;
+  }
+
+  .quick-complete:hover {
+    opacity: 1 !important;
+    border-color: var(--done);
+    background: var(--done);
+    color: var(--bg-base);
+  }
+
+  /* Hover meta: date + label, hidden by default */
+  .hover-meta {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 150ms;
+  }
+
+  :global([role="button"]:hover) .hover-meta {
+    opacity: 0.55;
   }
 
   @keyframes expandIn {

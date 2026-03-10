@@ -59,6 +59,10 @@
   let newSubtaskTitle = $state('');
   let addingSubtask = $state(false);
 
+  // Track which fields are actively being edited (for external sync)
+  let titleFocused = $state(false);
+  let descriptionFocused = $state(false);
+
   // Re-fetch subtasks when changed externally (e.g. from ThoughtBubble)
   $effect(() => {
     if (mode !== 'edit' || !task) return;
@@ -197,6 +201,21 @@
           if (titleRef) autoResize(titleRef);
         });
       }
+    });
+  });
+
+  // Sync fields from store when task updates externally
+  $effect(() => {
+    if (mode !== 'edit' || !task) return;
+    const _ = task.updated; // reactive dependency on timestamp
+    untrack(() => {
+      if (!titleFocused && title !== task.title) title = task.title;
+      if (!descriptionFocused && description !== (task.description || '')) description = task.description || '';
+      // Always sync non-text fields (no dirty state needed)
+      priority = task.priority;
+      dueDate = task.due_date ? task.due_date.split('T')[0] : '';
+      currentLabels = [...(task.labels ?? [])];
+      projectValue = String(task.project_id);
     });
   });
 
@@ -585,6 +604,8 @@
       bind:this={titleRef}
       bind:value={title}
       oninput={mode !== 'create' ? handleTitleInput : handleTitleInputCreate}
+      onfocus={() => titleFocused = true}
+      onblur={() => titleFocused = false}
       placeholder="What needs to be done?"
       rows={1}
       style="text-decoration: {mode === 'edit' && task?.done ? 'line-through' : 'none'}; opacity: {mode === 'edit' && task?.done ? '0.65' : '1'};"
@@ -777,6 +798,8 @@
     class="detail-description"
     bind:value={description}
     oninput={mode !== 'create' ? handleDescriptionInput : handleDescriptionInputCreate}
+    onfocus={() => descriptionFocused = true}
+    onblur={() => descriptionFocused = false}
     placeholder="Add notes..."
     rows={2}
   ></textarea>

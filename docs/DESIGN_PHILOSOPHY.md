@@ -16,9 +16,9 @@ This is closer to **Google Keep** than to Linear. Each thought has its own prese
 
 ### The Bubble
 
-Default state: small. Title only, 2-3 lines max. A quiet presence — you can see many at once without overwhelm. Priority is communicated through position and a subtle visual signal (border weight, colour intensity), not through explicit indicators like dots or numbers.
+Default state: small. Title + subtle indicator row (overdue dot, subtask progress, attachment count) — always visible but muted (0.55 opacity, 11px). Priority is communicated through position and visual weight. The indicators are peripheral — glanceable without being noisy.
 
-Hover: the bubble wakes up slightly — maybe a subtle lift (shadow increase), a hint of additional info fading in (project name, due date). An invitation.
+Hover: the bubble wakes up — a subtle lift (shadow increase), due date and first label fade in, and a quick-complete circle appears in the top-left corner. Clicking the circle toggles done without expanding. An invitation to act.
 
 Click: the bubble **expands in-place**. It grows, pushing its neighbours aside organically. Now you see everything: description, labels, due date, attachments, edit controls. The expansion should feel physical — like the thought is unfolding. The surrounding bubbles yield gently, not snapping to new positions but flowing.
 
@@ -105,7 +105,7 @@ The extraction page should feel like an incubator for thoughts — a staging are
 ## Anti-Patterns
 
 - **Uniform grid.** The whole point of bubbles is organic layout. If every card is the same size in a perfect grid, we've just built Google Keep wrong.
-- **Too much info on the default bubble.** Title only. Maybe a tiny priority signal. That's it. Resist the urge to show labels, dates, descriptions at default size.
+- **Too much info on the default bubble.** Title + a subtle indicator row (overdue, subtasks, attachments). That's it. Labels, dates, and descriptions appear on hover. Resist turning bubbles into data-dense cards.
 - **Page transitions between views.** Bubble → kanban should be the SAME cards moving, not a route change that rebuilds the DOM.
 - **The sidebar dominating.** The sidebar is navigation. The bubbles are the app. The sidebar should feel minimal — thin, quiet, almost invisible until you need it.
 - **Decorative animation.** Every animation communicates a state change. Bubbles expand because you asked to see more. Cards fly to columns because they're reorganizing. Nothing moves just to move.

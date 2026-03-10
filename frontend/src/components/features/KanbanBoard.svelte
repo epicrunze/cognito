@@ -11,6 +11,23 @@
   let addingColumn = $state(false);
   let newColumnTitle = $state('');
 
+  // Column color map based on common bucket names
+  const columnColors: Record<string, string> = {
+    'to do': 'var(--border-default)',
+    'todo': 'var(--border-default)',
+    'doing': 'var(--accent-blue, #5B8DEF)',
+    'in progress': 'var(--accent-blue, #5B8DEF)',
+    'done': 'var(--done)',
+    'completed': 'var(--done)',
+  };
+  function getColumnColor(title: string): string {
+    return columnColors[title.toLowerCase()] ?? 'var(--border-default)';
+  }
+  function isDoneBucket(title: string): boolean {
+    const lower = title.toLowerCase();
+    return lower === 'done' || lower === 'completed';
+  }
+
   function findDraggedTask(oldOrder: number[], newOrder: number[]): { taskId: number; newIndex: number } | null {
     for (let i = 0; i < newOrder.length; i++) {
       const taskId = newOrder[i];
@@ -88,6 +105,8 @@
       <KanbanColumn
         {bucket}
         tasks={kanbanStore.tasksByBucket.get(bucket.id) ?? []}
+        columnColor={getColumnColor(bucket.title)}
+        isDoneBucket={isDoneBucket(bucket.title)}
         onTaskClick={handleTaskClick}
         onTaskFinalized={handleTaskFinalized}
         onCreateTask={(title) => kanbanStore.createTaskInBucket(bucket.id, title)}

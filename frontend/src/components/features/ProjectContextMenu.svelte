@@ -3,6 +3,7 @@
   import type { Project } from '$lib/types';
   import { projectsStore } from '$lib/stores/projects.svelte';
   import { addToast } from '$lib/stores/toast.svelte';
+  import { projectIconStore, ICON_EMOJIS } from '$lib/stores/projectIcons.svelte';
 
   let {
     project,
@@ -16,7 +17,7 @@
     ondelete?: () => void;
   } = $props();
 
-  type View = 'menu' | 'rename' | 'color' | 'delete';
+  type View = 'menu' | 'rename' | 'color' | 'icon' | 'delete';
   let view = $state<View>('menu');
 
   let renameValue = $state('');
@@ -40,7 +41,7 @@
   ] as const;
 
   // Clamp position to viewport
-  const clampedX = $derived(Math.min(position.x, window.innerWidth - 220));
+  const clampedX = $derived(Math.min(position.x, window.innerWidth - 280));
   const clampedY = $derived(Math.min(position.y, window.innerHeight - 300));
 
   function handleClickOutside(e: MouseEvent) {
@@ -134,6 +135,10 @@
       </svg>
       Rename
     </button>
+    <button class="menu-item" onclick={() => view = 'icon'}>
+      <span style="font-size: 14px; width: 14px; text-align: center; line-height: 1;">{projectIconStore.get(project.id, project.title)}</span>
+      Icon
+    </button>
     <button class="menu-item" onclick={() => view = 'color'}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/>
@@ -205,6 +210,31 @@
       </div>
     </div>
 
+  {:else if view === 'icon'}
+    <div class="icon-panel">
+      <button class="back-btn" onclick={() => view = 'menu'}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5"/>
+          <path d="m12 19-7-7 7-7"/>
+        </svg>
+        Icon
+      </button>
+      <div class="icon-grid">
+        {#each ICON_EMOJIS as emoji (emoji)}
+          <button
+            class="icon-btn"
+            class:selected={projectIconStore.get(project.id, project.title) === emoji}
+            onclick={() => { projectIconStore.set(project.id, emoji); onclose(); }}
+          >{emoji}</button>
+        {/each}
+      </div>
+      {#if projectIconStore.hasOverride(project.id)}
+        <button class="reset-icon-btn" onclick={() => { projectIconStore.clear(project.id); onclose(); }}>
+          Reset to auto
+        </button>
+      {/if}
+    </div>
+
   {:else if view === 'delete'}
     <div class="delete-panel">
       <button class="back-btn" onclick={() => { confirmText = ''; view = 'menu'; }}>
@@ -241,7 +271,7 @@
     position: fixed;
     z-index: 300;
     min-width: 180px;
-    max-width: 220px;
+    max-width: 280px;
     background: var(--bg-surface);
     border: 1px solid var(--border-default);
     border-radius: 8px;
@@ -369,6 +399,61 @@
 
   .clear-swatch:hover {
     border-color: var(--text-secondary);
+    color: var(--text-secondary);
+  }
+
+  .icon-panel {
+    padding: 4px;
+  }
+
+  .icon-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+    padding: 4px 2px 8px;
+    justify-items: center;
+  }
+
+  .icon-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    background: none;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0;
+    transition: background 150ms, border-color 150ms, transform 150ms;
+  }
+
+  .icon-btn:hover {
+    background: var(--bg-surface-hover);
+    transform: scale(1.15);
+  }
+
+  .icon-btn.selected {
+    border-color: var(--accent);
+    background: var(--accent-subtle);
+  }
+
+  .reset-icon-btn {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    background: none;
+    border: none;
+    border-top: 1px solid var(--border-default);
+    cursor: pointer;
+    font-family: var(--font-sans);
+    text-align: center;
+    transition: color 150ms;
+  }
+
+  .reset-icon-btn:hover {
     color: var(--text-secondary);
   }
 

@@ -52,7 +52,7 @@
 |---|-------|--------|
 | 11 | Project delete confirmation | DONE |
 | 14 | Delete labels + auto-cleanup | DONE |
-| 19 | Project drag-drop indicator | DONE |
+| 19 | Project drag-drop indicator | DONE (CSS implemented) |
 
 ### Issue 11 — Project delete more involved
 **Problem:** Project deletion is too easy to trigger accidentally — big destructive change needs more friction.
@@ -123,11 +123,11 @@ Extend `filterStore` with `dueDateFilter` (preset string or `{ from, to }` range
 
 | # | Issue | Status |
 |---|-------|--------|
-| 1 | Task sidebar field sync | TODO |
-| 16 | Attachment/subtask indicators | TODO |
-| 17 | Cards too minimalistic + overdue | TODO |
-| 23 | Kanban column indicators | TODO |
-| 3 | Sidebar project readability | TODO |
+| 1 | Task sidebar field sync | DONE |
+| 16 | Attachment/subtask indicators | DONE |
+| 17 | Cards too minimalistic + overdue | DONE |
+| 23 | Kanban column indicators | DONE |
+| 3 | Sidebar project readability | DONE |
 
 ### Issue 1 — Task sidebar editor field sync
 **Problem:** Side editor doesn't always update when task is edited from the expanded card.

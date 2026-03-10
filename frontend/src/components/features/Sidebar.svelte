@@ -3,6 +3,7 @@
   import { projectsStore, tasksStore } from '$lib/stores.svelte';
   import { allTasksIcon, upcomingIcon, overdueIcon, extractIcon, settingsIcon } from '$lib/icons';
   import { registerRect } from '$lib/stores/sidebarRects.svelte';
+  import { projectIconStore } from '$lib/stores/projectIcons.svelte';
   import Tip from '$components/ui/Tip.svelte';
   import ProjectContextMenu from './ProjectContextMenu.svelte';
   import { goto } from '$app/navigation';
@@ -27,33 +28,6 @@
   // Task counts per project
   function projectTaskCount(projectId: number): number {
     return tasksStore.tasks.filter(t => t.project_id === projectId && !t.done).length;
-  }
-
-  // Micro-cluster: how many dots for a task count
-  function dotCount(count: number): number {
-    if (count <= 0) return 1;
-    if (count <= 3) return 1;
-    if (count <= 7) return 2;
-    if (count <= 12) return 3;
-    if (count <= 20) return 4;
-    return 5;
-  }
-
-  // Fixed organic dot positions within a 32x20 space
-  const dotPositions: [number, number][][] = [
-    [[16, 10]],
-    [[10, 7], [22, 13]],
-    [[8, 6], [20, 10], [12, 16]],
-    [[8, 5], [22, 7], [6, 14], [20, 15]],
-    [[6, 5], [18, 4], [28, 9], [8, 15], [22, 16]],
-  ];
-
-  // Pulse animation state
-  let pulsingProject = $state<number | null>(null);
-
-  function handleProjectClick(projectId: number) {
-    pulsingProject = projectId;
-    setTimeout(() => pulsingProject = null, 300);
   }
 
   const isSettingsPage = $derived(currentPath.startsWith('/settings'));
@@ -219,16 +193,14 @@
         {#each localProjects as project, idx (project.id)}
           {@const active = currentPath === `/project/${project.id}`}
           {@const count = projectTaskCount(project.id)}
-          {@const dots = dotCount(count)}
-          {@const pulsing = pulsingProject === project.id}
           <div
             class="project-zone"
             class:project-active={active}
             role="link"
             tabindex="0"
             aria-label="{project.title} ({count} tasks)"
-            onclick={() => { handleProjectClick(project.id); goto(`/project/${project.id}`); }}
-            onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleProjectClick(project.id); goto(`/project/${project.id}`); } }}
+            onclick={() => { goto(`/project/${project.id}`); }}
+            onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goto(`/project/${project.id}`); } }}
             oncontextmenu={(e: MouseEvent) => handleContextMenu(e, project)}
             style="cursor: pointer;"
             use:registerRect={`/project/${project.id}`}
@@ -237,18 +209,9 @@
               {#if active}
                 <span class="project-bar" style:background={project.hex_color || 'var(--text-tertiary)'}></span>
               {/if}
-              <svg width="32" height="20" viewBox="0 0 32 20" class="cluster-dots" class:cluster-pulse={pulsing}>
-                {#each dotPositions[dots - 1] as [cx, cy], i (i)}
-                  <circle
-                    {cx}
-                    {cy}
-                    r="2"
-                    fill={project.hex_color || 'var(--text-tertiary)'}
-                    opacity={active ? 1 : 0.6}
-                    style="animation: dot-appear 300ms ease-out {i * 60 + idx * 50}ms both;"
-                  />
-                {/each}
-              </svg>
+              <span class="project-emoji-ring" style="border-color: {project.hex_color || 'var(--text-tertiary)'}; opacity: {active ? 1 : 0.6};">
+                {projectIconStore.get(project.id, project.title)}
+              </span>
               <span class="project-label" class:project-label-active={active}>
                 {project.title.slice(0, 2).toUpperCase()}
               </span>
@@ -474,23 +437,24 @@
     border-radius: 1px;
   }
 
-  .cluster-dots {
-    transition: transform 300ms ease-out;
+  .project-emoji-ring {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid; /* color set via inline style */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+    transition: opacity 150ms, border-color 150ms;
   }
 
-  .cluster-pulse {
-    animation: cluster-pulse 300ms ease-out;
-  }
-
-  :global(.cluster-dots circle) {
-    transition: opacity var(--transition-fast) ease-out;
-  }
-
-  .project-zone:hover :global(.cluster-dots circle) {
+  .project-zone:hover .project-emoji-ring {
     opacity: 0.8 !important;
   }
 
-  .project-active :global(.cluster-dots circle) {
+  .project-active .project-emoji-ring {
     opacity: 1 !important;
   }
 
@@ -661,5 +625,16 @@
     gap: 4px;
     align-items: center;
     width: 100%;
+  }
+
+  /* Drag-drop indicator — style the dnd shadow/placeholder */
+  .dnd-project-list :global([data-is-dnd-shadow-item-hint]) {
+    height: 2px !important;
+    min-height: 2px !important;
+    background: var(--accent) !important;
+    border-radius: 1px;
+    opacity: 0.8;
+    margin: 2px 6px;
+    visibility: visible !important;
   }
 </style>
