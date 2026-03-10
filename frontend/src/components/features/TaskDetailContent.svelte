@@ -11,6 +11,7 @@
   import Kbd from '$components/ui/Kbd.svelte';
   import DatePicker from '$components/ui/DatePicker.svelte';
   import Checkbox from '$components/ui/Checkbox.svelte';
+  import { showConfirmDialog } from '$lib/stores/confirmDialog.svelte';
 
   let {
     mode = 'create' as 'create' | 'edit' | 'proposal',
@@ -415,7 +416,14 @@
   }
 
   async function handleDeleteAttachment(att: TaskAttachment) {
-    if (!task || !confirm(`Delete "${att.file.name}"?`)) return;
+    if (!task) return;
+    const confirmDel = await showConfirmDialog({
+      title: 'Delete attachment',
+      message: `Delete "${att.file.name}"?`,
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmDel) return;
     const prev = attachments;
     attachments = attachments.filter(a => a.id !== att.id);
     try {
@@ -521,7 +529,13 @@
 
   async function handleDelete() {
     if (mode !== 'edit' || !task) return;
-    if (!confirm('Delete this task? This cannot be undone.')) return;
+    const confirmed = await showConfirmDialog({
+      title: 'Delete task',
+      message: 'Delete this task? This cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
     const taskId = task.id;
     onclose?.();
     deleting = true;

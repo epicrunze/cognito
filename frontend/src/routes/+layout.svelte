@@ -14,6 +14,7 @@
   import Input from '$components/ui/Input.svelte';
   import Button from '$components/ui/Button.svelte';
   import ToastContainer from '$components/ui/ToastContainer.svelte';
+  import ConfirmDialog from '$components/ui/ConfirmDialog.svelte';
   import { searchStore } from '$lib/stores/search.svelte';
   import { filterStore } from '$lib/stores/filter.svelte';
   import { revisionsStore } from '$lib/stores/revisions.svelte';
@@ -238,6 +239,7 @@
   <ShortcutsModal open={shortcutsOpen} onclose={() => shortcutsOpen = false} />
   <ThinkingMargin open={thinkingOpen && !taskDetailStore.isOpen} onclose={() => thinkingOpen = false} ontaskschanged={() => tasksStore.fetchAll()} />
   <ToastContainer />
+  <ConfirmDialog />
 {/if}
 
 <style>

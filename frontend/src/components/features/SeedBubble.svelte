@@ -1,9 +1,10 @@
 <script lang="ts">
   import { tasksStore, bubbleStore } from '$lib/stores.svelte';
+  import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
   import { addToast } from '$lib/stores/toast.svelte';
   import { tick } from 'svelte';
 
-  let { projectId }: { projectId: number } = $props();
+  let { projectId, projectColor }: { projectId: number; projectColor?: string } = $props();
 
   let editing = $state(false);
   let title = $state('');
@@ -27,6 +28,9 @@
       if (created) {
         await tick();
         bubbleStore.expand(created.id);
+        if (taskDetailStore.isOpen) {
+          taskDetailStore.open(created.id);
+        }
       }
     } catch {
       addToast('Failed to create task', 'error');
@@ -58,7 +62,7 @@
 </script>
 
 {#if editing}
-  <div class="seed-bubble seed-editing">
+  <div class="seed-bubble seed-editing" style="--project-color: {projectColor || 'var(--border-strong)'}">
     <input
       bind:this={inputEl}
       bind:value={title}
@@ -69,7 +73,7 @@
     />
   </div>
 {:else}
-  <button class="seed-bubble" onclick={startEditing} aria-label="Add new thought">
+  <button class="seed-bubble" onclick={startEditing} aria-label="Add new thought" style="--project-color: {projectColor || 'var(--border-strong)'}">
     <span class="seed-placeholder">new thought...</span>
   </button>
 {/if}
@@ -95,14 +99,14 @@
 
   .seed-bubble:hover {
     opacity: 0.6;
-    border-color: var(--border-strong);
+    border-color: color-mix(in srgb, var(--project-color) 30%, transparent);
     translate: 0 -1px;
   }
 
   .seed-editing {
     opacity: 1;
     background: var(--bg-elevated);
-    border-color: var(--border-strong);
+    border-color: color-mix(in srgb, var(--project-color) 50%, transparent);
     cursor: text;
   }
 

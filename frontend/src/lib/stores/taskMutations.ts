@@ -20,7 +20,7 @@ export async function updateTask(id: number, data: Partial<Task>) {
   if (!original) return;
   const kanbanSnapshot = new Map(kanbanStore.tasksByBucket);
 
-  await optimisticUpdate({
+  const result = await optimisticUpdate({
     apply: () => {
       tasksStore.patchTask(id, data);
       kanbanStore.patchTask(id, data);
@@ -32,6 +32,11 @@ export async function updateTask(id: number, data: Partial<Task>) {
     },
     errorMessage: 'Failed to update task',
   });
+  // Merge server timestamp so UI reflects the real updated time
+  if (result?.updated) {
+    tasksStore.patchTask(id, { updated: result.updated });
+    kanbanStore.patchTask(id, { updated: result.updated });
+  }
 }
 
 export async function toggleDone(id: number) {

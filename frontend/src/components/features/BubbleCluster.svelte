@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Project, Task } from '$lib/types';
+  import { slide } from 'svelte/transition';
   import ThoughtBubble from './ThoughtBubble.svelte';
   import SeedBubble from './SeedBubble.svelte';
   import ProjectContextMenu from './ProjectContextMenu.svelte';
@@ -48,19 +49,19 @@
     {#each activeTasks as task (task.id)}
       <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
     {/each}
-    <SeedBubble projectId={project.id} />
+    <SeedBubble projectId={project.id} projectColor={project.hex_color} />
   </div>
 
   <!-- Completed section -->
   {#if completedTasks.length > 0}
     <button
+      class="completed-toggle"
       onclick={() => showCompleted = !showCompleted}
-      style="font-size: 12px; color: var(--text-tertiary); background: none; border: none; cursor: pointer; margin-top: 14px; padding: 0; opacity: 0.5; font-family: var(--font-sans);"
     >
       {showCompleted ? '\u25BE' : '\u25B8'} {completedTasks.length} completed
     </button>
     {#if showCompleted}
-      <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; opacity: 0.65;">
+      <div transition:slide={{ duration: 200 }} style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; opacity: 0.65;">
         {#each completedTasks as task (task.id)}
           <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
         {/each}
@@ -76,5 +77,23 @@
 <style>
   .cluster-header:hover .menu-trigger {
     opacity: 1;
+  }
+
+  .completed-toggle {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    margin-top: 14px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    opacity: 0.5;
+    font-family: var(--font-sans);
+    transition: opacity 150ms, background 150ms;
+  }
+  .completed-toggle:hover {
+    opacity: 0.8;
+    background: var(--bg-surface-hover);
   }
 </style>

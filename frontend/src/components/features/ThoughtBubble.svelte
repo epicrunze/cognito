@@ -7,6 +7,7 @@
   import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
   import { proposalsApi, subtasksApi } from '$lib/api';
   import { addToast } from '$lib/stores/toast.svelte';
+  import { showConfirmDialog } from '$lib/stores/confirmDialog.svelte';
   import { onMount, tick } from 'svelte';
   import PriorityIndicator from '$components/ui/PriorityIndicator.svelte';
   import Badge from '$components/ui/Badge.svelte';
@@ -395,11 +396,20 @@
     }
   }
 
-  function handleDelete(e: MouseEvent) {
+  async function handleDelete(e: MouseEvent) {
     e.stopPropagation();
-    if (task && confirm('Delete this task?')) {
-      deleteTask(task.id);
-      bubbleStore.collapse();
+    if (task) {
+      const confirmed = await showConfirmDialog({
+        title: 'Delete task',
+        message: 'Delete this task? This cannot be undone.',
+        confirmLabel: 'Delete',
+        destructive: true,
+      });
+      if (confirmed) {
+        deleteTask(task.id);
+        bubbleStore.collapse();
+        taskDetailStore.close();
+      }
     }
   }
 
@@ -412,7 +422,6 @@
   const borderStyle = $derived.by(() => {
     if (compact) {
       if (showGlow) return '1px solid var(--bg-surface); border-left: 2px solid var(--accent)';
-      if (selected) return '1px solid var(--accent)';
       return '1px solid transparent';
     }
     if (expanded) return `1px solid var(--border-strong)`;
@@ -422,7 +431,7 @@
   });
 
   // Compact-mode border-left for AI-tagged
-  const compactBorderLeft = $derived(showGlow ? '2px solid var(--accent)' : selected ? '2px solid var(--accent)' : '2px solid transparent');
+  const compactBorderLeft = $derived(showGlow ? '2px solid var(--accent)' : '2px solid transparent');
 
   // Priority dot color helper — uses hovered level for preview
   function dotColor(dotIndex: number): string {
@@ -443,7 +452,7 @@
     onkeydown={handleKeydown}
     data-transition-id="{data.id}"
     data-task-priority="{data.priority}"
-    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; display: flex; align-items: center; width: 100%; border-radius: 8px; padding: 8px 12px; gap: 10px; background: {selected ? 'var(--accent-subtle)' : hovering ? 'var(--bg-surface-hover)' : 'transparent'}; border-bottom: 1px solid var(--border-subtle); border-left: {compactBorderLeft}; box-shadow: {showGlow ? 'inset 3px 0 8px -4px var(--accent-glow)' : 'none'}; cursor: pointer; transition: width 150ms ease-out, background 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out, opacity 150ms ease-out; opacity: {presenceOpacity}; min-height: 44px;"
+    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; display: flex; align-items: center; width: 100%; border-radius: 8px; padding: 8px 12px; gap: 10px; background: {hovering ? 'var(--bg-surface-hover)' : 'transparent'}; border-bottom: 1px solid var(--border-subtle); border-left: {compactBorderLeft}; box-shadow: {showGlow ? 'inset 3px 0 8px -4px var(--accent-glow)' : 'none'}; cursor: pointer; transition: width 150ms ease-out, background 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out, opacity 150ms ease-out; opacity: {presenceOpacity}; min-height: 44px;"
   >
     {#if proposalMode}
       <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
