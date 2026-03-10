@@ -80,6 +80,22 @@ function createLabelsStore() {
         // Silent
       }
     },
+
+    async delete(labelId: number) {
+      await labelsApi.delete(labelId);
+      labels = labels.filter((l) => l.id !== labelId);
+      descriptions = descriptions.filter((d) => d.label_id !== labelId);
+    },
+
+    async cleanup(): Promise<number> {
+      const res = await labelsApi.cleanup();
+      if (res.deleted.length > 0) {
+        const deletedSet = new Set(res.deleted);
+        labels = labels.filter((l) => !deletedSet.has(l.id));
+        descriptions = descriptions.filter((d) => !deletedSet.has(d.label_id));
+      }
+      return res.count;
+    },
   };
 }
 

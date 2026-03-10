@@ -70,6 +70,47 @@ async def update_label(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
 
 
+@router.post("/cleanup")
+async def cleanup_unused_labels(current_user: User = Depends(get_current_user)):
+    """Delete all labels with 0 tasks."""
+    try:
+        # Get task counts per label
+        tasks = await vikunja.list_tasks(per_page=500)
+    except VikunjaError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+    used_label_ids: set[int] = set()
+    for task in tasks:
+        for label in task.get("labels") or []:
+            used_label_ids.add(label["id"])
+
+    try:
+        all_labels = await vikunja.list_labels()
+    except VikunjaError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+    deleted: list[int] = []
+    for label in all_labels:
+        lid = label["id"]
+        if lid not in used_label_ids:
+            try:
+                await vikunja.delete_label(lid)
+                deleted.append(lid)
+            except VikunjaError:
+                pass  # Skip labels that fail to delete
+
+    # Also clean up SQLite descriptions for deleted labels
+    if deleted:
+        with get_db() as conn:
+            placeholders = ",".join("?" for _ in deleted)
+            conn.execute(
+                f"DELETE FROM label_descriptions WHERE label_id IN ({placeholders})",
+                deleted,
+            )
+
+    return {"deleted": deleted, "count": len(deleted)}
+
+
 @router.delete("/{label_id}")
 async def delete_label(
     label_id: int,

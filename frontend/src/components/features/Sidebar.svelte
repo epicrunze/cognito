@@ -6,6 +6,8 @@
   import Tip from '$components/ui/Tip.svelte';
   import ProjectContextMenu from './ProjectContextMenu.svelte';
   import { goto } from '$app/navigation';
+  import { dndzone } from 'svelte-dnd-action';
+  import type { Project } from '$lib/types';
 
   let { ontoggleextract, extractOpen = false }: { ontoggleextract?: () => void; extractOpen?: boolean } = $props();
 
@@ -78,9 +80,37 @@
     { name: 'Rose', hex: '#CF72A8' },
   ] as const;
 
-  // Drag-and-drop state
-  let dragProjectId = $state<number | null>(null);
-  let dragOverIdx = $state<number | null>(null);
+  // Drag-and-drop state (svelte-dnd-action)
+  let localProjects = $state<Project[]>([]);
+  let isDragging = $state(false);
+
+  $effect(() => {
+    if (!isDragging) {
+      localProjects = [...projectsStore.projects];
+    }
+  });
+
+  function handleConsider(e: CustomEvent<{ items: Project[] }>) {
+    isDragging = true;
+    localProjects = e.detail.items;
+  }
+
+  function handleFinalize(e: CustomEvent<{ items: Project[] }>) {
+    isDragging = false;
+    localProjects = e.detail.items;
+
+    // Find the project that moved and its new index
+    const oldOrder = projectsStore.projects.map(p => p.id);
+    const newOrder = e.detail.items.map(p => p.id);
+    for (let i = 0; i < newOrder.length; i++) {
+      if (newOrder[i] !== oldOrder[i]) {
+        // First difference — find which project moved here
+        const movedId = newOrder[i];
+        projectsStore.reorder(movedId, i);
+        break;
+      }
+    }
+  }
 
   function handleContextMenu(e: MouseEvent, project: typeof projectsStore.projects[0]) {
     e.preventDefault();
@@ -133,37 +163,6 @@
     return () => document.removeEventListener('mousedown', handleClickOutside, true);
   });
 
-  function handleDragStart(e: DragEvent, projectId: number) {
-    dragProjectId = projectId;
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', String(projectId));
-    }
-  }
-
-  function handleDragOver(e: DragEvent, idx: number) {
-    e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-    dragOverIdx = idx;
-  }
-
-  function handleDragLeave() {
-    dragOverIdx = null;
-  }
-
-  async function handleDrop(e: DragEvent, targetIdx: number) {
-    e.preventDefault();
-    dragOverIdx = null;
-    if (dragProjectId === null) return;
-    const id = dragProjectId;
-    dragProjectId = null;
-    await projectsStore.reorder(id, targetIdx);
-  }
-
-  function handleDragEnd() {
-    dragProjectId = null;
-    dragOverIdx = null;
-  }
 </script>
 
 <nav
@@ -211,52 +210,52 @@
         <div class="project-zone" style="opacity: 0.3;"></div>
       {/each}
     {:else}
-      {#each projectsStore.projects as project, idx (project.id)}
-        {@const active = currentPath === `/project/${project.id}`}
-        {@const count = projectTaskCount(project.id)}
-        {@const dots = dotCount(count)}
-        {@const pulsing = pulsingProject === project.id}
-        <Tip text="{project.title} ({count})" side="right">
+      <div
+        class="dnd-project-list"
+        use:dndzone={{ items: localProjects, dropTargetStyle: {}, type: 'sidebar-project', flipDurationMs: 200 }}
+        onconsider={handleConsider}
+        onfinalize={handleFinalize}
+      >
+        {#each localProjects as project, idx (project.id)}
+          {@const active = currentPath === `/project/${project.id}`}
+          {@const count = projectTaskCount(project.id)}
+          {@const dots = dotCount(count)}
+          {@const pulsing = pulsingProject === project.id}
           <div
             class="project-zone"
             class:project-active={active}
-            class:drag-over={dragOverIdx === idx}
             role="link"
             tabindex="0"
             aria-label="{project.title} ({count} tasks)"
             onclick={() => { handleProjectClick(project.id); goto(`/project/${project.id}`); }}
             onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleProjectClick(project.id); goto(`/project/${project.id}`); } }}
             oncontextmenu={(e: MouseEvent) => handleContextMenu(e, project)}
-            draggable="true"
-            ondragstart={(e: DragEvent) => handleDragStart(e, project.id)}
-            ondragover={(e: DragEvent) => handleDragOver(e, idx)}
-            ondragleave={handleDragLeave}
-            ondrop={(e: DragEvent) => handleDrop(e, idx)}
-            ondragend={handleDragEnd}
-            style="animation-delay: {idx * 50}ms; cursor: pointer;"
+            style="cursor: pointer;"
             use:registerRect={`/project/${project.id}`}
           >
-            {#if active}
-              <span class="project-bar" style:background={project.hex_color || 'var(--text-tertiary)'}></span>
-            {/if}
-            <svg width="32" height="20" viewBox="0 0 32 20" class="cluster-dots" class:cluster-pulse={pulsing}>
-              {#each dotPositions[dots - 1] as [cx, cy], i (i)}
-                <circle
-                  {cx}
-                  {cy}
-                  r="2"
-                  fill={project.hex_color || 'var(--text-tertiary)'}
-                  opacity={active ? 1 : 0.6}
-                  style="animation: dot-appear 300ms ease-out {i * 60 + idx * 50}ms both;"
-                />
-              {/each}
-            </svg>
-            <span class="project-label" class:project-label-active={active}>
-              {project.title.slice(0, 2).toUpperCase()}
-            </span>
+            <Tip text="{project.title} ({count})" side="right">
+              {#if active}
+                <span class="project-bar" style:background={project.hex_color || 'var(--text-tertiary)'}></span>
+              {/if}
+              <svg width="32" height="20" viewBox="0 0 32 20" class="cluster-dots" class:cluster-pulse={pulsing}>
+                {#each dotPositions[dots - 1] as [cx, cy], i (i)}
+                  <circle
+                    {cx}
+                    {cy}
+                    r="2"
+                    fill={project.hex_color || 'var(--text-tertiary)'}
+                    opacity={active ? 1 : 0.6}
+                    style="animation: dot-appear 300ms ease-out {i * 60 + idx * 50}ms both;"
+                  />
+                {/each}
+              </svg>
+              <span class="project-label" class:project-label-active={active}>
+                {project.title.slice(0, 2).toUpperCase()}
+              </span>
+            </Tip>
           </div>
-        </Tip>
-      {/each}
+        {/each}
+      </div>
     {/if}
 
     <!-- Create project button -->
@@ -655,19 +654,12 @@
     border-color: var(--text-primary);
   }
 
-  /* Drag and drop */
-  .drag-over {
-    position: relative;
-  }
-
-  .drag-over::before {
-    content: '';
-    position: absolute;
-    top: -2px;
-    left: 4px;
-    right: 4px;
-    height: 2px;
-    background: var(--accent);
-    border-radius: 1px;
+  /* Drag and drop (svelte-dnd-action) */
+  .dnd-project-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+    width: 100%;
   }
 </style>

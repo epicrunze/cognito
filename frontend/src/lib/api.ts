@@ -329,6 +329,14 @@ export const labelsApi = {
   stats() {
     return request<{ stats: LabelStats }>('/labels/stats');
   },
+
+  delete(labelId: number) {
+    return request<{ success: boolean }>(`/labels/${labelId}`, { method: 'DELETE' });
+  },
+
+  cleanup() {
+    return request<{ deleted: number[]; count: number }>('/labels/cleanup', { method: 'POST' });
+  },
 };
 
 // ── Proposals ──────────────────────────────────────────────────────────────

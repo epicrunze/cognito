@@ -20,7 +20,10 @@
   let view = $state<View>('menu');
 
   let renameValue = $state('');
+  let confirmText = $state('');
   let renameInput = $state<HTMLInputElement | null>(null);
+  let confirmInput = $state<HTMLInputElement | null>(null);
+  const confirmMatch = $derived(confirmText === project.title);
   let menuEl = $state<HTMLDivElement | null>(null);
 
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -147,7 +150,7 @@
       Archive
     </button>
     <div class="divider"></div>
-    <button class="menu-item destructive" onclick={() => view = 'delete'}>
+    <button class="menu-item destructive" onclick={() => { confirmText = ''; view = 'delete'; requestAnimationFrame(() => confirmInput?.focus()); }}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 6h18"/>
         <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -204,7 +207,7 @@
 
   {:else if view === 'delete'}
     <div class="delete-panel">
-      <button class="back-btn" onclick={() => view = 'menu'}>
+      <button class="back-btn" onclick={() => { confirmText = ''; view = 'menu'; }}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 12H5"/>
           <path d="m12 19-7-7 7-7"/>
@@ -212,12 +215,22 @@
         Back
       </button>
       <div class="delete-info">
-        <span class="delete-project-name">{project.title}</span>
         <span class="delete-warning">All tasks will be permanently deleted.</span>
+        <span class="delete-confirm-hint">Type <strong>{project.title}</strong> to confirm</span>
+        <input
+          bind:this={confirmInput}
+          bind:value={confirmText}
+          onkeydown={(e) => { if (e.key === 'Enter' && confirmMatch) handleDelete(); else if (e.key === 'Escape') { confirmText = ''; view = 'menu'; } }}
+          class="confirm-input"
+          type="text"
+          placeholder={project.title}
+          spellcheck="false"
+          autocomplete="off"
+        />
       </div>
       <div class="delete-actions">
-        <button class="cancel-btn" onclick={() => view = 'menu'}>Cancel</button>
-        <button class="confirm-delete-btn" onclick={handleDelete}>Delete</button>
+        <button class="cancel-btn" onclick={() => { confirmText = ''; view = 'menu'; }}>Cancel</button>
+        <button class="confirm-delete-btn" disabled={!confirmMatch} onclick={handleDelete}>Delete</button>
       </div>
     </div>
   {/if}
@@ -370,16 +383,33 @@
     padding: 8px 8px 12px;
   }
 
-  .delete-project-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
   .delete-warning {
     font-size: 12px;
     color: var(--text-secondary);
     line-height: 1.4;
+  }
+
+  .delete-confirm-hint {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    line-height: 1.4;
+  }
+
+  .confirm-input {
+    width: 100%;
+    padding: 7px 10px;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
+    border-radius: 6px;
+    outline: none;
+    font-family: var(--font-sans);
+    box-sizing: border-box;
+  }
+
+  .confirm-input:focus {
+    border-color: #E85D5D;
   }
 
   .delete-actions {
@@ -415,7 +445,12 @@
     color: #fff;
   }
 
-  .confirm-delete-btn:hover {
+  .confirm-delete-btn:hover:not(:disabled) {
     background: #d14a4a;
+  }
+
+  .confirm-delete-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 </style>

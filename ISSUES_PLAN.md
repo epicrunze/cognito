@@ -50,9 +50,9 @@
 
 | # | Issue | Status |
 |---|-------|--------|
-| 11 | Project delete confirmation | TODO |
-| 14 | Delete labels + auto-cleanup | TODO |
-| 19 | Project drag-drop indicator | TODO |
+| 11 | Project delete confirmation | DONE |
+| 14 | Delete labels + auto-cleanup | DONE |
+| 19 | Project drag-drop indicator | DONE |
 
 ### Issue 11 — Project delete more involved
 **Problem:** Project deletion is too easy to trigger accidentally — big destructive change needs more friction.

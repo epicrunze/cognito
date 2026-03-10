@@ -100,3 +100,56 @@ def test_label_stats_empty(client):
         res = client.get("/api/labels/stats")
     assert res.status_code == 200
     assert res.json()["stats"] == {}
+
+
+# ── Label Cleanup ────────────────────────────────────────────────────────
+
+
+def test_cleanup_unused_labels(client):
+    """Cleanup deletes labels with 0 tasks and their SQLite descriptions."""
+    mock_tasks = [
+        {"id": 1, "done": False, "labels": [{"id": 10, "title": "Bug"}]},
+    ]
+    mock_labels = [
+        {"id": 10, "title": "Bug"},
+        {"id": 20, "title": "Unused"},
+        {"id": 30, "title": "Also Unused"},
+    ]
+    # Pre-populate descriptions for labels that will be cleaned up
+    client.put("/api/labels/20/description", json={"title": "Unused", "description": "desc"})
+    client.put("/api/labels/30/description", json={"title": "Also Unused", "description": "desc"})
+
+    with (
+        patch("app.routers.labels.vikunja.list_tasks", new_callable=AsyncMock, return_value=mock_tasks),
+        patch("app.routers.labels.vikunja.list_labels", new_callable=AsyncMock, return_value=mock_labels),
+        patch("app.routers.labels.vikunja.delete_label", new_callable=AsyncMock) as mock_delete,
+    ):
+        res = client.post("/api/labels/cleanup")
+
+    assert res.status_code == 200
+    data = res.json()
+    assert set(data["deleted"]) == {20, 30}
+    assert data["count"] == 2
+    assert mock_delete.call_count == 2
+
+    # Verify SQLite descriptions were also cleaned up
+    descs_res = client.get("/api/labels/descriptions")
+    assert len(descs_res.json()["descriptions"]) == 0
+
+
+def test_cleanup_no_unused_labels(client):
+    """Cleanup with all labels in use returns empty."""
+    mock_tasks = [
+        {"id": 1, "done": False, "labels": [{"id": 10, "title": "Bug"}]},
+    ]
+    mock_labels = [{"id": 10, "title": "Bug"}]
+
+    with (
+        patch("app.routers.labels.vikunja.list_tasks", new_callable=AsyncMock, return_value=mock_tasks),
+        patch("app.routers.labels.vikunja.list_labels", new_callable=AsyncMock, return_value=mock_labels),
+    ):
+        res = client.post("/api/labels/cleanup")
+
+    assert res.status_code == 200
+    assert res.json()["deleted"] == []
+    assert res.json()["count"] == 0
