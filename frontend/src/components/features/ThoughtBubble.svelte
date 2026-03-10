@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { Task, TaskProposal } from '$lib/types';
+  import type { Task, TaskProposal, Subtask } from '$lib/types';
   import { projectsStore } from '$lib/stores.svelte';
   import { updateTask, toggleDone, deleteTask } from '$lib/stores/taskMutations';
   import { filterStore } from '$lib/stores/filter.svelte';
   import { bubbleStore } from '$lib/stores/bubble.svelte';
-  import { proposalsApi } from '$lib/api';
+  import { proposalsApi, subtasksApi } from '$lib/api';
   import { addToast } from '$lib/stores/toast.svelte';
   import { onMount, tick } from 'svelte';
   import PriorityIndicator from '$components/ui/PriorityIndicator.svelte';
@@ -177,6 +177,70 @@
   let dateAnchorRef = $state<HTMLElement | undefined>(undefined);
   let datePortalStyle = $state('');
 
+  // Subtask state
+  let subtasks: Subtask[] = $state([]);
+  let subtasksLoading = $state(false);
+  let newSubtaskTitle = $state('');
+  let addingSubtask = $state(false);
+
+  // Fetch subtasks when expanded (real tasks only)
+  $effect(() => {
+    if (expanded && !data.isProposal && task) {
+      subtasksLoading = true;
+      subtasksApi.list(task.id).then(list => {
+        subtasks = list;
+      }).catch(() => {
+        subtasks = [];
+      }).finally(() => {
+        subtasksLoading = false;
+      });
+    }
+    if (!expanded) {
+      subtasks = [];
+      newSubtaskTitle = '';
+    }
+  });
+
+  async function toggleSubtask(st: Subtask) {
+    if (!task) return;
+    const prev = st.done;
+    st.done = !st.done;
+    subtasks = [...subtasks];
+    try {
+      await subtasksApi.update(task.id, st.id, { done: st.done });
+    } catch {
+      st.done = prev;
+      subtasks = [...subtasks];
+      addToast('Failed to update subtask', 'error');
+    }
+  }
+
+  async function handleAddSubtask() {
+    if (!task || !newSubtaskTitle.trim()) return;
+    addingSubtask = true;
+    try {
+      const created = await subtasksApi.create(task.id, { title: newSubtaskTitle.trim(), project_id: task.project_id });
+      subtasks = [created, ...subtasks];
+      newSubtaskTitle = '';
+    } catch {
+      addToast('Failed to add subtask', 'error');
+    } finally {
+      addingSubtask = false;
+    }
+  }
+
+  async function deleteSubtask(st: Subtask) {
+    if (!task) return;
+    const idx = subtasks.indexOf(st);
+    subtasks = subtasks.filter(s => s !== st);
+    try {
+      await subtasksApi.delete(task.id, st.id);
+    } catch {
+      subtasks = [...subtasks.slice(0, idx), st, ...subtasks.slice(idx)];
+      addToast('Failed to delete subtask', 'error');
+    }
+  }
+
   function openDatePicker() {
     if (!dateAnchorRef) return;
     const rect = dateAnchorRef.getBoundingClientRect();
@@ -281,7 +345,6 @@
     if (expanded) {
       // Clicking non-interactive area of expanded bubble opens full edit
       onclick?.();
-      bubbleStore.collapse();
     } else {
       bubbleStore.toggle(data.id);
     }
@@ -313,7 +376,6 @@
   function handleEdit(e: MouseEvent) {
     e.stopPropagation();
     onclick?.();
-    bubbleStore.collapse();
   }
 
   // Border style
@@ -438,7 +500,7 @@
           onclick={(e) => e.stopPropagation()}
           rows="1"
           class="bubble-editable"
-          style="width: 100%; padding: 5px 8px; margin-bottom: 4px; font-size: 16px; font-weight: 500; color: var(--text-primary); resize: none; overflow: hidden; white-space: pre-wrap;"
+          style="width: 100%; padding: 5px 4px; margin-bottom: 4px; font-size: 16px; font-weight: 500; color: var(--text-primary); resize: none; overflow: hidden; white-space: pre-wrap;"
         ></textarea>
 
         <!-- Editable description -->
@@ -450,14 +512,14 @@
           placeholder="Add description..."
           rows="1"
           class="bubble-editable"
-          style="width: 100%; padding: 5px 8px; margin-bottom: 10px; font-size: 13.5px; color: var(--text-secondary); resize: none; overflow: hidden; line-height: 1.55;"
+          style="width: 100%; padding: 5px 4px; margin-bottom: 10px; font-size: 13.5px; color: var(--text-secondary); resize: none; overflow: hidden; line-height: 1.55;"
         ></textarea>
 
         <!-- Metadata row -->
-        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: center; padding-left: 8px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: center; padding-left: 4px;">
           <!-- Priority dots — hover previews the level -->
           <div
-            style="display: flex; gap: 3px; padding: 4px 6px; border-radius: 6px; margin-right: 2px; cursor: pointer;"
+            style="display: flex; gap: 3px; padding: 4px 2px; border-radius: 6px; margin-right: 0; cursor: pointer;"
             onmouseleave={() => hoveredPriority = null}
           >
             {#each [1, 2, 3, 4, 5] as p (p)}
@@ -499,35 +561,79 @@
           {/if}
         </div>
 
+        <!-- Subtasks (real tasks only) -->
+        {#if !data.isProposal && task}
+          <div style="margin-bottom: 12px; padding-left: 4px;">
+            {#if subtasksLoading}
+              <span style="font-size: 12px; color: var(--text-tertiary);">Loading subtasks...</span>
+            {:else}
+              {#each subtasks as st (st.id)}
+                <div
+                  class="subtask-row"
+                  style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 6px; border-radius: 6px; background: var(--bg-surface); margin-bottom: 2px;"
+                >
+                  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                  <div onclick={(e) => e.stopPropagation()}>
+                    <Checkbox checked={st.done} size={16} onchange={() => toggleSubtask(st)} />
+                  </div>
+                  <span style="flex: 1; font-size: 12.5px; color: {st.done ? 'var(--text-tertiary)' : 'var(--text-secondary)'}; text-decoration: {st.done ? 'line-through' : 'none'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{st.title}</span>
+                  <button
+                    class="subtask-delete"
+                    onclick={(e) => { e.stopPropagation(); deleteSubtask(st); }}
+                    aria-label="Delete subtask"
+                    style="background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; opacity: 0; transition: opacity 150ms;"
+                  >&times;</button>
+                </div>
+              {/each}
+              <!-- Add subtask input -->
+              <div style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 6px;">
+                <span style="font-size: 14px; color: var(--text-tertiary); width: 16px; text-align: center;">+</span>
+                <input
+                  type="text"
+                  bind:value={newSubtaskTitle}
+                  placeholder="Add subtask..."
+                  disabled={addingSubtask}
+                  onclick={(e) => e.stopPropagation()}
+                  onkeydown={(e) => { e.stopPropagation(); if (e.key === 'Enter') handleAddSubtask(); }}
+                  style="flex: 1; background: transparent; border: none; outline: none; font-size: 12.5px; color: var(--text-secondary); font-family: var(--font-sans); padding: 0;"
+                />
+              </div>
+            {/if}
+          </div>
+        {/if}
+
         {#if data.isProposal && data.estimatedMinutes}
-          <div style="font-size: 13px; color: var(--text-tertiary); margin-bottom: 12px; padding-left: 8px;">
+          <div style="font-size: 13px; color: var(--text-tertiary); margin-bottom: 12px; padding-left: 4px;">
             {data.estimatedMinutes} min estimated
           </div>
         {/if}
 
         <!-- Action row -->
-        <div style="display: flex; gap: 8px; align-items: center; padding-left: 8px;">
+        <div style="display: flex; gap: 6px; align-items: center; padding-left: 0;">
           {#if data.isProposal}
-            <button class="bubble-action-btn" style="color: var(--done);" onclick={(e) => { e.stopPropagation(); onapprove?.(); bubbleStore.collapse(); }}>Approve</button>
-            <button class="bubble-action-btn" style="color: var(--overdue);" onclick={(e) => { e.stopPropagation(); onreject?.(); bubbleStore.collapse(); }}>Reject</button>
-          {:else}
-            <button class="bubble-action-btn" style="color: var(--done);" onclick={(e) => handleDoneToggle(e)}>
-              {data.done ? 'Undo' : '\u2713 Done'}
+            <button class="bubble-action-btn" style="--hover-color: var(--done);" onclick={(e) => { e.stopPropagation(); onapprove?.(); bubbleStore.collapse(); }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5" /><path d="M5.5 8l2 2 3.5-3.5" /></svg>
+              Approve
             </button>
-            <button class="bubble-action-btn" style="color: var(--overdue);" onclick={(e) => handleDelete(e)}>Delete</button>
+            <button class="bubble-action-btn" style="--hover-color: var(--overdue);" onclick={(e) => { e.stopPropagation(); onreject?.(); bubbleStore.collapse(); }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5" /><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" /></svg>
+              Reject
+            </button>
+          {:else}
+            <button class="bubble-action-btn" style="--hover-color: var(--done);" onclick={(e) => handleDoneToggle(e)}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5" /><path d="M5.5 8l2 2 3.5-3.5" /></svg>
+              {data.done ? 'Undo' : 'Done'}
+            </button>
+            <button class="bubble-action-btn" style="--hover-color: var(--overdue);" onclick={(e) => handleDelete(e)}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6 4.5V3a1 1 0 011-1h2a1 1 0 011 1v1.5M12 4.5l-.5 8a1.5 1.5 0 01-1.5 1.5H6a1.5 1.5 0 01-1.5-1.5L4 4.5" /></svg>
+              Delete
+            </button>
           {/if}
+          <button class="bubble-action-btn bubble-open-btn" style="margin-left: auto; --hover-color: var(--accent);" onclick={(e) => handleEdit(e)}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="2" /><path d="M6 8h4M8 6v4" /></svg>
+            Open
+          </button>
         </div>
-
-        <!-- Pencil icon — bottom right, opens full edit SlideOver -->
-        <button
-          class="bubble-pencil"
-          aria-label="Open full editor"
-          onclick={(e) => handleEdit(e)}
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" />
-          </svg>
-        </button>
       </div>
     {/if}
   </div>
@@ -567,10 +673,16 @@
   .bubble-editable {
     background: transparent;
     border: 1px solid transparent;
+    border-bottom: 1px solid transparent;
     border-radius: 6px;
     font-family: var(--font-sans);
     outline: none;
     transition: border-color 150ms, background-color 150ms;
+  }
+  .bubble-editable::placeholder {
+    color: var(--text-tertiary);
+    opacity: 0.7;
+    font-style: italic;
   }
   .bubble-editable:hover {
     border-color: var(--border-default);
@@ -590,37 +702,36 @@
   }
 
   .bubble-action-btn {
-    font-size: 12.5px;
+    font-size: 12px;
     font-family: var(--font-sans);
     font-weight: 500;
     color: var(--text-tertiary);
     background: none;
-    border: 1px solid var(--border-default);
+    border: none;
     border-radius: 6px;
-    padding: 4px 10px;
+    padding: 4px 8px;
     cursor: pointer;
-    transition: all 120ms;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 150ms, background-color 150ms;
   }
   .bubble-action-btn:hover {
-    background-color: rgba(0, 0, 0, 0.15);
+    color: var(--hover-color, var(--text-secondary));
+    background-color: rgba(0, 0, 0, 0.12);
   }
 
-  .bubble-pencil {
-    position: absolute;
-    bottom: 12px;
-    right: 12px;
-    background: none;
-    border: none;
-    color: var(--text-tertiary);
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
-    opacity: 0.5;
-    transition: opacity 150ms, background-color 150ms;
+  /* Open button — accent tint by default, stronger on card hover */
+  .bubble-open-btn {
+    color: color-mix(in srgb, var(--accent) 65%, var(--text-tertiary));
   }
-  .bubble-pencil:hover {
-    opacity: 1;
-    background-color: rgba(0, 0, 0, 0.15);
+  :global([role="button"]:hover) .bubble-open-btn {
+    background-color: rgba(232, 119, 46, 0.1);
+    color: var(--accent);
+  }
+
+  .subtask-row:hover .subtask-delete {
+    opacity: 1 !important;
   }
 
   @keyframes expandIn {

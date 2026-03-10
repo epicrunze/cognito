@@ -54,60 +54,76 @@
 </script>
 
 {#if editing}
-  <div
-    style="
-      width: 120px;
-      min-height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 8px;
-      border: 1px solid var(--accent);
-      border-radius: 12px;
-      background: var(--bg-surface);
-    "
-  >
+  <div class="seed-bubble seed-editing">
     <input
       bind:this={inputEl}
       bind:value={title}
       onkeydown={handleKeydown}
       onblur={handleBlur}
-      placeholder="Task title..."
-      style="
-        width: 100%;
-        background: transparent;
-        border: none;
-        outline: none;
-        color: var(--text-primary);
-        font-size: 0.8rem;
-        font-family: inherit;
-      "
+      placeholder="what's on your mind..."
+      class="seed-input"
     />
   </div>
 {:else}
-  <button
-    onclick={startEditing}
-    style="
-      width: 100px;
-      height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px dashed var(--accent);
-      border-radius: 12px;
-      background: transparent;
-      opacity: 0.4;
-      cursor: pointer;
-      transition: opacity var(--transition-fast), border-style var(--transition-fast);
-      color: var(--accent);
-      font-size: 1.4rem;
-      font-weight: 300;
-      line-height: 1;
-    "
-    onmouseenter={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.borderStyle = 'solid'; }}
-    onmouseleave={(e) => { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.borderStyle = 'dashed'; }}
-    aria-label="Add new task"
-  >
-    +
+  <button class="seed-bubble" onclick={startEditing} aria-label="Add new thought">
+    <span class="seed-placeholder">new thought...</span>
   </button>
 {/if}
+
+<style>
+  .seed-bubble {
+    width: 175px;
+    min-height: 82px;
+    border-radius: 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    padding: 14px 16px;
+    cursor: pointer;
+    opacity: 0.4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity var(--transition-fast), border-color var(--transition-fast),
+                translate var(--transition-fast), background var(--transition-normal);
+    font-family: var(--font-sans);
+    color: inherit;
+  }
+
+  .seed-bubble:hover {
+    opacity: 0.6;
+    border-color: var(--border-strong);
+    translate: 0 -1px;
+  }
+
+  .seed-editing {
+    opacity: 1;
+    background: var(--bg-elevated);
+    border-color: var(--border-strong);
+    cursor: text;
+  }
+
+  .seed-placeholder {
+    font-size: 13.5px;
+    font-style: italic;
+    color: var(--text-tertiary);
+    user-select: none;
+  }
+
+  .seed-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 13.5px;
+    font-family: var(--font-sans);
+    padding: 0;
+    line-height: 1.4;
+  }
+
+  .seed-input::placeholder {
+    color: var(--text-tertiary);
+    opacity: 0.7;
+    font-style: italic;
+  }
+</style>
