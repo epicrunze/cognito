@@ -10,8 +10,8 @@
   import { filterStore, type SortMode } from '$lib/stores/filter.svelte';
   import type { FetchParams } from '$lib/stores/tasks.svelte';
   import { shortcuts } from '$lib/shortcuts';
+  import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
   import ThoughtBubble from './ThoughtBubble.svelte';
-  import TaskPanel from './TaskPanel.svelte';
   import Dropdown from '$components/ui/Dropdown.svelte';
   import Skeleton from '$components/ui/Skeleton.svelte';
   import Kbd from '$components/ui/Kbd.svelte';
@@ -34,10 +34,8 @@
   let showCompleted = $state(false);
   let quickAddValue = $state('');
   let quickAddRef = $state<HTMLInputElement>();
-  let editingTaskId = $state<number | null>(null);
   let selectedIndex = $state(-1);
   let taskRowEls = new SvelteMap<number, HTMLDivElement>();
-  const editingTask = $derived(editingTaskId != null ? tasksStore.tasks.find(t => t.id === editingTaskId) ?? null : null);
 
   // Sort options
   const sortOptions = [
@@ -167,25 +165,40 @@
 
   // Keyboard navigation
   onMount(() => {
-    shortcuts.register('j', () => {
+    const prevJ = () => {
       if (activeTasks.length === 0) return;
       selectedIndex = Math.min(selectedIndex + 1, activeTasks.length - 1);
-    });
-    shortcuts.register('k', () => {
+    };
+    const prevK = () => {
       if (activeTasks.length === 0) return;
       selectedIndex = Math.max(selectedIndex - 1, 0);
+    };
+
+    shortcuts.register('j', () => {
+      prevJ();
+      // If detail pane is open, update it to follow selection
+      if (taskDetailStore.isOpen && selectedTask) {
+        taskDetailStore.open(selectedTask.id);
+      }
+    });
+    shortcuts.register('k', () => {
+      prevK();
+      if (taskDetailStore.isOpen && selectedTask) {
+        taskDetailStore.open(selectedTask.id);
+      }
     });
     shortcuts.register('x', () => {
       if (selectedTask) toggleDone(selectedTask.id);
-    });
-    shortcuts.register('e', () => {
-      if (selectedTask) openTask(selectedTask.id);
     });
     shortcuts.register('Enter', () => {
       if (selectedTask) openTask(selectedTask.id);
     });
 
     shortcuts.register('Escape', () => {
+      if (taskDetailStore.isOpen) {
+        taskDetailStore.close();
+        return;
+      }
       if (selectedIndex >= 0) {
         selectedIndex = -1;
       } else if (document.activeElement instanceof HTMLElement) {
@@ -204,11 +217,14 @@
       shortcuts.unregister('j');
       shortcuts.unregister('k');
       shortcuts.unregister('x');
-      shortcuts.unregister('e');
       shortcuts.unregister('Enter');
       for (let i = 1; i <= 5; i++) shortcuts.unregister(String(i));
       // Restore default Escape
       shortcuts.register('Escape', () => {
+        if (taskDetailStore.isOpen) {
+          taskDetailStore.close();
+          return;
+        }
         if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       });
     };
@@ -224,7 +240,7 @@
   }
 
   function openTask(id: number) {
-    editingTaskId = id;
+    taskDetailStore.open(id);
     filterStore.markViewed(id);
   }
 
@@ -340,5 +356,3 @@
     >&times;</button>
   </div>
 {/if}
-
-<TaskPanel mode="edit" open={editingTaskId !== null} task={editingTask ?? undefined} onclose={() => editingTaskId = null} />

@@ -2,13 +2,12 @@
   import type { Task } from '$lib/types';
   import { kanbanStore } from '$lib/stores/kanban.svelte';
   import { filterStore } from '$lib/stores/filter.svelte';
+  import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
   import KanbanColumn from './KanbanColumn.svelte';
-  import TaskPanel from './TaskPanel.svelte';
   import Skeleton from '$components/ui/Skeleton.svelte';
 
   let { projectId }: { projectId: number } = $props();
 
-  let editingTaskId = $state<number | null>(null);
   let addingColumn = $state(false);
   let newColumnTitle = $state('');
 
@@ -25,22 +24,13 @@
     return null;
   }
 
-  const editingTask = $derived.by(() => {
-    if (editingTaskId == null) return null;
-    for (const tasks of kanbanStore.tasksByBucket.values()) {
-      const found = tasks.find(t => t.id === editingTaskId);
-      if (found) return found;
-    }
-    return null;
-  });
-
   $effect(() => {
     if (kanbanStore.shouldSkipFetch()) return;
     kanbanStore.fetchBoard(projectId);
   });
 
   function handleTaskClick(taskId: number) {
-    editingTaskId = taskId;
+    taskDetailStore.open(taskId);
     filterStore.markViewed(taskId);
   }
 
@@ -124,5 +114,3 @@
     {/if}
   </div>
 {/if}
-
-<TaskPanel mode="edit" open={editingTaskId !== null} task={editingTask ?? undefined} onclose={() => editingTaskId = null} />

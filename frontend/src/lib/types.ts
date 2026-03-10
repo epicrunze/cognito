@@ -149,7 +149,7 @@ export interface LabelStats {
 }
 
 export interface ChatAction {
-  type: 'complete' | 'update' | 'move' | 'delete';
+  type: 'create' | 'complete' | 'update' | 'move' | 'delete';
   task_id: number;
   title?: string;
   task_title?: string;
@@ -171,4 +171,19 @@ export interface ChatSession {
   messages: ChatMessage[];
   created_at: string;
   updated_at: string;
+}
+
+export interface Revision {
+  id: number;
+  task_id: number;
+  action_type: 'create' | 'update' | 'complete' | 'move' | 'delete' | 'auto_tag';
+  source: 'chat' | 'proposal' | 'auto_tag';
+  before_state: Record<string, unknown> | null;
+  after_state: Record<string, unknown> | null;
+  changes: Record<string, unknown> | null;
+  conversation_id: string | null;
+  proposal_id: string | null;
+  undone: boolean;
+  undone_at: string | null;
+  created_at: string;
 }

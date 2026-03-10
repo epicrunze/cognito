@@ -72,6 +72,26 @@ async def test_delete_task_returns_pending(agent):
     assert agent._pending_actions[0]["type"] == "delete"
 
 
+async def test_create_task_tool(agent):
+    result = await agent._tool_handler("create_task", {"title": "Write report", "project_id": 5})
+
+    assert result["pending_confirmation"] is True
+    assert result["task_title"] == "Write report"
+    assert result["project_id"] == 5
+    assert len(agent._pending_actions) == 1
+    assert agent._pending_actions[0]["type"] == "create"
+    assert agent._pending_actions[0]["task_id"] == 0
+    assert agent._pending_actions[0]["changes"]["title"] == "Write report"
+
+
+async def test_create_task_tool_missing_fields(agent):
+    result = await agent._tool_handler("create_task", {"title": "No project"})
+    assert "error" in result
+
+    result = await agent._tool_handler("create_task", {"project_id": 5})
+    assert "error" in result
+
+
 async def test_unknown_tool(agent):
     result = await agent._tool_handler("nonexistent_tool", {})
     assert "error" in result

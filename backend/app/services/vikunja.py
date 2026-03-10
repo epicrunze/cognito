@@ -123,8 +123,11 @@ class VikunjaClient:
         }
         if description:
             payload["description"] = description
-        if due_date:
-            payload["due_date"] = f"{due_date}T00:00:00Z"
+        if due_date and not due_date.startswith("0001-01-01"):
+            if "T" in due_date:
+                payload["due_date"] = due_date
+            else:
+                payload["due_date"] = f"{due_date}T00:00:00Z"
 
         logger.debug("Creating task in project %d: %s", project_id, payload)
         task = await self._request("PUT", f"/projects/{project_id}/tasks", json=payload)

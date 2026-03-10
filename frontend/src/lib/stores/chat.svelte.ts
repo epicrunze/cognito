@@ -93,8 +93,15 @@ function createChatStore() {
       messages = [...messages, { role: 'assistant', content, created_at: new Date().toISOString() }];
     },
 
-    removePendingAction(taskId: number) {
-      pendingActions = pendingActions.filter((a) => a.task_id !== taskId);
+    removePendingAction(taskId: number, taskTitle?: string) {
+      if (taskId === 0 && taskTitle) {
+        // For create actions, match by title since task_id is 0
+        pendingActions = pendingActions.filter(
+          (a) => !(a.type === 'create' && a.task_title === taskTitle),
+        );
+      } else {
+        pendingActions = pendingActions.filter((a) => a.task_id !== taskId);
+      }
     },
 
     addMessage(msg: ChatMessage) {

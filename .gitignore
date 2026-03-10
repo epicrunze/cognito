@@ -1,3 +1,4 @@
+imgs/
 # Python
 __pycache__/
 *.py[codz]
@@ -78,3 +79,4 @@ vikunja-files/
 # Claude Code
 .claude/settings.local.json
 .claude/projects/
+imgs/image.png

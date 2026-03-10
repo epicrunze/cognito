@@ -6,7 +6,7 @@
   import { bubbleStore } from '$lib/stores/bubble.svelte';
   import { proposalsApi } from '$lib/api';
   import { addToast } from '$lib/stores/toast.svelte';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import PriorityIndicator from '$components/ui/PriorityIndicator.svelte';
   import Badge from '$components/ui/Badge.svelte';
   import DateDisplay from '$components/ui/DateDisplay.svelte';
@@ -106,6 +106,24 @@
 
   const expanded = $derived(bubbleStore.expandedTaskId === data.id);
   const supportsVT = $derived(typeof document !== 'undefined' && !!document.startViewTransition);
+
+  // Auto-resize textareas to fit content
+  function autoResize(el: HTMLTextAreaElement) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
+  let titleTextarea: HTMLTextAreaElement | undefined = $state();
+  let descTextarea: HTMLTextAreaElement | undefined = $state();
+
+  $effect(() => {
+    if (expanded) {
+      tick().then(() => {
+        if (titleTextarea) autoResize(titleTextarea);
+        if (descTextarea) autoResize(descTextarea);
+      });
+    }
+  });
 
   // --- Priority as presence ---
   const presenceOpacity = $derived.by(() => {
@@ -413,24 +431,26 @@
       <!-- EXPANDED STATE -->
       <div style="{supportsVT ? '' : 'animation: expandIn 200ms ease-out;'}">
         <!-- Editable title -->
-        <input
-          type="text"
+        <textarea
+          bind:this={titleTextarea}
           bind:value={editTitle}
-          oninput={debounceSaveTitle}
+          oninput={(e) => { autoResize(e.currentTarget as HTMLTextAreaElement); debounceSaveTitle(); }}
           onclick={(e) => e.stopPropagation()}
+          rows="1"
           class="bubble-editable"
-          style="width: 100%; padding: 5px 8px; margin-bottom: 4px; font-size: 16px; font-weight: 500; color: var(--text-primary);"
-        />
+          style="width: 100%; padding: 5px 8px; margin-bottom: 4px; font-size: 16px; font-weight: 500; color: var(--text-primary); resize: none; overflow: hidden; white-space: pre-wrap;"
+        ></textarea>
 
         <!-- Editable description -->
         <textarea
+          bind:this={descTextarea}
           bind:value={editDescription}
-          oninput={debounceSaveDescription}
+          oninput={(e) => { autoResize(e.currentTarget as HTMLTextAreaElement); debounceSaveDescription(); }}
           onclick={(e) => e.stopPropagation()}
           placeholder="Add description..."
-          rows="2"
+          rows="1"
           class="bubble-editable"
-          style="width: 100%; padding: 5px 8px; margin-bottom: 10px; font-size: 13.5px; color: var(--text-secondary); resize: none; line-height: 1.55;"
+          style="width: 100%; padding: 5px 8px; margin-bottom: 10px; font-size: 13.5px; color: var(--text-secondary); resize: none; overflow: hidden; line-height: 1.55;"
         ></textarea>
 
         <!-- Metadata row -->

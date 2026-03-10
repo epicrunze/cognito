@@ -7,7 +7,7 @@
 
 import { goto } from '$app/navigation';
 import { PUBLIC_API_URL } from '$env/static/public';
-import type { Bucket, ChatAction, ChatMessage, Label, LabelDescription, LabelStats, Project, ProjectView, Subtask, Task, TaskAttachment, TaskProposal } from '$lib/types';
+import type { Bucket, ChatAction, ChatMessage, Label, LabelDescription, LabelStats, Project, ProjectView, Revision, Subtask, Task, TaskAttachment, TaskProposal } from '$lib/types';
 
 const BASE = PUBLIC_API_URL ? `${PUBLIC_API_URL}/api` : '/api';
 
@@ -340,7 +340,7 @@ export const proposalsApi = {
   },
 
   approve(id: string) {
-    return request<{ success: boolean; vikunja_task_id: number; new_project_created?: boolean }>(`/proposals/${id}/approve`, {
+    return request<{ success: boolean; vikunja_task_id: number; new_project_created?: boolean; revision_id?: number }>(`/proposals/${id}/approve`, {
       method: 'POST',
     });
   },
@@ -399,7 +399,7 @@ export const chatApi = {
   },
 
   executeAction(action: ChatAction) {
-    return request<{ success: boolean }>('/chat/execute-action', {
+    return request<{ success: boolean; revision_id?: number }>('/chat/execute-action', {
       method: 'POST',
       body: JSON.stringify({
         type: action.type,
@@ -430,6 +430,31 @@ export const configApi = {
     return request<AgentConfigResponse>('/config', {
       method: 'PUT',
       body: JSON.stringify(data),
+    });
+  },
+};
+
+// ── Revisions ──────────────────────────────────────────────────────────────
+
+export const revisionsApi = {
+  list(limit = 50) {
+    return request<{ revisions: Revision[] }>('/revisions', { params: { limit } });
+  },
+
+  get(id: number) {
+    return request<Revision>(`/revisions/${id}`);
+  },
+
+  undo(id: number, force = false) {
+    return request<Record<string, unknown>>(`/revisions/${id}/undo`, {
+      method: 'POST',
+      params: force ? { force: true } : undefined,
+    });
+  },
+
+  redo(id: number) {
+    return request<Record<string, unknown>>(`/revisions/${id}/redo`, {
+      method: 'POST',
     });
   },
 };

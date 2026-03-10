@@ -6,9 +6,9 @@
   import { searchStore } from '$lib/stores/search.svelte';
   import { filterStore } from '$lib/stores/filter.svelte';
   import { bubbleStore } from '$lib/stores/bubble.svelte';
+  import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
   import type { FetchParams } from '$lib/stores/tasks.svelte';
   import BubbleCluster from './BubbleCluster.svelte';
-  import TaskPanel from './TaskPanel.svelte';
   import Skeleton from '$components/ui/Skeleton.svelte';
 
   let {
@@ -18,9 +18,6 @@
     projectId?: number;
     filter?: (t: Task) => boolean;
   } = $props();
-
-  let editingTaskId = $state<number | null>(null);
-  const editingTask = $derived(editingTaskId != null ? tasksStore.tasks.find(t => t.id === editingTaskId) ?? null : null);
 
   // Re-fetch when sort/filter/projectId changes
   $effect(() => {
@@ -94,7 +91,7 @@
   }
 
   function handleTaskClick(taskId: number) {
-    editingTaskId = taskId;
+    taskDetailStore.open(taskId);
     filterStore.markViewed(taskId);
   }
 
@@ -132,5 +129,3 @@
     {/each}
   {/if}
 </div>
-
-<TaskPanel mode="edit" open={editingTaskId !== null} task={editingTask ?? undefined} onclose={() => editingTaskId = null} />

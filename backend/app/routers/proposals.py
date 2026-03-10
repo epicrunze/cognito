@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models.proposal import TaskProposal, TaskProposalUpdate
 from app.models.user import User
 from app.routers.projects import _add_project_to_cache
+from app.services.revisions import RevisionService
 from app.services.vikunja import VikunjaError, vikunja
 from app.utils.timestamp import utc_now
 
@@ -228,12 +229,22 @@ async def approve_proposal(
                WHERE id = ?""",
             [vikunja_task_id, utc_now(), proposal_id],
         )
+        revision_id = RevisionService.record(
+            conn,
+            task_id=vikunja_task_id,
+            action_type="create",
+            source="proposal",
+            before_state=None,
+            after_state=task,
+            proposal_id=proposal_id,
+        )
 
     return {
         "success": True,
         "vikunja_task_id": vikunja_task_id,
         "vikunja_url": vikunja_url,
         "new_project_created": new_project_created,
+        "revision_id": revision_id,
     }
 
 
@@ -339,6 +350,15 @@ async def approve_all(
                     """UPDATE task_proposals SET status = 'created', vikunja_task_id = ?, reviewed_at = ?
                        WHERE id = ?""",
                     [vikunja_task_id, utc_now(), proposal.id],
+                )
+                RevisionService.record(
+                    conn,
+                    task_id=vikunja_task_id,
+                    action_type="create",
+                    source="proposal",
+                    before_state=None,
+                    after_state=task,
+                    proposal_id=str(proposal.id),
                 )
             approved += 1
             task_ids.append(vikunja_task_id)

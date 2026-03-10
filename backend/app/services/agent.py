@@ -60,6 +60,18 @@ MODIFICATION_TOOLS = [
             "task_id": {"type": "integer", "description": "The Vikunja task ID to delete"},
         },
     },
+    {
+        "name": "create_task",
+        "description": "Create a new task directly in a project. Use resolve_project first to get the project_id. Returns a pending confirmation.",
+        "parameters": {
+            "title": {"type": "string", "description": "Task title (start with a verb)"},
+            "project_id": {"type": "integer", "description": "The project ID to create the task in (use resolve_project to find it)"},
+            "description": {"type": "string", "description": "Task description (optional)"},
+            "priority": {"type": "integer", "description": "Priority 1-5, default 3 (optional)"},
+            "due_date": {"type": "string", "description": "Due date YYYY-MM-DD (optional)"},
+            "labels": {"type": "array", "description": "Label names to apply (optional)"},
+        },
+    },
 ]
 
 AGENT_SYSTEM_PROMPT = """\
@@ -74,6 +86,11 @@ AUTO-DETECT MODE:
 EXTRACTION (for new tasks):
 Use lookup_projects, resolve_project, check_existing_tasks, and get_label_descriptions \
 to produce structured task proposals. Return them as a JSON array.
+
+TASK CREATION (for direct requests like "create a task called X"):
+Use resolve_project to find the project_id, then create_task. This creates the task directly \
+without going through proposals. The tool returns a pending confirmation — tell the user \
+what you'll create and that you need their approval.
 
 TASK MODIFICATION:
 Use search_tasks to find tasks, then update_task, complete_task, move_task, or delete_task.
@@ -212,6 +229,41 @@ class ChatAgent:
                 return {"pending_confirmation": True, "task_id": int(task_id), "task_title": task.get("title", ""), "message": "Deletion requires user confirmation. Tell the user you need their confirmation to delete this task."}
             except VikunjaError as e:
                 return {"error": str(e)}
+
+        if tool_name == "create_task":
+            title = args.get("title")
+            project_id = args.get("project_id")
+            if not title:
+                return {"error": "title is required"}
+            if not project_id:
+                return {"error": "project_id is required. Use resolve_project first to find it."}
+            create_data = {
+                "title": title,
+                "project_id": int(project_id),
+            }
+            if args.get("description"):
+                create_data["description"] = args["description"]
+            if args.get("priority"):
+                create_data["priority"] = int(args["priority"])
+            if args.get("due_date"):
+                create_data["due_date"] = args["due_date"]
+            if args.get("labels"):
+                create_data["labels"] = args["labels"]
+            pending = {
+                "type": "create",
+                "task_id": 0,  # No ID yet — task doesn't exist
+                "task_title": title,
+                "project_id": int(project_id),
+                "changes": create_data,
+            }
+            self._pending_actions.append(pending)
+            return {
+                "pending_confirmation": True,
+                "task_title": title,
+                "project_id": int(project_id),
+                "create_data": create_data,
+                "message": "Task creation requires user confirmation. Tell the user what task you'll create and that you need their approval.",
+            }
 
         return {"error": f"Unknown tool: {tool_name}"}
 

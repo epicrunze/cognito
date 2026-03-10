@@ -15,7 +15,10 @@
   import ToastContainer from '$components/ui/ToastContainer.svelte';
   import { searchStore } from '$lib/stores/search.svelte';
   import { filterStore } from '$lib/stores/filter.svelte';
+  import { revisionsStore } from '$lib/stores/revisions.svelte';
+  import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
   import ViewOrchestrator from '$components/features/ViewOrchestrator.svelte';
+  import TaskDetail from '$components/features/TaskDetail.svelte';
 
   let { children }: { children: Snippet } = $props();
 
@@ -58,19 +61,52 @@
       projectsStore.fetchAll();
       labelsStore.fetchAll();
       labelsStore.fetchStats();
+      revisionsStore.fetchRecent();
     }
   });
+
+  // Mutual exclusion: ThinkingMargin ↔ TaskDetail (imperative, no $effect)
+  function openThinking() {
+    taskDetailStore.close();
+    thinkingOpen = !thinkingOpen;
+  }
 
   // Keyboard shortcuts
   onMount(() => {
     shortcuts.register('/', () => searchRef?.focus());
-    shortcuts.register('e', () => thinkingOpen = !thinkingOpen);
+    shortcuts.register('e', () => openThinking());
     shortcuts.register('?', () => shortcutsOpen = !shortcutsOpen);
     shortcuts.register('Escape', () => {
+      if (taskDetailStore.isOpen) {
+        taskDetailStore.close();
+        return;
+      }
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     });
+    shortcuts.register('j', () => {
+      if (taskDetailStore.isOpen) taskDetailStore.navigateNext();
+    });
+    shortcuts.register('k', () => {
+      if (taskDetailStore.isOpen) taskDetailStore.navigatePrev();
+    });
+    function handleUndoRedo(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        handleRedo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    }
     window.addEventListener('keydown', shortcuts.handleKeydown);
-    return () => window.removeEventListener('keydown', shortcuts.handleKeydown);
+    window.addEventListener('keydown', handleUndoRedo);
+    return () => {
+      window.removeEventListener('keydown', shortcuts.handleKeydown);
+      window.removeEventListener('keydown', handleUndoRedo);
+    };
   });
 
   // Collapse expanded bubble on route change (skip task-view routes — orchestrator handles those)
@@ -78,11 +114,20 @@
     const path = $page.url.pathname;
     if (!isTaskViewRoute) {
       bubbleStore.collapseImmediate();
+      taskDetailStore.close();
     }
   });
 
   function handleSearchInput() {
     searchStore.set(searchValue);
+  }
+
+  function handleUndo() {
+    revisionsStore.undo(() => tasksStore.fetchAll());
+  }
+
+  function handleRedo() {
+    revisionsStore.redo(() => tasksStore.fetchAll());
   }
 </script>
 
@@ -95,29 +140,50 @@
 {:else if authStore.authenticated}
   <div style="display: flex; height: 100vh;">
     <div style="flex-shrink: 0;">
-      <Sidebar ontoggleextract={() => thinkingOpen = !thinkingOpen} extractOpen={thinkingOpen} />
+      <Sidebar ontoggleextract={openThinking} extractOpen={thinkingOpen} />
     </div>
     <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;">
       <!-- Top bar -->
       <div style="display: flex; align-items: center; padding: 10px 24px; border-bottom: 1px solid var(--border-subtle); gap: 10px; flex-shrink: 0;">
         <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; flex-shrink: 0; margin-right: auto;">{pageTitle}</span>
+        <button
+          onclick={handleUndo}
+          disabled={!revisionsStore.canUndo || revisionsStore.loading}
+          title="Undo (Ctrl+Z)"
+          style="background: transparent; border: none; color: var(--text-secondary); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; flex-shrink: 0; white-space: nowrap; opacity: {revisionsStore.canUndo && !revisionsStore.loading ? 1 : 0.35}; transition: opacity 150ms, background 150ms;"
+          onmouseenter={(e) => { if (revisionsStore.canUndo) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+          onmouseleave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+        >&#8630;</button>
+        <button
+          onclick={handleRedo}
+          disabled={!revisionsStore.canRedo || revisionsStore.loading}
+          title="Redo (Ctrl+Shift+Z)"
+          style="background: transparent; border: none; color: var(--text-secondary); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; flex-shrink: 0; white-space: nowrap; opacity: {revisionsStore.canRedo && !revisionsStore.loading ? 1 : 0.35}; transition: opacity 150ms, background 150ms;"
+          onmouseenter={(e) => { if (revisionsStore.canRedo) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+          onmouseleave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+        >&#8631;</button>
         <Input placeholder="Search..." bind:value={searchValue} bind:ref={searchRef} height={34} oninput={handleSearchInput} style="width: 180px; flex-shrink: 1;" />
         <Button variant={filterOpen || filterStore.activeFilterCount > 0 ? 'accent' : 'outline'} size="sm" onclick={() => filterOpen = !filterOpen}>Filter{filterStore.activeFilterCount > 0 ? ` (${filterStore.activeFilterCount})` : ''}</Button>
       </div>
 
       <FilterBar open={filterOpen} />
 
-      <!-- Content -->
-      <div style="flex: 1; overflow-y: auto;">
-        {#if isTaskViewRoute}
-          <ViewOrchestrator />
-        {:else}
-          {@render children()}
+      <!-- Content + Detail Pane -->
+      <div style="flex: 1; display: flex; overflow: hidden;">
+        <div style="flex: 1; overflow-y: auto; min-width: 0;">
+          {#if isTaskViewRoute}
+            <ViewOrchestrator />
+          {:else}
+            {@render children()}
+          {/if}
+        </div>
+        {#if taskDetailStore.isOpen}
+          <TaskDetail />
         {/if}
       </div>
     </div>
   </div>
   <ShortcutsModal open={shortcutsOpen} onclose={() => shortcutsOpen = false} />
-  <ThinkingMargin open={thinkingOpen} onclose={() => thinkingOpen = false} ontaskschanged={() => tasksStore.fetchAll()} />
+  <ThinkingMargin open={thinkingOpen && !taskDetailStore.isOpen} onclose={() => thinkingOpen = false} ontaskschanged={() => tasksStore.fetchAll()} />
   <ToastContainer />
 {/if}

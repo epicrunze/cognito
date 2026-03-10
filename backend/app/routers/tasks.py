@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from app.auth.dependencies import get_current_user
 from app.database import get_db
 from app.models.user import User
+from app.services.revisions import RevisionService
 from app.services.tagger import AutoTagger
 from app.services.vikunja import VikunjaError, vikunja
 
@@ -301,6 +302,16 @@ async def auto_tag(
         if added:
             tagged += 1
             results.append({"task_id": tid, "labels_added": added})
+            with get_db() as conn:
+                RevisionService.record(
+                    conn,
+                    task_id=tid,
+                    action_type="auto_tag",
+                    source="auto_tag",
+                    before_state=task,
+                    after_state=None,
+                    changes={"labels_added": added},
+                )
 
     return {"tagged": tagged, "results": results}
 

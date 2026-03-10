@@ -15,6 +15,7 @@ from app.auth.dependencies import get_current_user
 from app.database import get_db
 from app.models.user import User
 from app.services.agent import ChatAgent
+from app.services.revisions import RevisionService
 from app.services.vikunja import vikunja
 
 logger = logging.getLogger(__name__)
@@ -128,8 +129,31 @@ async def execute_action(
     current_user: User = Depends(get_current_user),
 ):
     """Execute a previously pending action after user approval."""
+    # Snapshot before state
+    before_state = None
+    if body.type not in ("create",):
+        try:
+            before_state = await vikunja.get_task(body.task_id)
+        except Exception:
+            pass  # Task may not exist for some edge cases
+
+    created_task = None
     try:
-        if body.type == "update":
+        if body.type == "create":
+            if not body.changes:
+                raise HTTPException(status_code=400, detail="changes required for create action")
+            project_id = body.changes.get("project_id") or body.project_id
+            if not project_id:
+                raise HTTPException(status_code=400, detail="project_id required for create action")
+            created_task = await vikunja.create_task(
+                project_id=int(project_id),
+                title=body.changes.get("title", "Untitled"),
+                description=body.changes.get("description"),
+                priority=int(body.changes.get("priority", 3)),
+                due_date=body.changes.get("due_date"),
+                labels=body.changes.get("labels"),
+            )
+        elif body.type == "update":
             if not body.changes:
                 raise HTTPException(status_code=400, detail="changes required for update action")
             await vikunja.update_task(body.task_id, body.changes)
@@ -149,7 +173,36 @@ async def execute_action(
         logger.exception("Failed to execute action")
         raise HTTPException(status_code=500, detail=str(e))
 
-    return {"success": True}
+    # Determine task_id and after_state
+    task_id = body.task_id
+    after_state = None
+    if body.type == "create" and created_task:
+        task_id = created_task["id"]
+        after_state = created_task
+    elif body.type != "delete":
+        try:
+            after_state = await vikunja.get_task(body.task_id)
+        except Exception:
+            pass
+
+    # Record revision
+    revision_id = None
+    with get_db() as conn:
+        revision_id = RevisionService.record(
+            conn,
+            task_id=task_id,
+            action_type=body.type,
+            source="chat",
+            before_state=before_state,
+            after_state=after_state,
+            changes=body.changes,
+        )
+
+    result: dict = {"success": True, "revision_id": revision_id}
+    if created_task:
+        result["task"] = created_task
+        result["vikunja_task_id"] = created_task["id"]
+    return result
 
 
 @router.get("/{conversation_id}")

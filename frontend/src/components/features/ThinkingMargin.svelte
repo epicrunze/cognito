@@ -238,11 +238,12 @@
   async function handleActionConfirm(action: ChatAction) {
     try {
       await chatApi.executeAction(action);
-      chatStore.removePendingAction(action.task_id);
+      chatStore.removePendingAction(action.task_id, action.task_title ?? action.title);
       await tasksStore.fetchAll();
       ontaskschanged?.();
       const name = action.task_title ?? action.title ?? 'task';
       switch (action.type) {
+        case 'create': addToast(`Created "${name}"`, 'success'); break;
         case 'update': addToast(`Updated "${name}"`, 'success'); break;
         case 'complete': addToast(`Marked "${name}" as done`, 'success'); break;
         case 'move': addToast(`Moved "${name}"`, 'success'); break;
@@ -254,11 +255,13 @@
   }
 
   function handleActionCancel(action: ChatAction) {
-    chatStore.removePendingAction(action.task_id);
+    chatStore.removePendingAction(action.task_id, action.task_title ?? action.title);
   }
 
   function actionIcon(type: string): string {
     switch (type) {
+      case 'create':
+        return '+';
       case 'complete':
         return '\u2713';
       case 'update':
@@ -275,6 +278,8 @@
   function actionLabel(action: ChatAction): string {
     const name = action.task_title ?? action.title ?? `task #${action.task_id}`;
     switch (action.type) {
+      case 'create':
+        return `Created \u201C${name}\u201D`;
       case 'complete':
         return `Marked \u201C${name}\u201D as done`;
       case 'update':
@@ -289,6 +294,11 @@
   }
 
   function isPendingAction(action: ChatAction): boolean {
+    if (action.type === 'create') {
+      return chatStore.pendingActions.some(
+        (a) => a.type === 'create' && a.task_title === action.task_title
+      );
+    }
     return chatStore.pendingActions.some(
       (a) => a.task_id === action.task_id && a.type === action.type
     );
@@ -296,6 +306,7 @@
 
   function actionButtonLabel(type: string): string {
     switch (type) {
+      case 'create': return 'Create Task';
       case 'update': return 'Apply Changes';
       case 'complete': return 'Mark Done';
       case 'move': return 'Move Task';
@@ -311,6 +322,7 @@
   function pendingActionLabel(action: ChatAction): string {
     const name = action.task_title ?? action.title ?? `task #${action.task_id}`;
     switch (action.type) {
+      case 'create': return `Create "${name}"`;
       case 'update': {
         const fields = action.changes ? Object.keys(action.changes).join(', ') : 'fields';
         return `Update "${name}" (${fields})`;
@@ -337,9 +349,6 @@
     <span
       style="color: var(--accent); font-size: 16px; line-height: 1; flex-shrink: 0;"
     >&#9670;</span>
-    <span
-      style="font-size: 15px; font-weight: 600; color: var(--text-primary); font-family: var(--font-sans); flex: 1; white-space: nowrap;"
-    >Thinking Margin</span>
 
     {#if modelOptions.length > 0}
       <Dropdown
@@ -373,9 +382,11 @@
       Tag
     </Button>
 
-    <Button variant="ghost" size="sm" onclick={handleNewConversation} style="padding: 0 10px;">
-      New
-    </Button>
+    {#if chatStore.messages.length > 0}
+      <Button variant="ghost" size="sm" onclick={handleNewConversation} style="padding: 0 10px;">
+        New
+      </Button>
+    {/if}
   </div>
 
   <!-- Bulk action bar -->
@@ -432,7 +443,7 @@
             <!-- Proposals as ThoughtBubble -->
             {#if msg.proposals && msg.proposals.length > 0}
               {#each msg.proposals as proposal (proposal.id)}
-                {@const isPending = chatStore.pendingProposals.some((p) => p.id === proposal.id)}
+                {@const isPending = proposal.status === 'pending' || chatStore.pendingProposals.some((p) => p.id === proposal.id)}
                 {#if isPending}
                   <div transition:slide={{ duration: 200 }} style="max-width: 100%;">
                     <ThoughtBubble
@@ -470,7 +481,7 @@
                     <div
                       style="font-size: 13px; color: var(--text-primary); font-family: var(--font-sans); font-weight: 500;"
                     >{pendingActionLabel(action)}</div>
-                    {#if action.type === 'update' && action.changes}
+                    {#if (action.type === 'update' || action.type === 'create') && action.changes}
                       <div style="font-size: 12px; color: var(--text-secondary); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 2px; padding-left: 4px;">
                         {#each Object.entries(action.changes) as [key, value] (key)}
                           <span>{key}: {formatChangeValue(key, value)}</span>

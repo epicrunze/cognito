@@ -156,6 +156,24 @@ def init_schema(conn: sqlite3.Connection) -> None:
     except Exception:
         pass  # Column already exists
 
+    # ── Task revisions (AI action undo/redo) ─────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS task_revisions (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id         INTEGER NOT NULL,
+            action_type     TEXT NOT NULL,
+            source          TEXT NOT NULL,
+            before_state    TEXT,
+            after_state     TEXT,
+            changes         TEXT,
+            conversation_id TEXT,
+            proposal_id     TEXT,
+            undone          INTEGER DEFAULT 0,
+            undone_at       TEXT,
+            created_at      TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S', 'now'))
+        )
+    """)
+
     # Seed the singleton config row if it doesn't exist
     conn.execute("INSERT OR IGNORE INTO agent_config (id) VALUES (1)")
 
