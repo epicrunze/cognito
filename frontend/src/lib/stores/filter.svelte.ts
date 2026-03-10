@@ -1,4 +1,5 @@
 export type SortMode = 'smart' | 'priority' | 'due_date' | 'created' | 'title';
+export type DueDatePreset = 'any' | 'overdue' | 'today' | 'this_week' | 'this_month' | 'no_date';
 
 function loadSet(key: string): Set<number> {
   if (typeof localStorage === 'undefined') return new Set();
@@ -19,6 +20,8 @@ let _status = $state<'all' | 'active' | 'completed'>('all');
 let _priorities = $state<number[]>([]);
 let _labelIds = $state<number[]>([]);
 let _sortMode = $state<SortMode>('smart');
+let _dueDateFilter = $state<DueDatePreset>('any');
+let _hasSubtasks = $state<boolean | null>(null);
 let _viewedTaskIds = $state<Set<number>>(loadSet('cognito:viewed-task-ids'));
 let _aiTaggedIds = $state<Set<number>>(loadSet('cognito:ai-tagged-ids'));
 
@@ -27,11 +30,19 @@ export const filterStore = {
   get priorities() { return _priorities; },
   get labelIds() { return _labelIds; },
   get sortMode() { return _sortMode; },
+  get dueDateFilter() { return _dueDateFilter; },
+  get hasSubtasks() { return _hasSubtasks; },
   get viewedTaskIds() { return _viewedTaskIds; },
   get aiTaggedIds() { return _aiTaggedIds; },
 
   setStatus(s: 'all' | 'active' | 'completed') { _status = s; },
   setSortMode(m: SortMode) { _sortMode = m; },
+  setDueDateFilter(f: DueDatePreset) { _dueDateFilter = f; },
+  setHasSubtasks(v: boolean | null) { _hasSubtasks = v; },
+
+  setPriorities(ps: number[]) { _priorities = ps; },
+
+  setLabelIds(ids: number[]) { _labelIds = ids; },
 
   togglePriority(p: number) {
     if (_priorities.includes(p)) {
@@ -82,6 +93,31 @@ export const filterStore = {
     if (_priorities.length > 0) {
       parts.push(`priority in [${_priorities.join(', ')}]`);
     }
+    // Due date server-side filters (no_date handled client-side)
+    if (_dueDateFilter !== 'any' && _dueDateFilter !== 'no_date') {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+
+      switch (_dueDateFilter) {
+        case 'overdue':
+          parts.push(`due_date < "${todayStart}" && due_date != "0001-01-01T00:00:00Z"`);
+          break;
+        case 'today':
+          parts.push(`due_date >= "${todayStart}" && due_date < "${tomorrowStart}"`);
+          break;
+        case 'this_week': {
+          const weekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).toISOString();
+          parts.push(`due_date >= "${todayStart}" && due_date < "${weekEnd}"`);
+          break;
+        }
+        case 'this_month': {
+          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+          parts.push(`due_date >= "${todayStart}" && due_date < "${monthEnd}"`);
+          break;
+        }
+      }
+    }
     return parts.join(' && ');
   },
 
@@ -90,6 +126,8 @@ export const filterStore = {
     if (_status !== 'all') count++;
     if (_priorities.length > 0) count++;
     if (_labelIds.length > 0) count++;
+    if (_dueDateFilter !== 'any') count++;
+    if (_hasSubtasks !== null) count++;
     return count;
   },
 
@@ -97,5 +135,7 @@ export const filterStore = {
     _status = 'all';
     _priorities = [];
     _labelIds = [];
+    _dueDateFilter = 'any';
+    _hasSubtasks = null;
   },
 };

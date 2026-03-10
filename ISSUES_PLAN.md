@@ -81,10 +81,10 @@
 
 | # | Issue | Status |
 |---|-------|--------|
-| 12 | Filter button positioning | TODO |
-| 13 | Label filter → dropdown | TODO |
-| 15 | Multi-filter UX (dates, subtasks) | TODO |
-| 22 | Kanban filtering + density | TODO |
+| 12 | Filter button positioning | DONE |
+| 13 | Label filter → dropdown | DONE |
+| 15 | Multi-filter UX (dates, subtasks) | DONE |
+| 22 | Kanban filtering + density | DONE |
 
 ### Issue 12 — Filter button persistent everywhere
 **Problem:** Filter button shows on all pages including settings where it does nothing.

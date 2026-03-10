@@ -8,16 +8,20 @@
   let {
     bucket,
     tasks = [],
+    allTasks,
     columnColor = 'var(--border-default)',
     isDoneBucket = false,
+    density = 'full',
     onTaskClick,
     onTaskFinalized,
     onCreateTask,
   }: {
     bucket: Bucket;
     tasks: Task[];
+    allTasks?: Task[];
     columnColor?: string;
     isDoneBucket?: boolean;
+    density?: 'full' | 'compact';
     onTaskClick?: (taskId: number) => void;
     onTaskFinalized?: (bucketId: number, tasks: Task[]) => void;
     onCreateTask?: (title: string) => void;
@@ -69,7 +73,7 @@
       {/if}
       {bucket.title}
     </span>
-    <span style="font-size: 12px; color: var(--text-tertiary); background: var(--bg-elevated); padding: 2px 8px; border-radius: 9999px;">{tasks.length}</span>
+    <span style="font-size: 12px; color: var(--text-tertiary); background: var(--bg-elevated); padding: 2px 8px; border-radius: 9999px;">{allTasks && allTasks.length !== tasks.length ? `${tasks.length}/${allTasks.length}` : tasks.length}</span>
   </div>
 
   <!-- Cards (DnD zone) -->
@@ -81,7 +85,7 @@
   >
     {#each localItems as task (task.id)}
       <div>
-        <ThoughtBubble {task} onclick={() => onTaskClick?.(task.id)} />
+        <ThoughtBubble {task} kanbanCompact={density === 'compact'} onclick={() => onTaskClick?.(task.id)} />
       </div>
     {/each}
   </div>

@@ -3,6 +3,7 @@
   import { kanbanStore } from '$lib/stores/kanban.svelte';
   import { filterStore } from '$lib/stores/filter.svelte';
   import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
+  import { applyClientFilters } from '$lib/filterUtils';
   import KanbanColumn from './KanbanColumn.svelte';
   import Skeleton from '$components/ui/Skeleton.svelte';
 
@@ -10,6 +11,30 @@
 
   let addingColumn = $state(false);
   let newColumnTitle = $state('');
+
+  // Density toggle with localStorage persistence
+  let kanbanDensity = $state<'full' | 'compact'>(
+    typeof localStorage !== 'undefined'
+      ? (localStorage.getItem('cognito:kanban-density') as 'full' | 'compact') ?? 'full'
+      : 'full'
+  );
+
+  function toggleDensity() {
+    kanbanDensity = kanbanDensity === 'full' ? 'compact' : 'full';
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('cognito:kanban-density', kanbanDensity);
+    }
+  }
+
+  // Filtered tasks per bucket
+  const filteredTasksByBucket = $derived.by(() => {
+    const result = new Map<number, Task[]>();
+    for (const bucket of kanbanStore.buckets) {
+      const raw = kanbanStore.tasksByBucket.get(bucket.id) ?? [];
+      result.set(bucket.id, applyClientFilters(raw));
+    }
+    return result;
+  });
 
   // Column color map based on common bucket names
   const columnColors: Record<string, string> = {
@@ -100,13 +125,23 @@
     <span style="font-size: 15px; color: var(--overdue);">{kanbanStore.error}</span>
   </div>
 {:else}
-  <div style="display: flex; gap: 16px; padding: 20px 24px; overflow-x: auto; flex: 1; align-items: flex-start;">
+  <div style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+    <!-- Kanban toolbar -->
+    <div style="display: flex; align-items: center; justify-content: flex-end; padding: 8px 24px 0; flex-shrink: 0;">
+      <button
+        onclick={toggleDensity}
+        style="height: 28px; padding: 0 10px; font-size: 12px; font-weight: 500; color: var(--text-tertiary); background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 6px; cursor: pointer; font-family: var(--font-sans); transition: all 150ms;"
+      >{kanbanDensity === 'full' ? 'Compact' : 'Full'}</button>
+    </div>
+    <div style="display: flex; gap: 16px; padding: 12px 24px 20px; overflow-x: auto; flex: 1; align-items: flex-start;">
     {#each kanbanStore.buckets as bucket (bucket.id)}
       <KanbanColumn
         {bucket}
-        tasks={kanbanStore.tasksByBucket.get(bucket.id) ?? []}
+        tasks={filteredTasksByBucket.get(bucket.id) ?? []}
+        allTasks={kanbanStore.tasksByBucket.get(bucket.id) ?? []}
         columnColor={getColumnColor(bucket.title)}
         isDoneBucket={isDoneBucket(bucket.title)}
+        density={kanbanDensity}
         onTaskClick={handleTaskClick}
         onTaskFinalized={handleTaskFinalized}
         onCreateTask={(title) => kanbanStore.createTaskInBucket(bucket.id, title)}
@@ -131,5 +166,6 @@
         style="width: 280px; flex-shrink: 0; padding: 14px 16px; background: var(--bg-surface); border: 1px dashed var(--border-default); border-radius: 10px; color: var(--text-tertiary); font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); transition: all 150ms;"
       >+ Add Column</button>
     {/if}
+    </div>
   </div>
 {/if}

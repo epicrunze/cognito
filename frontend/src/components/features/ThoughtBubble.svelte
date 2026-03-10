@@ -20,6 +20,7 @@
     task,
     proposal,
     compact = false,
+    kanbanCompact = false,
     proposalMode = false,
     selected = false,
     onselect,
@@ -32,6 +33,7 @@
     task?: Task;
     proposal?: TaskProposal;
     compact?: boolean;
+    kanbanCompact?: boolean;
     proposalMode?: boolean;
     selected?: boolean;
     onselect?: () => void;
@@ -502,7 +504,7 @@
     onkeydown={handleKeydown}
     data-transition-id="{data.id}"
     data-task-priority="{data.priority}"
-    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? '360px' : `${bubbleWidth}px`}; min-height: {expanded ? 'auto' : `${bubbleMinHeight}px`}; border-radius: 10px; background: {expanded ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border: {borderStyle}; padding: {expanded ? '18px 20px' : '14px 16px'}; cursor: pointer; box-shadow: {shadowStyle}{showGlow && !expanded ? ', inset 0 0 12px -4px var(--accent-glow)' : ''}; translate: {hovering && !expanded ? '0 -1px' : 'none'}; transition: background 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, opacity 200ms ease-out, padding 200ms ease-out, translate 200ms ease-out; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden;"
+    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? '360px' : `${bubbleWidth}px`}; min-height: {expanded ? 'auto' : kanbanCompact ? '50px' : `${bubbleMinHeight}px`}; border-radius: 10px; background: {expanded ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border: {borderStyle}; padding: {expanded ? '18px 20px' : kanbanCompact ? '8px 10px' : '14px 16px'}; cursor: pointer; box-shadow: {shadowStyle}{showGlow && !expanded ? ', inset 0 0 12px -4px var(--accent-glow)' : ''}; translate: {hovering && !expanded ? '0 -1px' : 'none'}; transition: background 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, opacity 200ms ease-out, padding 200ms ease-out, translate 200ms ease-out; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden;"
   >
     <!-- Project corner triangle -->
     {#if projectColor}
@@ -518,10 +520,11 @@
 
     {#if !expanded}
       <!-- COLLAPSED STATE -->
-      <div style="font-size: 14.5px; font-weight: {data.priority >= 4 ? 500 : 400}; color: {titleColor}; text-decoration: {data.done ? 'line-through' : 'none'}; line-height: 1.4; letter-spacing: -0.01em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; padding-right: {projectColor ? '14px' : '0'}; {proposalMode ? 'margin-left: 28px;' : ''}">
+      <div style="font-size: {kanbanCompact ? '13px' : '14.5px'}; font-weight: {data.priority >= 4 ? 500 : 400}; color: {titleColor}; text-decoration: {data.done ? 'line-through' : 'none'}; line-height: 1.4; letter-spacing: -0.01em; display: -webkit-box; -webkit-line-clamp: {kanbanCompact ? 2 : 3}; -webkit-box-orient: vertical; overflow: hidden; padding-right: {projectColor ? '14px' : '0'}; {proposalMode ? 'margin-left: 28px;' : ''}">
         {data.title}
       </div>
       <!-- Unified bottom row: indicators + quick-complete + hover meta -->
+      {#if !kanbanCompact}
       <div class="card-bottom-row" style="{proposalMode ? 'margin-left: 28px;' : ''}">
         {#if !data.done && !data.isProposal && !proposalMode}
           <button
@@ -560,6 +563,7 @@
           {/if}
         </span>
       </div>
+      {/if}
 
     {:else}
       <!-- EXPANDED STATE -->

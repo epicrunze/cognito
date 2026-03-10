@@ -136,6 +136,7 @@
     if (!isTaskViewRoute) {
       bubbleStore.collapseImmediate();
       taskDetailStore.close();
+      filterOpen = false;
     }
   });
 
@@ -208,7 +209,9 @@
           onmouseleave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
         >&#8631;</button>
         <Input placeholder="Search..." bind:value={searchValue} bind:ref={searchRef} height={34} oninput={handleSearchInput} style="width: 180px; flex-shrink: 1;" />
-        <Button variant={filterOpen || filterStore.activeFilterCount > 0 ? 'accent' : 'outline'} size="sm" onclick={() => filterOpen = !filterOpen}>Filter{filterStore.activeFilterCount > 0 ? ` (${filterStore.activeFilterCount})` : ''}</Button>
+        {#if isTaskViewRoute}
+          <Button variant={filterOpen || filterStore.activeFilterCount > 0 ? 'accent' : 'outline'} size="sm" onclick={() => filterOpen = !filterOpen}>Filter{filterStore.activeFilterCount > 0 ? ` (${filterStore.activeFilterCount})` : ''}</Button>
+        {/if}
         {#if projectMenuOpen && currentProject}
           <ProjectContextMenu
             project={currentProject}
@@ -219,7 +222,9 @@
         {/if}
       </div>
 
-      <FilterBar open={filterOpen} />
+      {#if isTaskViewRoute}
+        <FilterBar open={filterOpen} />
+      {/if}
 
       <!-- Content + Detail Pane -->
       <div style="flex: 1; display: flex; overflow: hidden;">

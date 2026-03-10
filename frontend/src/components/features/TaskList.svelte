@@ -6,8 +6,8 @@
   import { kanbanStore } from '$lib/stores/kanban.svelte';
   import { updateTask, toggleDone } from '$lib/stores/taskMutations';
   import { addToast } from '$lib/stores/toast.svelte';
-  import { searchStore } from '$lib/stores/search.svelte';
   import { filterStore, type SortMode } from '$lib/stores/filter.svelte';
+  import { applyClientFilters } from '$lib/filterUtils';
   import type { FetchParams } from '$lib/stores/tasks.svelte';
   import { shortcuts } from '$lib/shortcuts';
   import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
@@ -115,18 +115,7 @@
     let t = tasksStore.tasks;
     if (projectId != null) t = t.filter(task => task.project_id === projectId);
     if (filter) t = t.filter(filter);
-    if (searchStore.query) {
-      const q = searchStore.query.toLowerCase();
-      t = t.filter(task => task.title.toLowerCase().includes(q) || task.description?.toLowerCase().includes(q));
-    }
-    // Client-side filters (labels can't be done server-side cleanly)
-    if (filterStore.priorities.length > 0) {
-      t = t.filter(task => filterStore.priorities.includes(task.priority));
-    }
-    if (filterStore.labelIds.length > 0) {
-      t = t.filter(task => task.labels.some(l => filterStore.labelIds.includes(l.id)));
-    }
-    return t;
+    return applyClientFilters(t);
   });
 
   const activeTasks = $derived.by(() => {
