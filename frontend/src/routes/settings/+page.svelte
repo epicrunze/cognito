@@ -1,15 +1,19 @@
 <script lang="ts">
-  import { authStore, tasksStore } from '$lib/stores.svelte';
+  import { authStore, tasksStore, projectsStore } from '$lib/stores.svelte';
   import { revisionsStore } from '$lib/stores/revisions.svelte';
-  import { configApi } from '$lib/api';
+  import { configApi, projectsApi } from '$lib/api';
+  import { addToast } from '$lib/stores/toast.svelte';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import Button from '$components/ui/Button.svelte';
+  import type { Project } from '$lib/types';
 
   let systemPrompt = $state('');
   let saved = $state(false);
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
   let savedTimer: ReturnType<typeof setTimeout> | undefined;
+  let archivedProjects = $state<Project[]>([]);
+  let loadingArchived = $state(false);
 
   const actionIcons: Record<string, string> = {
     create: '+',
@@ -53,6 +57,38 @@
     });
   }
 
+  async function fetchArchived() {
+    loadingArchived = true;
+    try {
+      const res = await projectsApi.list({ include_archived: true });
+      archivedProjects = res.projects.filter(p => p.is_archived);
+    } catch {
+      archivedProjects = [];
+    } finally {
+      loadingArchived = false;
+    }
+  }
+
+  async function handleUnarchive(id: number) {
+    try {
+      await projectsStore.unarchive(id);
+      addToast('Project restored', 'success');
+      archivedProjects = archivedProjects.filter(p => p.id !== id);
+    } catch {
+      // store handles error
+    }
+  }
+
+  async function handleDeleteArchived(id: number) {
+    try {
+      await projectsStore.delete(id);
+      addToast('Project deleted', 'success');
+      archivedProjects = archivedProjects.filter(p => p.id !== id);
+    } catch {
+      // store handles error
+    }
+  }
+
   onMount(async () => {
     try {
       const config = await configApi.get();
@@ -61,6 +97,7 @@
       // ignore fetch errors on mount
     }
     revisionsStore.fetchRecent();
+    fetchArchived();
   });
 
   function handleInput() {
@@ -118,6 +155,32 @@
     <span style="font-size: 12px; color: var(--text-tertiary); margin-top: 8px; display: block;">
       These instructions guide how the AI extracts and categorizes tasks from your input.
     </span>
+  </div>
+
+  <!-- Archived Projects -->
+  <div style="padding: 20px; background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 8px; margin-bottom: 16px;">
+    <span style="font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 12px; display: block;">Archived Projects</span>
+
+    {#if loadingArchived}
+      <span style="font-size: 13px; color: var(--text-tertiary);">Loading...</span>
+    {:else if archivedProjects.length === 0}
+      <span style="font-size: 13px; color: var(--text-tertiary);">No archived projects.</span>
+    {:else}
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        {#each archivedProjects as project (project.id)}
+          <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 6px; font-size: 13px;">
+            <div style="width: 8px; height: 8px; border-radius: 50%; background: {project.hex_color || 'var(--text-tertiary)'}; flex-shrink: 0;"></div>
+            <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary);">{project.title}</span>
+            <Button variant="outline" size="sm" onclick={() => handleUnarchive(project.id)}>
+              Restore
+            </Button>
+            <Button variant="outline" size="sm" onclick={() => handleDeleteArchived(project.id)}>
+              Delete
+            </Button>
+          </div>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   <!-- Revision History -->

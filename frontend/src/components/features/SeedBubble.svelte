@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tasksStore } from '$lib/stores.svelte';
+  import { tasksStore, bubbleStore } from '$lib/stores.svelte';
   import { addToast } from '$lib/stores/toast.svelte';
   import { tick } from 'svelte';
 
@@ -22,8 +22,12 @@
       return;
     }
     try {
-      await tasksStore.create({ project_id: projectId, title: trimmed });
+      const created = await tasksStore.create({ project_id: projectId, title: trimmed });
       addToast('Task created', 'success');
+      if (created) {
+        await tick();
+        bubbleStore.expand(created.id);
+      }
     } catch {
       addToast('Failed to create task', 'error');
     }

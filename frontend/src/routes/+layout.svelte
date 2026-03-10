@@ -8,6 +8,7 @@
   import { shortcuts } from '$lib/shortcuts';
   import Sidebar from '$components/features/Sidebar.svelte';
   import ThinkingMargin from '$components/features/ThinkingMargin.svelte';
+  import ProjectContextMenu from '$components/features/ProjectContextMenu.svelte';
   import FilterBar from '$components/features/FilterBar.svelte';
   import ShortcutsModal from '$components/features/ShortcutsModal.svelte';
   import Input from '$components/ui/Input.svelte';
@@ -49,6 +50,17 @@
     }
     return pageTitles[path] ?? 'Cognito';
   });
+
+  const currentProject = $derived.by(() => {
+    const path = $page.url.pathname;
+    if (path.startsWith('/project/')) {
+      return projectsStore.projects.find(p => p.id === Number(path.split('/')[2])) ?? null;
+    }
+    return null;
+  });
+
+  let projectMenuOpen = $state(false);
+  let projectMenuPos = $state({ x: 0, y: 0 });
 
   onMount(async () => {
     await authStore.check();
@@ -109,6 +121,14 @@
     };
   });
 
+  // Redirect to home if viewing a project that was archived/deleted
+  $effect(() => {
+    const path = $page.url.pathname;
+    if (path.startsWith('/project/') && !projectsStore.loading && projectsStore.projects.length > 0 && !currentProject) {
+      goto('/');
+    }
+  });
+
   // Collapse expanded bubble on route change (skip task-view routes — orchestrator handles those)
   $effect(() => {
     const path = $page.url.pathname;
@@ -145,7 +165,31 @@
     <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;">
       <!-- Top bar -->
       <div style="display: flex; align-items: center; padding: 10px 24px; border-bottom: 1px solid var(--border-subtle); gap: 10px; flex-shrink: 0;">
-        <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; flex-shrink: 0; margin-right: auto;">{pageTitle}</span>
+        {#if currentProject}
+          <div class="project-title-group">
+            <div
+              style="width: 8px; height: 8px; border-radius: 50%; background: {currentProject.hex_color || 'var(--text-tertiary)'}; flex-shrink: 0;"
+            ></div>
+            <span
+              style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; flex-shrink: 0;"
+              oncontextmenu={(e: MouseEvent) => {
+                e.preventDefault();
+                projectMenuPos = { x: e.clientX, y: e.clientY };
+                projectMenuOpen = true;
+              }}
+            >{pageTitle}</span>
+            <button
+              class="project-title-menu"
+              onclick={(e: MouseEvent) => {
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                projectMenuPos = { x: rect.left, y: rect.bottom + 4 };
+                projectMenuOpen = true;
+              }}
+            >&#8942;</button>
+          </div>
+        {:else}
+          <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; flex-shrink: 0; margin-right: auto;">{pageTitle}</span>
+        {/if}
         <button
           onclick={handleUndo}
           disabled={!revisionsStore.canUndo || revisionsStore.loading}
@@ -164,6 +208,14 @@
         >&#8631;</button>
         <Input placeholder="Search..." bind:value={searchValue} bind:ref={searchRef} height={34} oninput={handleSearchInput} style="width: 180px; flex-shrink: 1;" />
         <Button variant={filterOpen || filterStore.activeFilterCount > 0 ? 'accent' : 'outline'} size="sm" onclick={() => filterOpen = !filterOpen}>Filter{filterStore.activeFilterCount > 0 ? ` (${filterStore.activeFilterCount})` : ''}</Button>
+        {#if projectMenuOpen && currentProject}
+          <ProjectContextMenu
+            project={currentProject}
+            position={projectMenuPos}
+            onclose={() => projectMenuOpen = false}
+            ondelete={() => goto('/')}
+          />
+        {/if}
       </div>
 
       <FilterBar open={filterOpen} />
@@ -187,3 +239,38 @@
   <ThinkingMargin open={thinkingOpen && !taskDetailStore.isOpen} onclose={() => thinkingOpen = false} ontaskschanged={() => tasksStore.fetchAll()} />
   <ToastContainer />
 {/if}
+
+<style>
+  .project-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-right: auto;
+  }
+
+  .project-title-menu {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    color: var(--text-tertiary);
+    font-size: 16px;
+    cursor: pointer;
+    transition: opacity 150ms, background 150ms;
+    padding: 0;
+  }
+
+  .project-title-group:hover .project-title-menu {
+    opacity: 1;
+  }
+
+  .project-title-menu:hover {
+    background: var(--bg-surface-hover);
+  }
+</style>

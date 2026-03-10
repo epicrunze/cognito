@@ -156,6 +156,17 @@ def init_schema(conn: sqlite3.Connection) -> None:
     except Exception:
         pass  # Column already exists
 
+    # Migration: add hex_color, is_archived, position to vikunja_projects
+    for col, defn in [
+        ("hex_color", "TEXT DEFAULT ''"),
+        ("is_archived", "INTEGER DEFAULT 0"),
+        ("position", "REAL DEFAULT 0"),
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE vikunja_projects ADD COLUMN {col} {defn}")
+        except Exception:
+            pass  # Column already exists
+
     # ── Task revisions (AI action undo/redo) ─────────────────────────────────
     conn.execute("""
         CREATE TABLE IF NOT EXISTS task_revisions (

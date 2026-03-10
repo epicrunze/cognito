@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { untrack, tick } from 'svelte';
   import type { Task, TaskProposal, Label, TaskAttachment, Subtask } from '$lib/types';
   import { tasksStore, projectsStore, labelsStore } from '$lib/stores.svelte';
   import { updateTask, toggleDone, deleteTask } from '$lib/stores/taskMutations';
   import { addToast } from '$lib/stores/toast.svelte';
   import { tasksApi, proposalsApi, attachmentsApi, subtasksApi } from '$lib/api';
   import Input from '$components/ui/Input.svelte';
-  import Textarea from '$components/ui/Textarea.svelte';
   import Button from '$components/ui/Button.svelte';
   import Dropdown from '$components/ui/Dropdown.svelte';
   import Kbd from '$components/ui/Kbd.svelte';
@@ -39,7 +38,7 @@
   let projectValue = $state('');
   let creating = $state(false);
   let deleting = $state(false);
-  let titleRef = $state<HTMLInputElement | undefined>(undefined);
+  let titleRef = $state<HTMLTextAreaElement | undefined>(undefined);
 
   // Label management
   let currentLabels = $state<Label[]>([]);
@@ -59,6 +58,20 @@
   let newSubtaskTitle = $state('');
   let addingSubtask = $state(false);
 
+  // Re-fetch subtasks when changed externally (e.g. from ThoughtBubble)
+  $effect(() => {
+    if (mode !== 'edit' || !task) return;
+    const taskId = task.id;
+    function onSubtasksChanged(e: Event) {
+      const detail = (e as CustomEvent<{ taskId: number }>).detail;
+      if (detail.taskId === taskId) {
+        subtasksApi.list(taskId).then(data => { subtasks = data; }).catch(() => {});
+      }
+    }
+    window.addEventListener('subtasks-changed', onSubtasksChanged);
+    return () => window.removeEventListener('subtasks-changed', onSubtasksChanged);
+  });
+
   // New project inline create
   let creatingProject = $state(false);
   let newProjectName = $state('');
@@ -72,6 +85,12 @@
 
   // Debounce timer for auto-save
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // Auto-resize textareas to fit content
+  function autoResize(el: HTMLTextAreaElement) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
 
   const projectOptions = $derived.by(() => {
     const opts = projectsStore.projects.map(p => ({ value: String(p.id), label: p.title }));
@@ -87,13 +106,6 @@
       return !currentLabels.some(cl => cl.id === l.id);
     })
   );
-
-  const headerText = $derived.by(() => {
-    if (mode === 'create') return 'New Task';
-    if (mode === 'edit' && task) return task.title || `Task #${task.id}`;
-    if (mode === 'proposal') return 'Edit Proposal';
-    return 'Task';
-  });
 
   // Key that only changes when the panel opens or switches to a different task/proposal
   const editKey = $derived.by(() => {
@@ -133,7 +145,12 @@
         const pid = defaultProjectId ?? projectsStore.projects[0]?.id;
         projectValue = pid ? String(pid) : '';
         creating = false;
-        setTimeout(() => titleRef?.focus(), 50);
+        setTimeout(() => {
+          if (titleRef) {
+            titleRef.focus();
+            autoResize(titleRef);
+          }
+        }, 50);
       } else if (mode === 'edit' && task) {
         title = task.title;
         description = task.description || '';
@@ -143,6 +160,10 @@
         currentLabels = [...(task.labels ?? [])];
         proposalLabelNames = [];
         projectValue = String(task.project_id);
+        // Resize textareas after populate
+        tick().then(() => {
+          if (titleRef) autoResize(titleRef);
+        });
         // Fetch attachments
         const taskId = task.id;
         attachmentsLoading = true;
@@ -171,6 +192,9 @@
         currentLabels = [];
         proposalLabelNames = [...(proposal.labels || [])];
         projectValue = proposal.project_id ? String(proposal.project_id) : '';
+        tick().then(() => {
+          if (titleRef) autoResize(titleRef);
+        });
       }
     });
   });
@@ -225,11 +249,23 @@
   // ── Event handlers ─────────────────────────────────────────────────
 
   function handleTitleInput() {
+    if (titleRef) autoResize(titleRef);
     debouncedSave('title', title);
   }
 
-  function handleDescriptionInput() {
+  function handleTitleInputCreate() {
+    if (titleRef) autoResize(titleRef);
+  }
+
+  function handleDescriptionInput(e: Event) {
+    const el = e.currentTarget as HTMLTextAreaElement;
+    autoResize(el);
     debouncedSave('description', description);
+  }
+
+  function handleDescriptionInputCreate(e: Event) {
+    const el = e.currentTarget as HTMLTextAreaElement;
+    autoResize(el);
   }
 
   function handlePriorityChange(level: number) {
@@ -399,12 +435,17 @@
 
   // ── Subtask handlers ───────────────────────────────────────────────
 
+  function notifySubtasksChanged(taskId: number) {
+    window.dispatchEvent(new CustomEvent('subtasks-changed', { detail: { taskId } }));
+  }
+
   async function toggleSubtask(st: Subtask) {
     const prev = st.done;
     st.done = !prev;
     subtasks = [...subtasks];
     try {
       await subtasksApi.update(task!.id, st.id, { done: !prev });
+      notifySubtasksChanged(task!.id);
     } catch {
       st.done = prev;
       subtasks = [...subtasks];
@@ -419,6 +460,7 @@
       const created = await subtasksApi.create(task.id, { title: newSubtaskTitle.trim() });
       subtasks = [created, ...subtasks];
       newSubtaskTitle = '';
+      notifySubtasksChanged(task.id);
     } catch {
       addToast('Failed to add subtask', 'error');
     } finally {
@@ -432,6 +474,7 @@
     subtasks = subtasks.filter(s => s.id !== st.id);
     try {
       await subtasksApi.delete(task.id, st.id);
+      notifySubtasksChanged(task.id);
     } catch {
       subtasks = prev;
       addToast('Failed to delete subtask', 'error');
@@ -515,39 +558,34 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div onkeydown={handleKeydown} style="padding: 28px 28px 32px; display: flex; flex-direction: column; gap: 22px;">
-  <!-- Header -->
-  <div style="display: flex; align-items: center; justify-content: space-between;">
-    <span style="font-size: 18px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-primary);">{headerText}</span>
+<div onkeydown={handleKeydown} style="padding: 28px 28px 32px; display: flex; flex-direction: column; gap: 18px;">
+  <!-- 1. Title row: [checkbox] [editable title] [× close] -->
+  <div style="display: flex; align-items: flex-start; gap: 8px;">
+    {#if mode === 'edit' && task}
+      <div style="margin-top: 7px; flex-shrink: 0;">
+        <Checkbox checked={task.done} onchange={handleDoneToggle} />
+      </div>
+    {/if}
+    <textarea
+      class="detail-title-editable"
+      bind:this={titleRef}
+      bind:value={title}
+      oninput={mode !== 'create' ? handleTitleInput : handleTitleInputCreate}
+      placeholder="What needs to be done?"
+      rows={1}
+      style="text-decoration: {mode === 'edit' && task?.done ? 'line-through' : 'none'}; opacity: {mode === 'edit' && task?.done ? '0.65' : '1'};"
+    ></textarea>
     <button
       aria-label="Close"
       onclick={onclose}
-      style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--text-tertiary); cursor: pointer; border-radius: 6px; font-size: 18px; transition: color 150ms;"
+      class="detail-close-btn"
+      style="margin-top: 3px;"
     >&times;</button>
   </div>
 
-  <!-- Done checkbox (edit mode only) -->
-  {#if mode === 'edit' && task}
-    <div style="display: flex; align-items: center; gap: 10px;">
-      <Checkbox checked={task.done} onchange={handleDoneToggle} />
-      <span style="font-size: 14px; color: {task.done ? 'var(--done)' : 'var(--text-secondary)'}; font-weight: 500;">
-        {task.done ? 'Completed' : 'Mark as done'}
-      </span>
-    </div>
-  {/if}
-
-  <!-- Title -->
-  <div style="display: flex; flex-direction: column; gap: 6px;">
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Title</label>
-    <Input placeholder="What needs to be done?" bind:value={title} bind:ref={titleRef} oninput={mode !== 'create' ? handleTitleInput : undefined} />
-  </div>
-
-  <!-- Project + Priority row -->
-  <div style="display: flex; gap: 16px; align-items: flex-end;">
-    <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Project</label>
+  <!-- 2. Metadata row: project + priority + date + est. minutes -->
+  <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+    <div style="flex-shrink: 0;">
       {#if creatingProject}
         <div style="display: flex; gap: 8px; align-items: center;">
           <Input placeholder="Project name..." bind:value={newProjectName} height={34} onkeydown={(e) => { if (e.key === 'Enter') handleCreateProject(); if (e.key === 'Escape') creatingProject = false; }} style="flex: 1;" />
@@ -559,149 +597,179 @@
           value={projectValue}
           onchange={handleProjectChange}
           placeholder="Select project..."
-          width={200}
+          width={180}
         />
       {/if}
     </div>
-    <div style="display: flex; flex-direction: column; gap: 6px;">
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Priority</label>
-      <div style="display: flex; align-items: center; gap: 5px; height: 34px;">
-        {#each [1, 2, 3, 4, 5] as level (level)}
-          <button
-            type="button"
-            aria-label="Priority {level}"
-            onclick={() => handlePriorityChange(level)}
-            style="width: 16px; height: 16px; border-radius: 50%; border: none; cursor: pointer; background: {level <= priority ? priorityColors[priority] : 'var(--border-default)'}; transition: all 150ms; transform: {level <= priority ? 'scale(1)' : 'scale(0.85)'};"
-          ></button>
-        {/each}
+    <div style="display: flex; align-items: center; gap: 5px; height: 34px; flex-shrink: 0;">
+      {#each [1, 2, 3, 4, 5] as level (level)}
+        <button
+          type="button"
+          aria-label="Priority {level}"
+          onclick={() => handlePriorityChange(level)}
+          style="width: 16px; height: 16px; border-radius: 50%; border: none; cursor: pointer; background: {level <= priority ? priorityColors[priority] : 'var(--border-default)'}; transition: all 150ms; transform: {level <= priority ? 'scale(1)' : 'scale(0.85)'};"
+        ></button>
+      {/each}
+    </div>
+    <div style="flex-shrink: 0;">
+      <DatePicker value={dueDate} onchange={handleDateChange} />
+    </div>
+    {#if mode === 'proposal' || mode === 'create'}
+      <div style="flex-shrink: 0;">
+        <Input placeholder="Est. minutes" type="number" bind:value={estimatedMinutes} oninput={mode !== 'create' ? handleEstimatedMinutesInput : undefined} height={34} style="width: 110px;" />
       </div>
+    {/if}
+  </div>
+
+  <!-- 3. Labels -->
+  <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+    {#if mode === 'proposal'}
+      {#each proposalLabelNames as name (name)}
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+        <span
+          onclick={() => removeProposalLabel(name)}
+          style="display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; font-size: 12.5px; font-weight: 500; color: var(--text-secondary); background: var(--bg-elevated); border-radius: 9999px; cursor: pointer;"
+        >
+          {name}
+          <span style="font-size: 10px; opacity: 0.6;">&times;</span>
+        </span>
+      {/each}
+    {:else}
+      {#each currentLabels as label (label.id)}
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+        <span
+          onclick={() => removeLabel(label)}
+          style="display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; font-size: 12.5px; font-weight: 500; color: {label.hex_color || 'var(--text-secondary)'}; background: {label.hex_color ? label.hex_color + '20' : 'var(--bg-elevated)'}; border-radius: 9999px; cursor: pointer;"
+        >
+          {label.title}
+          <span style="font-size: 10px; opacity: 0.6;">&times;</span>
+        </span>
+      {/each}
+    {/if}
+
+    <div style="position: relative;">
+      <button
+        type="button"
+        onclick={() => {
+          showLabelPicker = !showLabelPicker;
+          if (showLabelPicker && labelsStore.labels.length === 0) {
+            labelsStore.fetchAll();
+          }
+        }}
+        style="height: 24px; padding: 0 9px; font-size: 12.5px; font-weight: 500; color: var(--text-tertiary); background: var(--bg-elevated); border: 1px dashed var(--border-default); border-radius: 9999px; cursor: pointer; font-family: var(--font-sans);"
+      >+ Add</button>
+
+      {#if showLabelPicker}
+        <div style="position: absolute; top: calc(100% + 4px); left: 0; z-index: 300; background: var(--bg-elevated); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow-lg); padding: 4px; min-width: 180px; max-height: 260px; overflow-y: auto; animation: fadeIn 100ms ease-out;">
+          {#if labelsStore.loading}
+            <div style="padding: 10px 12px; font-size: 13px; color: var(--text-tertiary);">Loading...</div>
+          {:else}
+            {#if availableLabels.length > 0}
+              {#each availableLabels as label (label.id)}
+                <button
+                  type="button"
+                  onclick={() => addLabel(label)}
+                  style="width: 100%; padding: 6px 10px; font-size: 13px; color: {label.hex_color || 'var(--text-secondary)'}; background: transparent; border: none; border-radius: 6px; cursor: pointer; text-align: left; font-family: var(--font-sans); display: flex; align-items: center; gap: 8px;"
+                >
+                  <span style="width: 8px; height: 8px; border-radius: 50%; background: {label.hex_color || 'var(--text-tertiary)'}; flex-shrink: 0;"></span>
+                  {label.title}
+                </button>
+              {/each}
+            {:else}
+              <div style="padding: 10px 12px; font-size: 13px; color: var(--text-tertiary);">No labels available</div>
+            {/if}
+
+            <!-- Divider + Create Label -->
+            <div style="border-top: 1px solid var(--border-default); margin: 4px 0;"></div>
+            {#if creatingLabel}
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div style="padding: 6px 8px; display: flex; flex-direction: column; gap: 6px;" onkeydown={(e) => { if (e.key === 'Escape') { creatingLabel = false; } }}>
+                <input
+                  type="text"
+                  placeholder="Label name..."
+                  bind:value={newLabelTitle}
+                  onkeydown={(e) => { if (e.key === 'Enter') handleCreateLabel(); }}
+                  style="width: 100%; height: 28px; padding: 0 8px; font-size: 13px; font-family: var(--font-sans); color: var(--text-primary); background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 6px; outline: none; box-sizing: border-box;"
+                />
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <div style="display: flex; gap: 4px; align-items: center;">
+                    {#each labelColors as color (color)}
+                      <button
+                        type="button"
+                        aria-label="Color {color}"
+                        onclick={() => { newLabelColor = color; }}
+                        style="width: 20px; height: 20px; border-radius: 50%; background: {color}; border: 2px solid {newLabelColor === color ? 'var(--text-primary)' : 'transparent'}; cursor: pointer; padding: 0; transition: all 150ms; transform: {newLabelColor === color ? 'scale(1.15)' : 'scale(1)'};"
+                      ></button>
+                    {/each}
+                  </div>
+                  <Button variant="accent" size="sm" loading={newLabelLoading} onclick={handleCreateLabel}>Create</Button>
+                </div>
+              </div>
+            {:else}
+              <button
+                type="button"
+                onclick={() => { creatingLabel = true; }}
+                style="width: 100%; padding: 6px 10px; font-size: 13px; color: var(--text-tertiary); background: transparent; border: none; border-radius: 6px; cursor: pointer; text-align: left; font-family: var(--font-sans);"
+              >+ Create Label</button>
+            {/if}
+          {/if}
+        </div>
+      {/if}
     </div>
   </div>
 
-  <!-- Due date -->
-  <div style="display: flex; flex-direction: column; gap: 6px;">
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Due date</label>
-    <DatePicker value={dueDate} onchange={handleDateChange} />
-  </div>
+  <!-- 4. Subtasks (edit mode only) -->
+  {#if mode === 'edit' && task}
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      {#if subtasksLoading}
+        <div style="font-size: 13px; color: var(--text-tertiary);">Loading...</div>
+      {:else}
+        {#if subtasks.length > 0}
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            {#each subtasks as st (st.id)}
+              <div style="display: flex; align-items: center; gap: 8px; padding: 5px 8px; background: var(--bg-elevated); border-radius: 6px; font-size: 13px;">
+                <Checkbox checked={st.done} onchange={() => toggleSubtask(st)} />
+                <span style="flex: 1; color: {st.done ? 'var(--text-tertiary)' : 'var(--text-primary)'}; text-decoration: {st.done ? 'line-through' : 'none'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  {st.title}
+                </span>
+                <button
+                  type="button"
+                  onclick={() => deleteSubtask(st)}
+                  aria-label="Delete subtask"
+                  style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--text-tertiary); cursor: pointer; border-radius: 4px; font-size: 14px; flex-shrink: 0; opacity: 0.6; transition: opacity 150ms;"
+                >&times;</button>
+              </div>
+            {/each}
+          </div>
+        {/if}
 
-  <!-- Estimated minutes (proposal mode or create mode) -->
-  {#if mode === 'proposal' || mode === 'create'}
-    <div style="display: flex; flex-direction: column; gap: 6px;">
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Estimated minutes</label>
-      <Input placeholder="e.g. 30" type="number" bind:value={estimatedMinutes} oninput={mode !== 'create' ? handleEstimatedMinutesInput : undefined} height={34} style="width: 120px;" />
+        <!-- Add subtask input -->
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <Input
+            placeholder="Add subtask..."
+            bind:value={newSubtaskTitle}
+            height={32}
+            onkeydown={(e) => { if (e.key === 'Enter') handleAddSubtask(); }}
+            style="flex: 1;"
+          />
+          <Button variant="ghost" size="sm" loading={addingSubtask} onclick={handleAddSubtask}>Add</Button>
+        </div>
+      {/if}
     </div>
   {/if}
 
-  <!-- Labels -->
-  <div style="display: flex; flex-direction: column; gap: 6px;">
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Labels</label>
-    <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
-      {#if mode === 'proposal'}
-        {#each proposalLabelNames as name (name)}
-          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-          <span
-            onclick={() => removeProposalLabel(name)}
-            style="display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; font-size: 12.5px; font-weight: 500; color: var(--text-secondary); background: var(--bg-elevated); border-radius: 9999px; cursor: pointer;"
-          >
-            {name}
-            <span style="font-size: 10px; opacity: 0.6;">&times;</span>
-          </span>
-        {/each}
-      {:else}
-        {#each currentLabels as label (label.id)}
-          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-          <span
-            onclick={() => removeLabel(label)}
-            style="display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; font-size: 12.5px; font-weight: 500; color: {label.hex_color || 'var(--text-secondary)'}; background: {label.hex_color ? label.hex_color + '20' : 'var(--bg-elevated)'}; border-radius: 9999px; cursor: pointer;"
-          >
-            {label.title}
-            <span style="font-size: 10px; opacity: 0.6;">&times;</span>
-          </span>
-        {/each}
-      {/if}
+  <!-- 5. Description -->
+  <textarea
+    class="detail-description"
+    bind:value={description}
+    oninput={mode !== 'create' ? handleDescriptionInput : handleDescriptionInputCreate}
+    placeholder="Add notes..."
+    rows={2}
+  ></textarea>
 
-      <div style="position: relative;">
-        <button
-          type="button"
-          onclick={() => {
-            showLabelPicker = !showLabelPicker;
-            if (showLabelPicker && labelsStore.labels.length === 0) {
-              labelsStore.fetchAll();
-            }
-          }}
-          style="height: 24px; padding: 0 9px; font-size: 12.5px; font-weight: 500; color: var(--text-tertiary); background: var(--bg-elevated); border: 1px dashed var(--border-default); border-radius: 9999px; cursor: pointer; font-family: var(--font-sans);"
-        >+ Add</button>
-
-        {#if showLabelPicker}
-          <div style="position: absolute; top: calc(100% + 4px); left: 0; z-index: 300; background: var(--bg-elevated); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow-lg); padding: 4px; min-width: 180px; max-height: 260px; overflow-y: auto; animation: fadeIn 100ms ease-out;">
-            {#if labelsStore.loading}
-              <div style="padding: 10px 12px; font-size: 13px; color: var(--text-tertiary);">Loading...</div>
-            {:else}
-              {#if availableLabels.length > 0}
-                {#each availableLabels as label (label.id)}
-                  <button
-                    type="button"
-                    onclick={() => addLabel(label)}
-                    style="width: 100%; padding: 6px 10px; font-size: 13px; color: {label.hex_color || 'var(--text-secondary)'}; background: transparent; border: none; border-radius: 6px; cursor: pointer; text-align: left; font-family: var(--font-sans); display: flex; align-items: center; gap: 8px;"
-                  >
-                    <span style="width: 8px; height: 8px; border-radius: 50%; background: {label.hex_color || 'var(--text-tertiary)'}; flex-shrink: 0;"></span>
-                    {label.title}
-                  </button>
-                {/each}
-              {:else}
-                <div style="padding: 10px 12px; font-size: 13px; color: var(--text-tertiary);">No labels available</div>
-              {/if}
-
-              <!-- Divider + Create Label -->
-              <div style="border-top: 1px solid var(--border-default); margin: 4px 0;"></div>
-              {#if creatingLabel}
-                <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div style="padding: 6px 8px; display: flex; flex-direction: column; gap: 6px;" onkeydown={(e) => { if (e.key === 'Escape') { creatingLabel = false; } }}>
-                  <input
-                    type="text"
-                    placeholder="Label name..."
-                    bind:value={newLabelTitle}
-                    onkeydown={(e) => { if (e.key === 'Enter') handleCreateLabel(); }}
-                    style="width: 100%; height: 28px; padding: 0 8px; font-size: 13px; font-family: var(--font-sans); color: var(--text-primary); background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 6px; outline: none; box-sizing: border-box;"
-                  />
-                  <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="display: flex; gap: 4px; align-items: center;">
-                      {#each labelColors as color (color)}
-                        <button
-                          type="button"
-                          aria-label="Color {color}"
-                          onclick={() => { newLabelColor = color; }}
-                          style="width: 20px; height: 20px; border-radius: 50%; background: {color}; border: 2px solid {newLabelColor === color ? 'var(--text-primary)' : 'transparent'}; cursor: pointer; padding: 0; transition: all 150ms; transform: {newLabelColor === color ? 'scale(1.15)' : 'scale(1)'};"
-                        ></button>
-                      {/each}
-                    </div>
-                    <Button variant="accent" size="sm" loading={newLabelLoading} onclick={handleCreateLabel}>Create</Button>
-                  </div>
-                </div>
-              {:else}
-                <button
-                  type="button"
-                  onclick={() => { creatingLabel = true; }}
-                  style="width: 100%; padding: 6px 10px; font-size: 13px; color: var(--text-tertiary); background: transparent; border: none; border-radius: 6px; cursor: pointer; text-align: left; font-family: var(--font-sans);"
-                >+ Create Label</button>
-              {/if}
-            {/if}
-          </div>
-        {/if}
-      </div>
-    </div>
-  </div>
-
-  <!-- Attachments (edit mode only) -->
+  <!-- 6. Attachments (edit mode only) -->
   {#if mode === 'edit' && task}
     <div style="display: flex; flex-direction: column; gap: 6px;">
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Attachments</label>
-
       {#if attachmentsLoading}
         <div style="font-size: 13px; color: var(--text-tertiary);">Loading...</div>
       {:else}
@@ -784,73 +852,136 @@
     </div>
   {/if}
 
-  <!-- Subtasks (edit mode only) -->
-  {#if mode === 'edit' && task}
-    <div style="display: flex; flex-direction: column; gap: 6px;">
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Subtasks</label>
-
-      {#if subtasksLoading}
-        <div style="font-size: 13px; color: var(--text-tertiary);">Loading...</div>
-      {:else}
-        {#if subtasks.length > 0}
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            {#each subtasks as st (st.id)}
-              <div style="display: flex; align-items: center; gap: 8px; padding: 5px 8px; background: var(--bg-elevated); border-radius: 6px; font-size: 13px;">
-                <Checkbox checked={st.done} onchange={() => toggleSubtask(st)} />
-                <span style="flex: 1; color: {st.done ? 'var(--text-tertiary)' : 'var(--text-primary)'}; text-decoration: {st.done ? 'line-through' : 'none'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                  {st.title}
-                </span>
-                <button
-                  type="button"
-                  onclick={() => deleteSubtask(st)}
-                  aria-label="Delete subtask"
-                  style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--text-tertiary); cursor: pointer; border-radius: 4px; font-size: 14px; flex-shrink: 0; opacity: 0.6; transition: opacity 150ms;"
-                >&times;</button>
-              </div>
-            {/each}
-          </div>
-        {/if}
-
-        <!-- Add subtask input -->
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <Input
-            placeholder="Add subtask..."
-            bind:value={newSubtaskTitle}
-            height={32}
-            onkeydown={(e) => { if (e.key === 'Enter') handleAddSubtask(); }}
-            style="flex: 1;"
-          />
-          <Button variant="ghost" size="sm" loading={addingSubtask} onclick={handleAddSubtask}>Add</Button>
-        </div>
-      {/if}
-    </div>
-  {/if}
-
-  <!-- Description -->
-  <div style="display: flex; flex-direction: column; gap: 6px;">
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Description</label>
-    <Textarea placeholder="Add details..." bind:value={description} rows={4} oninput={mode !== 'create' ? handleDescriptionInput : undefined} />
-  </div>
-
-  <!-- Actions -->
-  <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px;">
-    {#if mode === 'create'}
+  <!-- 7. Actions / Timestamps / Delete -->
+  {#if mode === 'create'}
+    <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px;">
       <Button variant="accent" loading={creating} onclick={handleCreate}>Create Task</Button>
       <span style="font-size: 12px; color: var(--text-tertiary); display: flex; align-items: center; gap: 4px;">
         <Kbd>{navigator?.platform?.includes('Mac') ? '⌘' : 'Ctrl'}+Enter</Kbd>
       </span>
-    {:else if mode === 'edit'}
-      <Button variant="danger" size="sm" loading={deleting} onclick={handleDelete}>Delete Task</Button>
-    {/if}
-  </div>
-
-  <!-- Timestamps (edit mode) -->
-  {#if mode === 'edit' && task}
-    <div style="margin-top: 8px; font-size: 12px; color: var(--text-tertiary); display: flex; flex-direction: column; gap: 4px;">
-      <span>Created: {new Date(task.created).toLocaleString()}</span>
-      <span>Updated: {new Date(task.updated).toLocaleString()}</span>
+    </div>
+  {:else if mode === 'edit' && task}
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+      <div style="font-size: 12px; color: var(--text-tertiary); display: flex; flex-direction: column; gap: 4px;">
+        <span>Created: {new Date(task.created).toLocaleString()}</span>
+        <span>Updated: {new Date(task.updated).toLocaleString()}</span>
+      </div>
+      <button
+        type="button"
+        class="detail-delete-btn"
+        onclick={handleDelete}
+        disabled={deleting}
+      >
+        {deleting ? 'Deleting...' : 'Delete task'}
+      </button>
     </div>
   {/if}
 </div>
+
+<style>
+  /* Inline-editable title textarea */
+  .detail-title-editable {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-family: var(--font-sans);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    outline: none;
+    resize: none;
+    overflow: hidden;
+    padding: 4px 8px;
+    line-height: 1.3;
+    transition: border-color 150ms, background-color 150ms;
+  }
+  .detail-title-editable::placeholder {
+    color: var(--text-tertiary);
+    opacity: 0.7;
+    font-style: italic;
+  }
+  .detail-title-editable:hover {
+    border-color: var(--border-default);
+    background-color: rgba(0, 0, 0, 0.15);
+  }
+  .detail-title-editable:focus {
+    border-color: var(--border-strong);
+    background-color: rgba(0, 0, 0, 0.2);
+  }
+
+  /* Inline-editable description textarea */
+  .detail-description {
+    width: 100%;
+    min-height: 48px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--text-secondary);
+    outline: none;
+    resize: none;
+    overflow: hidden;
+    padding: 8px;
+    line-height: 1.5;
+    transition: border-color 150ms, background-color 150ms;
+    box-sizing: border-box;
+  }
+  .detail-description::placeholder {
+    color: var(--text-tertiary);
+    opacity: 0.7;
+    font-style: italic;
+  }
+  .detail-description:hover {
+    border-color: var(--border-default);
+    background-color: rgba(0, 0, 0, 0.15);
+  }
+  .detail-description:focus {
+    border-color: var(--border-strong);
+    background-color: rgba(0, 0, 0, 0.2);
+  }
+
+  /* Close button */
+  .detail-close-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 18px;
+    flex-shrink: 0;
+    transition: color 150ms, background-color 150ms;
+  }
+  .detail-close-btn:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-surface-hover);
+  }
+
+  /* Subtle delete button */
+  .detail-delete-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 4px 0;
+    text-align: left;
+    transition: color 150ms;
+  }
+  .detail-delete-btn:hover {
+    color: var(--priority-urgent);
+  }
+  .detail-delete-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+</style>

@@ -9,7 +9,11 @@ export interface FetchParams {
 }
 
 function normalizeTask(t: Task): Task {
-  return { ...t, labels: t.labels ?? [] };
+  return {
+    ...t,
+    labels: t.labels ?? [],
+    due_date: t.due_date && !t.due_date.startsWith('0001-01-01') ? t.due_date : null,
+  };
 }
 
 function createTasksStore() {

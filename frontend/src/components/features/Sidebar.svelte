@@ -4,6 +4,8 @@
   import { allTasksIcon, upcomingIcon, overdueIcon, extractIcon, settingsIcon } from '$lib/icons';
   import { registerRect } from '$lib/stores/sidebarRects.svelte';
   import Tip from '$components/ui/Tip.svelte';
+  import ProjectContextMenu from './ProjectContextMenu.svelte';
+  import { goto } from '$app/navigation';
 
   let { ontoggleextract, extractOpen = false }: { ontoggleextract?: () => void; extractOpen?: boolean } = $props();
 
@@ -53,6 +55,115 @@
   }
 
   const isSettingsPage = $derived(currentPath.startsWith('/settings'));
+
+  // Context menu state
+  let contextMenu = $state<{ project: typeof projectsStore.projects[0]; x: number; y: number } | null>(null);
+
+  // Project creation pop-out state
+  let createOpen = $state(false);
+  let createPos = $state({ x: 0, y: 0 });
+  let newProjectName = $state('');
+  let createInput = $state<HTMLInputElement | null>(null);
+  let createPanel = $state<HTMLDivElement | null>(null);
+  let selectedColor = $state('');
+
+  const COLORS = [
+    { name: 'Tangerine', hex: '#E8772E' },
+    { name: 'Coral', hex: '#E85D5D' },
+    { name: 'Gold', hex: '#D4A845' },
+    { name: 'Emerald', hex: '#4CAF7D' },
+    { name: 'Teal', hex: '#45A5A5' },
+    { name: 'Blue', hex: '#5B8DEF' },
+    { name: 'Violet', hex: '#9B72CF' },
+    { name: 'Rose', hex: '#CF72A8' },
+  ] as const;
+
+  // Drag-and-drop state
+  let dragProjectId = $state<number | null>(null);
+  let dragOverIdx = $state<number | null>(null);
+
+  function handleContextMenu(e: MouseEvent, project: typeof projectsStore.projects[0]) {
+    e.preventDefault();
+    contextMenu = { project, x: e.clientX, y: e.clientY };
+  }
+
+  function startCreating(e: MouseEvent) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    createPos = { x: rect.right + 8, y: rect.top };
+    createOpen = true;
+    newProjectName = '';
+    selectedColor = '';
+    requestAnimationFrame(() => createInput?.focus());
+  }
+
+  async function submitCreate() {
+    const name = newProjectName.trim();
+    if (!name) {
+      createOpen = false;
+      return;
+    }
+    try {
+      await projectsStore.create({ title: name, ...(selectedColor ? { hex_color: selectedColor } : {}) });
+    } catch {
+      // store handles error
+    }
+    createOpen = false;
+    newProjectName = '';
+    selectedColor = '';
+  }
+
+  function handleCreateKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitCreate();
+    } else if (e.key === 'Escape') {
+      createOpen = false;
+    }
+  }
+
+  // Click-outside to dismiss create panel
+  $effect(() => {
+    if (!createOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (createPanel && !createPanel.contains(e.target as Node)) {
+        submitCreate();
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside, true);
+    return () => document.removeEventListener('mousedown', handleClickOutside, true);
+  });
+
+  function handleDragStart(e: DragEvent, projectId: number) {
+    dragProjectId = projectId;
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(projectId));
+    }
+  }
+
+  function handleDragOver(e: DragEvent, idx: number) {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    dragOverIdx = idx;
+  }
+
+  function handleDragLeave() {
+    dragOverIdx = null;
+  }
+
+  async function handleDrop(e: DragEvent, targetIdx: number) {
+    e.preventDefault();
+    dragOverIdx = null;
+    if (dragProjectId === null) return;
+    const id = dragProjectId;
+    dragProjectId = null;
+    await projectsStore.reorder(id, targetIdx);
+  }
+
+  function handleDragEnd() {
+    dragProjectId = null;
+    dragOverIdx = null;
+  }
 </script>
 
 <nav
@@ -106,13 +217,23 @@
         {@const dots = dotCount(count)}
         {@const pulsing = pulsingProject === project.id}
         <Tip text="{project.title} ({count})" side="right">
-          <a
-            href="/project/{project.id}"
+          <div
             class="project-zone"
             class:project-active={active}
+            class:drag-over={dragOverIdx === idx}
+            role="link"
+            tabindex="0"
             aria-label="{project.title} ({count} tasks)"
-            onclick={() => handleProjectClick(project.id)}
-            style="animation-delay: {idx * 50}ms;"
+            onclick={() => { handleProjectClick(project.id); goto(`/project/${project.id}`); }}
+            onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleProjectClick(project.id); goto(`/project/${project.id}`); } }}
+            oncontextmenu={(e: MouseEvent) => handleContextMenu(e, project)}
+            draggable="true"
+            ondragstart={(e: DragEvent) => handleDragStart(e, project.id)}
+            ondragover={(e: DragEvent) => handleDragOver(e, idx)}
+            ondragleave={handleDragLeave}
+            ondrop={(e: DragEvent) => handleDrop(e, idx)}
+            ondragend={handleDragEnd}
+            style="animation-delay: {idx * 50}ms; cursor: pointer;"
             use:registerRect={`/project/${project.id}`}
           >
             {#if active}
@@ -133,10 +254,20 @@
             <span class="project-label" class:project-label-active={active}>
               {project.title.slice(0, 2).toUpperCase()}
             </span>
-          </a>
+          </div>
         </Tip>
       {/each}
     {/if}
+
+    <!-- Create project button -->
+    <Tip text="New project" side="right">
+      <button class="create-btn" aria-label="Create project" onclick={startCreating}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14"/>
+          <path d="M5 12h14"/>
+        </svg>
+      </button>
+    </Tip>
   </div>
 
   <div style="flex: 1;"></div>
@@ -160,6 +291,48 @@
       </a>
     </Tip>
   </div>
+
+  {#if createOpen}
+    <div
+      bind:this={createPanel}
+      class="create-popout"
+      style="left: {createPos.x}px; top: {createPos.y}px;"
+    >
+      <input
+        bind:this={createInput}
+        bind:value={newProjectName}
+        onkeydown={handleCreateKeydown}
+        class="create-popout-input"
+        type="text"
+        placeholder="Project name"
+        spellcheck="false"
+      />
+      <div class="create-swatches">
+        {#each COLORS as color (color.hex)}
+          <button
+            class="create-swatch"
+            class:selected={selectedColor === color.hex}
+            style="background: {color.hex};"
+            title={color.name}
+            onclick={() => selectedColor = selectedColor === color.hex ? '' : color.hex}
+          ></button>
+        {/each}
+      </div>
+    </div>
+  {/if}
+
+  {#if contextMenu}
+    <ProjectContextMenu
+      project={contextMenu.project}
+      position={{ x: contextMenu.x, y: contextMenu.y }}
+      onclose={() => contextMenu = null}
+      ondelete={() => {
+        if (currentPath === `/project/${contextMenu?.project.id}`) {
+          goto('/');
+        }
+      }}
+    />
+  {/if}
 </nav>
 
 <style>
@@ -402,5 +575,99 @@
   .settings-active {
     opacity: 0.7;
     background: var(--accent-subtle);
+  }
+
+  /* Create project */
+  .create-btn {
+    width: 40px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    opacity: 0.4;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: opacity var(--transition-fast) ease-out, background var(--transition-fast) ease-out;
+    margin-top: 4px;
+  }
+
+  .create-btn:hover {
+    opacity: 0.8;
+    background: var(--bg-surface-hover);
+  }
+
+  .create-popout {
+    position: fixed;
+    z-index: 300;
+    width: 200px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .create-popout-input {
+    width: 100%;
+    padding: 7px 10px;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
+    border-radius: 6px;
+    outline: none;
+    font-family: var(--font-sans);
+    box-sizing: border-box;
+  }
+
+  .create-popout-input:focus {
+    border-color: var(--accent);
+  }
+
+  .create-swatches {
+    display: flex;
+    gap: 6px;
+    padding: 2px 2px;
+    flex-wrap: wrap;
+  }
+
+  .create-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 150ms, transform 150ms;
+    padding: 0;
+  }
+
+  .create-swatch:hover {
+    transform: scale(1.15);
+  }
+
+  .create-swatch.selected {
+    border-color: var(--text-primary);
+  }
+
+  /* Drag and drop */
+  .drag-over {
+    position: relative;
+  }
+
+  .drag-over::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 4px;
+    right: 4px;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 1px;
   }
 </style>

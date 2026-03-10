@@ -61,6 +61,16 @@ class VikunjaClient:
         """Fetch a single project by ID."""
         return await self._request("GET", f"/projects/{project_id}")
 
+    async def update_project(self, project_id: int, data: dict) -> dict:
+        """Update project fields. Fetches current state first to avoid Go zero-value wipe."""
+        current = await self.get_project(project_id)
+        current.update(data)
+        return await self._request("POST", f"/projects/{project_id}", json=current)
+
+    async def delete_project(self, project_id: int) -> dict:
+        """Delete a project."""
+        return await self._request("DELETE", f"/projects/{project_id}")
+
     async def list_project_views(self, project_id: int) -> list[dict]:
         """Return all views for a project."""
         data = await self._request("GET", f"/projects/{project_id}/views")

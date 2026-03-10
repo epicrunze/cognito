@@ -4,12 +4,17 @@
   let {
     value = '',
     onchange,
+    initialOpen = false,
   }: {
     value?: string;
     onchange: (date: string | null) => void;
+    initialOpen?: boolean;
   } = $props();
 
   let open = $state(false);
+
+  // Set initial open state once on mount
+  onMount(() => { if (initialOpen) open = true; });
   let ref: HTMLDivElement;
 
   // Current view month/year

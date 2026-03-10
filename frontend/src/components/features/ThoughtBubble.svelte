@@ -4,6 +4,7 @@
   import { updateTask, toggleDone, deleteTask } from '$lib/stores/taskMutations';
   import { filterStore } from '$lib/stores/filter.svelte';
   import { bubbleStore } from '$lib/stores/bubble.svelte';
+  import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
   import { proposalsApi, subtasksApi } from '$lib/api';
   import { addToast } from '$lib/stores/toast.svelte';
   import { onMount, tick } from 'svelte';
@@ -83,7 +84,7 @@
         title: task.title,
         description: task.description,
         priority: task.priority,
-        dueDate: task.due_date,
+        dueDate: task.due_date && !task.due_date.startsWith('0001-01-01') ? task.due_date : null,
         projectId: task.project_id,
         projectName: null,
         labels: task.labels,
@@ -175,6 +176,7 @@
   // Date picker portal state
   let showDatePicker = $state(false);
   let dateAnchorRef = $state<HTMLElement | undefined>(undefined);
+  let datePortalRef = $state<HTMLDivElement | null>(null);
   let datePortalStyle = $state('');
 
   // Subtask state
@@ -201,6 +203,24 @@
     }
   });
 
+  // Re-fetch subtasks when changed externally (e.g. from TaskDetailContent)
+  $effect(() => {
+    if (!expanded || data.isProposal || !task) return;
+    const taskId = task.id;
+    function onSubtasksChanged(e: Event) {
+      const detail = (e as CustomEvent<{ taskId: number }>).detail;
+      if (detail.taskId === taskId) {
+        subtasksApi.list(taskId).then(list => { subtasks = list; }).catch(() => {});
+      }
+    }
+    window.addEventListener('subtasks-changed', onSubtasksChanged);
+    return () => window.removeEventListener('subtasks-changed', onSubtasksChanged);
+  });
+
+  function notifySubtasksChanged(taskId: number) {
+    window.dispatchEvent(new CustomEvent('subtasks-changed', { detail: { taskId } }));
+  }
+
   async function toggleSubtask(st: Subtask) {
     if (!task) return;
     const prev = st.done;
@@ -208,6 +228,7 @@
     subtasks = [...subtasks];
     try {
       await subtasksApi.update(task.id, st.id, { done: st.done });
+      notifySubtasksChanged(task.id);
     } catch {
       st.done = prev;
       subtasks = [...subtasks];
@@ -222,6 +243,7 @@
       const created = await subtasksApi.create(task.id, { title: newSubtaskTitle.trim(), project_id: task.project_id });
       subtasks = [created, ...subtasks];
       newSubtaskTitle = '';
+      notifySubtasksChanged(task.id);
     } catch {
       addToast('Failed to add subtask', 'error');
     } finally {
@@ -235,6 +257,7 @@
     subtasks = subtasks.filter(s => s !== st);
     try {
       await subtasksApi.delete(task.id, st.id);
+      notifySubtasksChanged(task.id);
     } catch {
       subtasks = [...subtasks.slice(0, idx), st, ...subtasks.slice(idx)];
       addToast('Failed to delete subtask', 'error');
@@ -255,6 +278,7 @@
   // Close date picker on outside click
   function handleDatePortalOutsideClick(e: MouseEvent) {
     if (dateAnchorRef?.contains(e.target as Node)) return;
+    if (datePortalRef?.contains(e.target as Node)) return;
     closeDatePicker();
   }
 
@@ -316,6 +340,9 @@
 
   function handleDueDateChange(date: string | null) {
     closeDatePicker();
+    // Skip no-op updates (e.g. blur firing onchange(null) when already no date)
+    if (!date && !data.dueDate) return;
+    if (date && data.dueDate && data.dueDate.startsWith(date)) return;
     if (data.isProposal && proposal) {
       saveProposalField({ due_date: date });
     } else if (task) {
@@ -347,6 +374,9 @@
       onclick?.();
     } else {
       bubbleStore.toggle(data.id);
+      if (taskDetailStore.isOpen) {
+        onclick?.();
+      }
     }
   }
 
@@ -642,8 +672,8 @@
 <!-- Date picker portal — renders at document level so it's never clipped -->
 {#if showDatePicker}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div style={datePortalStyle} onclick={(e) => e.stopPropagation()}>
-    <DatePicker value={data.dueDate ? data.dueDate.split('T')[0] : ''} onchange={handleDueDateChange} />
+  <div bind:this={datePortalRef} style={datePortalStyle} onclick={(e) => e.stopPropagation()}>
+    <DatePicker value={data.dueDate ? data.dueDate.split('T')[0] : ''} onchange={handleDueDateChange} initialOpen={true} />
   </div>
 {/if}
 

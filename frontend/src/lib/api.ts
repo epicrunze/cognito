@@ -145,12 +145,20 @@ export const tasksApi = {
 // ── Projects ───────────────────────────────────────────────────────────────
 
 export const projectsApi = {
-  list() {
-    return request<{ projects: Project[] }>('/projects');
+  list(params?: { include_archived?: boolean }) {
+    return request<{ projects: Project[] }>('/projects', { params });
   },
 
-  create(data: { title: string; description?: string }) {
+  create(data: { title: string; description?: string; hex_color?: string }) {
     return request<Project>('/projects', { method: 'POST', body: JSON.stringify(data) });
+  },
+
+  update(id: number, data: Partial<Pick<Project, 'title' | 'description' | 'hex_color' | 'is_archived' | 'position'>>) {
+    return request<Project>(`/projects/${id}`, { method: 'POST', body: JSON.stringify(data) });
+  },
+
+  delete(id: number) {
+    return request<{ success: boolean }>(`/projects/${id}`, { method: 'DELETE' });
   },
 
   sync() {
