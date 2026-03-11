@@ -1,16 +1,17 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { projectsStore, tasksStore } from '$lib/stores.svelte';
-  import { allTasksIcon, upcomingIcon, overdueIcon, extractIcon, settingsIcon } from '$lib/icons';
+  import { allTasksIcon, upcomingIcon, overdueIcon, settingsIcon } from '$lib/icons';
   import { registerRect } from '$lib/stores/sidebarRects.svelte';
-  import { projectIconStore } from '$lib/stores/projectIcons.svelte';
+  import { projectIconStore, ICON_EMOJIS } from '$lib/stores/projectIcons.svelte';
   import Tip from '$components/ui/Tip.svelte';
   import ProjectContextMenu from './ProjectContextMenu.svelte';
+  import ColorPicker from '$components/ui/ColorPicker.svelte';
+  import Button from '$components/ui/Button.svelte';
   import { goto } from '$app/navigation';
   import { dndzone } from 'svelte-dnd-action';
   import type { Project } from '$lib/types';
-
-  let { ontoggleextract, extractOpen = false }: { ontoggleextract?: () => void; extractOpen?: boolean } = $props();
+  import { PRESET_COLORS } from '$lib/constants';
 
   const currentPath = $derived($page.url.pathname);
 
@@ -42,17 +43,8 @@
   let createInput = $state<HTMLInputElement | null>(null);
   let createPanel = $state<HTMLDivElement | null>(null);
   let selectedColor = $state('');
-
-  const COLORS = [
-    { name: 'Tangerine', hex: '#E8772E' },
-    { name: 'Coral', hex: '#E85D5D' },
-    { name: 'Gold', hex: '#D4A845' },
-    { name: 'Emerald', hex: '#4CAF7D' },
-    { name: 'Teal', hex: '#45A5A5' },
-    { name: 'Blue', hex: '#5B8DEF' },
-    { name: 'Violet', hex: '#9B72CF' },
-    { name: 'Rose', hex: '#CF72A8' },
-  ] as const;
+  let selectedEmoji = $state('');
+  let showCustomColor = $state(false);
 
   // Drag-and-drop state (svelte-dnd-action)
   let localProjects = $state<Project[]>([]);
@@ -97,6 +89,8 @@
     createOpen = true;
     newProjectName = '';
     selectedColor = '';
+    selectedEmoji = '';
+    showCustomColor = false;
     requestAnimationFrame(() => createInput?.focus());
   }
 
@@ -107,13 +101,35 @@
       return;
     }
     try {
-      await projectsStore.create({ title: name, ...(selectedColor ? { hex_color: selectedColor } : {}) });
+      const project = await projectsStore.create({ title: name, ...(selectedColor ? { hex_color: selectedColor } : {}) });
+      if (selectedEmoji && project) {
+        projectIconStore.set(project.id, selectedEmoji);
+      }
+      if (project) {
+        // Trigger celebration animation after DOM updates
+        requestAnimationFrame(() => {
+          const el = document.querySelector(`[data-project-id="${project.id}"]`) as HTMLElement;
+          if (el) {
+            el.style.animation = 'projectBirth 400ms ease-out';
+            const color = selectedColor || 'var(--accent)';
+            el.style.boxShadow = `0 0 12px ${color}40`;
+            el.addEventListener('animationend', () => {
+              el.style.animation = '';
+            }, { once: true });
+            setTimeout(() => { el.style.boxShadow = ''; }, 1500);
+          }
+        });
+        // Navigate to the new project
+        goto(`/project/${project.id}`);
+      }
     } catch {
       // store handles error
     }
     createOpen = false;
     newProjectName = '';
     selectedColor = '';
+    selectedEmoji = '';
+    showCustomColor = false;
   }
 
   function handleCreateKeydown(e: KeyboardEvent) {
@@ -130,7 +146,11 @@
     if (!createOpen) return;
     function handleClickOutside(e: MouseEvent) {
       if (createPanel && !createPanel.contains(e.target as Node)) {
-        submitCreate();
+        createOpen = false;
+        newProjectName = '';
+        selectedColor = '';
+        selectedEmoji = '';
+        showCustomColor = false;
       }
     }
     document.addEventListener('mousedown', handleClickOutside, true);
@@ -196,6 +216,7 @@
           <div
             class="project-zone"
             class:project-active={active}
+            data-project-id={project.id}
             role="link"
             tabindex="0"
             aria-label="{project.title} ({count} tasks)"
@@ -234,17 +255,6 @@
 
   <div style="flex: 1;"></div>
 
-  <!-- AI Extract -->
-  <div class="extract-zone">
-    <Tip text="AI Extract" side="right">
-      <button class="extract-btn" class:extract-active={extractOpen} aria-label="AI Extract" onclick={() => ontoggleextract?.()}>
-        <span class="diamond-icon">
-          {@html extractIcon}
-        </span>
-      </button>
-    </Tip>
-  </div>
-
   <!-- Settings -->
   <div class="settings-zone">
     <Tip text="Settings" side="right">
@@ -260,6 +270,16 @@
       class="create-popout"
       style="left: {createPos.x}px; top: {createPos.y}px;"
     >
+      <!-- Live preview -->
+      <div class="create-preview">
+        <span class="create-preview-ring" style="border-color: {selectedColor || 'var(--text-tertiary)'};">
+          {selectedEmoji || (newProjectName.trim() ? newProjectName.trim().slice(0, 1).toUpperCase() : '?')}
+        </span>
+        <span class="create-preview-name">
+          {newProjectName.trim() || 'New project'}
+        </span>
+      </div>
+
       <input
         bind:this={createInput}
         bind:value={newProjectName}
@@ -269,17 +289,45 @@
         placeholder="Project name"
         spellcheck="false"
       />
+
+      <!-- Icon picker -->
+      <div class="create-section-label">Icon</div>
+      <div class="create-emoji-row">
+        {#each ICON_EMOJIS.slice(0, 8) as emoji (emoji)}
+          <button
+            class="create-emoji"
+            class:selected={selectedEmoji === emoji}
+            onclick={() => selectedEmoji = selectedEmoji === emoji ? '' : emoji}
+          >{emoji}</button>
+        {/each}
+      </div>
+
+      <!-- Color swatches -->
+      <div class="create-section-label">Color</div>
       <div class="create-swatches">
-        {#each COLORS as color (color.hex)}
+        {#each PRESET_COLORS as color (color.hex)}
           <button
             class="create-swatch"
             class:selected={selectedColor === color.hex}
             style="background: {color.hex};"
             title={color.name}
-            onclick={() => selectedColor = selectedColor === color.hex ? '' : color.hex}
+            onclick={() => { selectedColor = selectedColor === color.hex ? '' : color.hex; }}
           ></button>
         {/each}
       </div>
+      <button class="create-custom-toggle" onclick={() => showCustomColor = !showCustomColor}>
+        {showCustomColor ? 'Hide custom' : 'Custom...'}
+      </button>
+      {#if showCustomColor}
+        <div class="create-custom-color">
+          <ColorPicker value={selectedColor || '#E8772E'} onchange={(hex: string) => selectedColor = hex} />
+        </div>
+      {/if}
+
+      <!-- Create button -->
+      <Button variant="accent" size="sm" disabled={!newProjectName.trim()} onclick={submitCreate} style="width: 100%; justify-content: center; margin-top: 4px;">
+        Create project
+      </Button>
     </div>
   {/if}
 
@@ -419,7 +467,7 @@
     text-decoration: none;
     border-radius: 6px;
     padding: 4px 0;
-    transition: background var(--transition-fast) ease-out;
+    transition: background var(--transition-fast) ease-out, box-shadow 1.5s ease-out;
     animation: fadeIn 300ms ease-out both;
   }
 
@@ -468,45 +516,6 @@
 
   .project-label-active {
     color: var(--text-primary);
-  }
-
-  /* Extract */
-  .extract-zone {
-    margin-bottom: 48px;
-  }
-
-  .extract-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--accent-subtle);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--accent);
-    text-decoration: none;
-    transition: background var(--transition-fast) ease-out, box-shadow var(--transition-fast) ease-out;
-  }
-
-  .extract-btn:hover {
-    background: var(--accent-glow);
-    box-shadow: 0 0 8px rgba(232, 119, 46, 0.1);
-  }
-
-  .extract-active {
-    background: var(--accent-glow);
-    box-shadow: 0 0 8px rgba(232, 119, 46, 0.1);
-  }
-
-  .diamond-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: diamond-drift 12s linear infinite;
-  }
-
-  .extract-btn:hover .diamond-icon {
-    animation-duration: 4s;
   }
 
   /* Settings — centered with proper hit target */
@@ -565,15 +574,16 @@
   .create-popout {
     position: fixed;
     z-index: 300;
-    width: 200px;
+    width: 260px;
     background: var(--bg-surface);
     border: 1px solid var(--border-default);
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    padding: 8px;
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(232, 119, 46, 0.08);
+    padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    animation: popout-enter 150ms ease-out;
   }
 
   .create-popout-input {
@@ -616,6 +626,107 @@
 
   .create-swatch.selected {
     border-color: var(--text-primary);
+  }
+
+  /* Icon picker row */
+  .create-emoji-row {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 0 2px;
+  }
+
+  .create-emoji {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    background: none;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0;
+    transition: border-color 150ms, transform 150ms;
+  }
+
+  .create-emoji:hover {
+    transform: scale(1.15);
+  }
+
+  .create-emoji.selected {
+    border-color: var(--text-primary);
+    background: var(--bg-surface-hover);
+  }
+
+  /* Custom color toggle */
+  .create-custom-toggle {
+    width: 100%;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    text-align: center;
+    border-radius: 4px;
+    transition: color 150ms, background 150ms;
+  }
+
+  .create-custom-toggle:hover {
+    color: var(--text-secondary);
+    background: var(--bg-surface-hover);
+  }
+
+  .create-custom-color {
+    display: flex;
+    justify-content: center;
+  }
+
+  /* Live preview */
+  .create-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: var(--bg-base);
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+  }
+
+  .create-preview-ring {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: border-color 150ms;
+  }
+
+  .create-preview-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Section micro-labels */
+  .create-section-label {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding-left: 2px;
+    margin-bottom: -4px;
   }
 
   /* Drag and drop (svelte-dnd-action) */

@@ -2,6 +2,7 @@ import { tasksApi } from '$lib/api';
 import { tasksStore } from '$lib/stores/tasks.svelte';
 import { kanbanStore } from '$lib/stores/kanban.svelte';
 import { optimisticUpdate } from '$lib/optimistic';
+import { celebrateTask } from '$lib/celebrate';
 import type { Task } from '$lib/types';
 
 /** Find a task's full object in whichever store has it */
@@ -39,9 +40,23 @@ export async function updateTask(id: number, data: Partial<Task>) {
   }
 }
 
+/** Delay (ms) before the optimistic update moves the card to completed */
+const CELEBRATION_DELAY = 700;
+
 export async function toggleDone(id: number) {
   const task = findTask(id);
   if (!task) return;
+  const markingDone = !task.done;
+
+  if (markingDone) {
+    const { projectsStore } = await import('$lib/stores/projects.svelte');
+    const project = projectsStore.projects.find(p => p.id === task.project_id);
+    const color = project?.hex_color ? `#${project.hex_color}` : '';
+    celebrateTask(id, task.priority, color);
+    // Let the card animation play before the optimistic update relocates it
+    await new Promise(r => setTimeout(r, CELEBRATION_DELAY));
+  }
+
   await updateTask(id, { done: !task.done });
 }
 

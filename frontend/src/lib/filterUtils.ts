@@ -1,9 +1,14 @@
 import type { Task } from '$lib/types';
 import { filterStore } from '$lib/stores/filter.svelte';
 import { searchStore } from '$lib/stores/search.svelte';
+import { viewModeStore } from '$lib/stores/viewMode.svelte';
+import { computeScore } from '$lib/smartSort';
+
+/** Max tasks shown in focus mode */
+const FOCUS_LIMIT = 8;
 
 /**
- * Apply client-side filters (priority, labels, due date, subtasks, search).
+ * Apply client-side filters (priority, labels, due date, subtasks, search, focus).
  * Used by BubbleCanvas, TaskList, and KanbanBoard to avoid duplicated logic.
  */
 export function applyClientFilters(tasks: Task[], query?: string): Task[] {
@@ -35,6 +40,15 @@ export function applyClientFilters(tasks: Task[], query?: string): Task[] {
     t = t.filter(task => (task.subtask_total ?? 0) > 0);
   } else if (filterStore.hasSubtasks === false) {
     t = t.filter(task => (task.subtask_total ?? 0) === 0);
+  }
+
+  // Focus mode: keep only top N active tasks by smart score
+  if (viewModeStore.isFocus) {
+    const active = t.filter(task => !task.done);
+    const scored = active.map(task => ({ id: task.id, score: computeScore(task) }));
+    scored.sort((a, b) => b.score - a.score);
+    const focusIds = new Set(scored.slice(0, FOCUS_LIMIT).map(s => s.id));
+    t = t.filter(task => task.done || focusIds.has(task.id));
   }
 
   return t;

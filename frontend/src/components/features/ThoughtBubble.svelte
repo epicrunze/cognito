@@ -14,6 +14,7 @@
   import DateDisplay from '$components/ui/DateDisplay.svelte';
   import DatePicker from '$components/ui/DatePicker.svelte';
   import Checkbox from '$components/ui/Checkbox.svelte';
+  import { registerCelebrationElement, unregisterCelebrationElement } from '$lib/celebrate';
 
 
   let {
@@ -47,6 +48,22 @@
   } = $props();
 
   let hovering = $state(false);
+  let celebrating = $state(false);
+  let quickCompleteRef = $state<HTMLButtonElement | undefined>(undefined);
+  let doneButtonRef = $state<HTMLButtonElement | undefined>(undefined);
+  let compactCheckboxEl = $state<HTMLDivElement | undefined>(undefined);
+
+  // Register celebration elements
+  $effect(() => {
+    if (data.isProposal || typeof data.id !== 'number') return;
+    const taskId = data.id;
+    // Pick the best element to register based on mode
+    const el = quickCompleteRef ?? doneButtonRef ?? compactCheckboxEl;
+    if (el) {
+      registerCelebrationElement(taskId, el);
+      return () => unregisterCelebrationElement(taskId);
+    }
+  });
 
   // --- Unified BubbleData ---
   interface BubbleData {
@@ -404,6 +421,11 @@
 
   function handleDoneToggle(e: MouseEvent) {
     e.stopPropagation();
+    // Flash celebrating class when completing
+    if (!data.done) {
+      celebrating = true;
+      setTimeout(() => celebrating = false, 700);
+    }
     if (ontoggle) {
       ontoggle();
     } else if (task) {
@@ -462,6 +484,7 @@
   <div
     role="button"
     tabindex="0"
+    class:task-celebrating={celebrating}
     onmouseenter={() => hovering = true}
     onmouseleave={() => hovering = false}
     onclick={handleBubbleClick}
@@ -477,7 +500,7 @@
       </div>
     {:else}
       <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-      <div onclick={(e) => { e.stopPropagation(); ontoggle?.(); }}>
+      <div bind:this={compactCheckboxEl} onclick={(e) => { e.stopPropagation(); ontoggle?.(); }}>
         <Checkbox checked={data.done} onchange={() => ontoggle?.()} />
       </div>
     {/if}
@@ -503,6 +526,7 @@
   <div
     role="button"
     tabindex="0"
+    class:task-celebrating={celebrating}
     onmouseenter={() => hovering = true}
     onmouseleave={() => hovering = false}
     onclick={handleBubbleClick}
@@ -533,6 +557,7 @@
       <div class="card-bottom-row" style="{proposalMode ? 'margin-left: 28px;' : ''}">
         {#if !data.done && !data.isProposal && !proposalMode}
           <button
+            bind:this={quickCompleteRef}
             class="quick-complete"
             onclick={handleDoneToggle}
             aria-label="Complete task"
@@ -701,7 +726,7 @@
               Reject
             </button>
           {:else}
-            <button class="bubble-action-btn" style="--hover-color: var(--done);" onclick={(e) => handleDoneToggle(e)}>
+            <button bind:this={doneButtonRef} class="bubble-action-btn" style="--hover-color: var(--done);" onclick={(e) => handleDoneToggle(e)}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5" /><path d="M5.5 8l2 2 3.5-3.5" /></svg>
               {data.done ? 'Undo' : 'Done'}
             </button>

@@ -7,6 +7,7 @@ Proxies label management to Vikunja, injecting the API token server-side.
 NOTE: Label updates use PUT (same as task creation — Vikunja convention).
 """
 
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,7 +16,10 @@ from pydantic import BaseModel
 from app.auth.dependencies import get_current_user
 from app.database import get_db
 from app.models.user import User
+from app.services.llm import get_llm_client
 from app.services.vikunja import VikunjaError, vikunja
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/labels", tags=["labels"])
 
@@ -67,6 +71,7 @@ async def update_label(
     try:
         return await vikunja.update_label(label_id, data)
     except VikunjaError as e:
+        logger.error("Label update failed for %d with data %s: %s", label_id, data, e)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
 
 
@@ -202,3 +207,67 @@ async def label_stats(current_user: User = Depends(get_current_user)):
                 stats[lid]["open"] += 1
 
     return {"stats": stats}
+
+
+# ── Generate Description via LLM ─────────────────────────────────────────
+
+
+@router.post("/{label_id}/generate-description")
+async def generate_description(
+    label_id: int,
+    current_user: User = Depends(get_current_user),
+):
+    """Use LLM to generate a label description from tasks that use this label."""
+    try:
+        labels = await vikunja.list_labels()
+    except VikunjaError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+    label_info = next((l for l in labels if l["id"] == label_id), None)
+    label_title = label_info["title"] if label_info else f"Label {label_id}"
+
+    try:
+        tasks = await vikunja.list_tasks(per_page=500)
+    except VikunjaError as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+
+    matching_tasks = [
+        t for t in tasks
+        if any(l["id"] == label_id for l in (t.get("labels") or []))
+    ]
+
+    if not matching_tasks:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No tasks found with this label.",
+        )
+
+    task_lines = "\n".join(
+        f"- {t.get('title', 'Untitled')}: {t.get('description', '') or ''}"
+        for t in matching_tasks
+    )
+    prompt = (
+        f"Label: {label_title}\n\n"
+        f"Tasks with this label:\n{task_lines}\n\n"
+        "Based on these tasks, describe when this label should be applied (1-2 sentences)."
+    )
+
+    llm = get_llm_client("gemini-flash")
+    generated = await llm.generate(
+        messages=[{"role": "user", "content": prompt}],
+        system_prompt="You are a helpful assistant that writes concise label descriptions.",
+    )
+    description = generated.strip()
+
+    with get_db() as conn:
+        conn.execute(
+            """INSERT INTO label_descriptions (label_id, title, description, updated_at)
+               VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%S', 'now'))
+               ON CONFLICT(label_id) DO UPDATE SET
+                 title = excluded.title,
+                 description = excluded.description,
+                 updated_at = strftime('%Y-%m-%dT%H:%M:%S', 'now')""",
+            [label_id, label_title, description],
+        )
+
+    return {"label_id": label_id, "description": description}

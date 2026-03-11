@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { Task } from '$lib/types';
+  import { fade } from 'svelte/transition';
+  import { flip } from 'svelte/animate';
+  import type { Task, Project } from '$lib/types';
   import { tasksStore, projectsStore } from '$lib/stores.svelte';
   import { kanbanStore } from '$lib/stores/kanban.svelte';
   import { filterStore } from '$lib/stores/filter.svelte';
@@ -51,7 +53,7 @@
     return applyClientFilters(t);
   });
 
-  // Group by project
+  // Group by project (includes project object for animation-friendly rendering)
   const projectGroups = $derived.by(() => {
     const groups = new Map<number, Task[]>();
     for (const task of filteredTasks) {
@@ -60,17 +62,21 @@
       groups.get(pid)!.push(task);
     }
     // Sort projects by project list order
-    const ordered: { projectId: number; tasks: Task[] }[] = [];
+    const ordered: { projectId: number; project: Project; tasks: Task[] }[] = [];
     for (const p of projectsStore.projects) {
       const tasks = groups.get(p.id);
       if (tasks && tasks.length > 0) {
-        ordered.push({ projectId: p.id, tasks });
+        ordered.push({ projectId: p.id, project: p, tasks });
+      } else if (projectId != null && p.id === projectId) {
+        // Show empty project in single-project view so BubbleCluster renders with empty hint + SeedBubble
+        ordered.push({ projectId: p.id, project: p, tasks: [] });
       }
     }
     // Include any tasks from projects not in the list
     for (const [pid, tasks] of groups) {
       if (!ordered.some(o => o.projectId === pid)) {
-        ordered.push({ projectId: pid, tasks });
+        const p = projectsStore.projects.find(proj => proj.id === pid);
+        if (p) ordered.push({ projectId: pid, project: p, tasks });
       }
     }
     return ordered;
@@ -112,10 +118,9 @@
     </div>
   {:else}
     {#each projectGroups as group (group.projectId)}
-      {@const proj = projectsStore.projects.find(p => p.id === group.projectId)}
-      {#if proj}
-        <BubbleCluster project={proj} tasks={group.tasks} ontaskclick={handleTaskClick} />
-      {/if}
+      <div animate:flip={{ duration: 300 }} transition:fade|local={{ duration: 200 }}>
+        <BubbleCluster project={group.project} tasks={group.tasks} ontaskclick={handleTaskClick} />
+      </div>
     {/each}
   {/if}
 </div>

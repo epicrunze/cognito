@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { Project, Task } from '$lib/types';
-  import { slide } from 'svelte/transition';
+  import { slide, scale } from 'svelte/transition';
+  import { flip } from 'svelte/animate';
+  import { smartSort } from '$lib/smartSort';
   import ThoughtBubble from './ThoughtBubble.svelte';
   import SeedBubble from './SeedBubble.svelte';
   import ProjectContextMenu from './ProjectContextMenu.svelte';
@@ -19,9 +21,7 @@
   let menuOpen = $state(false);
   let menuPos = $state({ x: 0, y: 0 });
 
-  const activeTasks = $derived(
-    [...tasks].filter(t => !t.done).sort((a, b) => b.priority - a.priority)
-  );
+  const activeTasks = $derived(smartSort(tasks.filter(t => !t.done)));
   const completedTasks = $derived(tasks.filter(t => t.done));
 </script>
 
@@ -45,12 +45,21 @@
   </div>
 
   <!-- Bubble area -->
-  <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; align-content: flex-start;">
-    {#each activeTasks as task (task.id)}
-      <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
-    {/each}
-    <SeedBubble projectId={project.id} projectColor={project.hex_color} />
-  </div>
+  {#if activeTasks.length === 0}
+    <div class="empty-state">
+      <div class="empty-hint">Your first thought goes here...</div>
+      <SeedBubble projectId={project.id} projectColor={project.hex_color} />
+    </div>
+  {:else}
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; align-content: flex-start;">
+      {#each activeTasks as task (task.id)}
+        <div animate:flip={{ duration: 250 }} transition:scale|local={{ duration: 200, start: 0.85, opacity: 0 }}>
+          <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
+        </div>
+      {/each}
+      <SeedBubble projectId={project.id} projectColor={project.hex_color} />
+    </div>
+  {/if}
 
   <!-- Completed section -->
   {#if completedTasks.length > 0}
@@ -75,6 +84,27 @@
 </div>
 
 <style>
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 32px 0;
+    animation: fadeIn 200ms ease-out;
+  }
+
+  .empty-hint {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    font-style: italic;
+    opacity: 0.6;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
   .cluster-header:hover .menu-trigger {
     opacity: 1;
   }

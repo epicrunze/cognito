@@ -13,6 +13,7 @@ class AgentConfigResponse(BaseModel):
     gemini_model: str | None = None
     gcal_calendar_id: str | None = None
     system_prompt_override: str | None = None
+    base_prompt_override: str | None = None
 
 
 class AgentConfigUpdate(BaseModel):
@@ -21,3 +22,4 @@ class AgentConfigUpdate(BaseModel):
     gemini_model: str | None = None
     gcal_calendar_id: str | None = None
     system_prompt_override: str | None = None
+    base_prompt_override: str | None = None

@@ -5,6 +5,13 @@
   import { updateTask, toggleDone, deleteTask } from '$lib/stores/taskMutations';
   import { addToast } from '$lib/stores/toast.svelte';
   import { tasksApi, proposalsApi, attachmentsApi, subtasksApi } from '$lib/api';
+
+  // Auto-label state
+  let autoLabeling = $state(false);
+  let aiSuggestedLabelIds = $state<Set<number>>(new Set());
+  let noLabelsMessage = $state(false);
+  let aiGlowTimer: ReturnType<typeof setTimeout> | undefined;
+  let noLabelsTimer: ReturnType<typeof setTimeout> | undefined;
   import Input from '$components/ui/Input.svelte';
   import Button from '$components/ui/Button.svelte';
   import Dropdown from '$components/ui/Dropdown.svelte';
@@ -12,6 +19,7 @@
   import DatePicker from '$components/ui/DatePicker.svelte';
   import Checkbox from '$components/ui/Checkbox.svelte';
   import { showConfirmDialog } from '$lib/stores/confirmDialog.svelte';
+  import { registerCelebrationElement, unregisterCelebrationElement } from '$lib/celebrate';
 
   let {
     mode = 'create' as 'create' | 'edit' | 'proposal',
@@ -40,6 +48,16 @@
   let creating = $state(false);
   let deleting = $state(false);
   let titleRef = $state<HTMLTextAreaElement | undefined>(undefined);
+  let doneCheckboxRef = $state<HTMLDivElement | undefined>(undefined);
+  let celebrating = $state(false);
+
+  // Register celebration element for the done checkbox
+  $effect(() => {
+    if (mode !== 'edit' || !task || !doneCheckboxRef) return;
+    const taskId = task.id;
+    registerCelebrationElement(taskId, doneCheckboxRef);
+    return () => unregisterCelebrationElement(taskId);
+  });
 
   // Label management
   let currentLabels = $state<Label[]>([]);
@@ -138,6 +156,11 @@
       subtasksLoading = false;
       newSubtaskTitle = '';
       addingSubtask = false;
+      autoLabeling = false;
+      aiSuggestedLabelIds = new Set();
+      noLabelsMessage = false;
+      clearTimeout(aiGlowTimer);
+      clearTimeout(noLabelsTimer);
 
       if (mode === 'create') {
         title = '';
@@ -336,6 +359,13 @@
 
   async function handleDoneToggle() {
     if (mode === 'edit' && task) {
+      if (!task.done) {
+        celebrating = true;
+        setTimeout(() => {
+          celebrating = false;
+          onclose?.();
+        }, 700);
+      }
       await toggleDone(task.id);
     }
   }
@@ -373,6 +403,42 @@
       }
     } else if (mode === 'create') {
       currentLabels = currentLabels.filter(l => l.id !== label.id);
+    }
+  }
+
+  async function handleAutoLabel() {
+    if (!task || autoLabeling) return;
+    autoLabeling = true;
+    noLabelsMessage = false;
+    try {
+      const result = await tasksApi.autoTag([task.id]);
+      const taskResult = result.results?.find((r: { task_id: number }) => r.task_id === task!.id);
+      const addedIds: number[] = taskResult?.labels_added ?? [];
+      if (addedIds.length > 0) {
+        // Refresh task to get updated labels
+        await tasksStore.fetchAll();
+        // Find label objects for added IDs
+        const newLabels = labelsStore.labels.filter(l => addedIds.includes(l.id) && !currentLabels.some(cl => cl.id === l.id));
+        if (newLabels.length > 0) {
+          currentLabels = [...currentLabels, ...newLabels];
+        }
+        aiSuggestedLabelIds = new Set(addedIds);
+        // Fade glow after 5 seconds
+        clearTimeout(aiGlowTimer);
+        aiGlowTimer = setTimeout(() => {
+          aiSuggestedLabelIds = new Set();
+        }, 5000);
+      } else {
+        noLabelsMessage = true;
+        clearTimeout(noLabelsTimer);
+        noLabelsTimer = setTimeout(() => {
+          noLabelsMessage = false;
+        }, 2000);
+      }
+    } catch {
+      addToast('Auto-label failed', 'error');
+    } finally {
+      autoLabeling = false;
     }
   }
 
@@ -591,11 +657,11 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div onkeydown={handleKeydown} style="padding: 28px 28px 32px; display: flex; flex-direction: column; gap: 18px;">
+<div class:task-celebrating={celebrating} onkeydown={handleKeydown} style="padding: 28px 28px 32px; display: flex; flex-direction: column; gap: 18px; border-radius: 12px;">
   <!-- 1. Title row: [checkbox] [editable title] [× close] -->
   <div style="display: flex; align-items: flex-start; gap: 8px;">
     {#if mode === 'edit' && task}
-      <div style="margin-top: 7px; flex-shrink: 0;">
+      <div bind:this={doneCheckboxRef} style="margin-top: 7px; flex-shrink: 0;">
         <Checkbox checked={task.done} onchange={handleDoneToggle} />
       </div>
     {/if}
@@ -674,6 +740,7 @@
         <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
         <span
           onclick={() => removeLabel(label)}
+          class:ai-suggested={aiSuggestedLabelIds.has(label.id)}
           style="display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; font-size: 12.5px; font-weight: 500; color: {label.hex_color || 'var(--text-secondary)'}; background: {label.hex_color ? label.hex_color + '20' : 'var(--bg-elevated)'}; border-radius: 9999px; cursor: pointer;"
         >
           {label.title}
@@ -693,6 +760,26 @@
         }}
         style="height: 24px; padding: 0 9px; font-size: 12.5px; font-weight: 500; color: var(--text-tertiary); background: var(--bg-elevated); border: 1px dashed var(--border-default); border-radius: 9999px; cursor: pointer; font-family: var(--font-sans);"
       >+ Add</button>
+
+      {#if mode === 'edit' && task}
+        <button
+          type="button"
+          class="auto-label-btn"
+          onclick={handleAutoLabel}
+          disabled={autoLabeling}
+          title="Auto-label with AI"
+        >
+          {#if autoLabeling}
+            <svg class="auto-label-spinner" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6" stroke-dasharray="28" stroke-dashoffset="8" stroke-linecap="round" /></svg>
+          {:else}
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l1.5 3.5L13 7l-3.5 1.5L8 12l-1.5-3.5L3 7l3.5-1.5z" /><path d="M12.5 2l.5 1.5L14.5 4l-1.5.5L12.5 6l-.5-1.5L10.5 4l1.5-.5z" /></svg>
+          {/if}
+        </button>
+      {/if}
+
+      {#if noLabelsMessage}
+        <span class="no-labels-msg">No labels suggested</span>
+      {/if}
 
       {#if showLabelPicker}
         <div style="position: absolute; top: calc(100% + 4px); left: 0; z-index: 300; background: var(--bg-elevated); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow-lg); padding: 4px; min-width: 180px; max-height: 260px; overflow-y: auto; animation: fadeIn 100ms ease-out;">
@@ -1020,5 +1107,72 @@
   .detail-delete-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  /* Auto-label button */
+  .auto-label-btn {
+    height: 24px;
+    width: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 0;
+    transition: color 150ms, background 150ms;
+  }
+
+  .auto-label-btn:hover:not(:disabled) {
+    color: var(--text-secondary);
+    background: var(--bg-surface-hover);
+  }
+
+  .auto-label-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .auto-label-spinner {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .no-labels-msg {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-style: italic;
+    animation: fadeInOut 2s ease-out forwards;
+  }
+
+  @keyframes fadeInOut {
+    0% { opacity: 0; }
+    15% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* AI-suggested label glow */
+  .ai-suggested {
+    box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent);
+    border: 1px solid var(--accent);
+    animation: aiGlowFade 500ms ease-out 4.5s forwards;
+  }
+
+  @keyframes aiGlowFade {
+    from {
+      box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent);
+      border-color: var(--accent);
+    }
+    to {
+      box-shadow: none;
+      border-color: transparent;
+    }
   }
 </style>

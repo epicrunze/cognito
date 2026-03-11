@@ -63,7 +63,8 @@ docker-compose up --build    # vikunja:3456, backend:8000, frontend:80
 
 The frontend NEVER calls Vikunja directly — the backend proxy injects the API token. Full reference in `docs/SPEC.md` Section 6.
 
-- **PUT creates, POST updates** (opposite of REST). Label update uses PUT for both.
+- **PUT creates, POST updates** (opposite of REST) — applies to ALL resources (tasks, projects, labels).
+- **`hex_color` has no `#` prefix.** Vikunja stores `A1A09A`, not `#A1A09A`. Strip `#` before sending.
 - **Buckets belong to views, not projects.** Kanban: GET views → find view_kind=3 → GET buckets → tasks per bucket.
 - **Filter syntax:** single `filter` param with expressions: `done = false && priority >= 3`.
 - **Search:** `s` param, not `search`. **Pagination:** in response headers. **Dates:** ISO 8601.

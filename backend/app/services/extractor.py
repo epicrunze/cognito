@@ -169,6 +169,17 @@ class TaskExtractor:
         today = date.today().isoformat()
         system_prompt = EXTRACTION_SYSTEM_PROMPT.format(today=today)
 
+        # Use base_prompt_override if configured (replaces default prompt entirely)
+        try:
+            with get_db() as conn:
+                row = conn.execute(
+                    "SELECT base_prompt_override FROM agent_config WHERE id = 1"
+                ).fetchone()
+                if row and row[0]:
+                    system_prompt = row[0].format(today=today)
+        except Exception:
+            pass  # Don't fail extraction if config read fails
+
         # Append user's custom system prompt if configured
         try:
             with get_db() as conn:

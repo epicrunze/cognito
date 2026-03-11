@@ -13,6 +13,7 @@
   import { slide } from 'svelte/transition';
   import type { ChatAction, TaskProposal } from '$lib/types';
   import type { ModelOption } from '$lib/api';
+  import { formatChangeValue } from '$lib/formatUtils';
 
   let {
     open = false,
@@ -334,11 +335,6 @@
     }
   }
 
-  function formatChangeValue(key: string, value: unknown): string {
-    if (key === 'due_date' && typeof value === 'string') return value.split('T')[0];
-    if (key === 'done') return value ? 'Yes' : 'No';
-    return String(value ?? 'none');
-  }
 </script>
 
 <SlideOver {open} {onclose} width={400}>

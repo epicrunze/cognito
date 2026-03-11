@@ -81,6 +81,25 @@ function createLabelsStore() {
       }
     },
 
+    async update(labelId: number, data: { title?: string; hex_color?: string; description?: string }) {
+      const updated = await labelsApi.update(labelId, data);
+      labels = labels.map((l) => (l.id === labelId ? { ...l, ...updated } : l));
+      return updated;
+    },
+
+    async generateDescription(labelId: number): Promise<string> {
+      const res = await labelsApi.generateDescription(labelId);
+      // Update descriptions store too
+      const idx = descriptions.findIndex((d) => d.label_id === labelId);
+      const desc = { label_id: labelId, title: labels.find(l => l.id === labelId)?.title ?? '', description: res.description };
+      if (idx >= 0) {
+        descriptions = [...descriptions.slice(0, idx), { ...descriptions[idx], ...desc }, ...descriptions.slice(idx + 1)];
+      } else {
+        descriptions = [...descriptions, desc];
+      }
+      return res.description;
+    },
+
     async delete(labelId: number) {
       await labelsApi.delete(labelId);
       labels = labels.filter((l) => l.id !== labelId);

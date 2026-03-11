@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { SvelteMap } from 'svelte/reactivity';
+  import { slide } from 'svelte/transition';
+  import { flip } from 'svelte/animate';
   import type { Task } from '$lib/types';
   import { tasksStore, projectsStore } from '$lib/stores.svelte';
   import { kanbanStore } from '$lib/stores/kanban.svelte';
@@ -8,6 +10,7 @@
   import { addToast } from '$lib/stores/toast.svelte';
   import { filterStore, type SortMode } from '$lib/stores/filter.svelte';
   import { applyClientFilters } from '$lib/filterUtils';
+  import { smartSort } from '$lib/smartSort';
   import type { FetchParams } from '$lib/stores/tasks.svelte';
   import { shortcuts } from '$lib/shortcuts';
   import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
@@ -45,21 +48,6 @@
     { value: 'created', label: 'Created' },
     { value: 'title', label: 'Alphabetical' },
   ];
-
-  // Sort: overdue first, then priority desc, then due date asc
-  function smartSort(tasks: Task[]): Task[] {
-    const now = new Date();
-    return [...tasks].sort((a, b) => {
-      const aOverdue = a.due_date && new Date(a.due_date) < now ? 1 : 0;
-      const bOverdue = b.due_date && new Date(b.due_date) < now ? 1 : 0;
-      if (bOverdue !== aOverdue) return bOverdue - aOverdue;
-      if (b.priority !== a.priority) return b.priority - a.priority;
-      if (a.due_date && b.due_date) return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-      if (a.due_date) return -1;
-      if (b.due_date) return 1;
-      return 0;
-    });
-  }
 
   function sortTasks(tasks: Task[], mode: SortMode): Task[] {
     if (mode === 'smart') return smartSort(tasks);
@@ -294,7 +282,7 @@
 {:else}
   <!-- Active tasks -->
   {#each activeTasks as task, i (task.id)}
-    <div use:trackRow={task.id}>
+    <div use:trackRow={task.id} animate:flip={{ duration: 200 }} transition:slide|local={{ duration: 200 }}>
       <ThoughtBubble
         {task}
         compact

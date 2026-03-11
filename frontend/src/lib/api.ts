@@ -330,6 +330,14 @@ export const labelsApi = {
     return request<{ stats: LabelStats }>('/labels/stats');
   },
 
+  update(labelId: number, data: { title?: string; hex_color?: string; description?: string }) {
+    return request<Label>(`/labels/${labelId}`, { method: 'PUT', body: JSON.stringify(data) });
+  },
+
+  generateDescription(labelId: number) {
+    return request<{ label_id: number; description: string }>(`/labels/${labelId}/generate-description`, { method: 'POST' });
+  },
+
   delete(labelId: number) {
     return request<{ success: boolean }>(`/labels/${labelId}`, { method: 'DELETE' });
   },
@@ -405,6 +413,10 @@ export const chatApi = {
     });
   },
 
+  listHistory() {
+    return request<{ conversations: Array<{ id: string; snippet: string; created_at: string; message_count: number }> }>('/chat/history');
+  },
+
   getConversation(conversationId: string) {
     return request<{
       conversation_id: string;
@@ -412,6 +424,10 @@ export const chatApi = {
       created_at: string;
       updated_at: string;
     }>(`/chat/${conversationId}`);
+  },
+
+  deleteConversation(conversationId: string) {
+    return request<{ success: boolean }>(`/chat/${conversationId}`, { method: 'DELETE' });
   },
 
   executeAction(action: ChatAction) {
@@ -435,6 +451,7 @@ export interface AgentConfigResponse {
   gemini_model: string | null;
   gcal_calendar_id: string | null;
   system_prompt_override: string | null;
+  base_prompt_override: string | null;
 }
 
 export const configApi = {
@@ -447,6 +464,14 @@ export const configApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  },
+
+  getSystemPrompt() {
+    return request<{ prompt: string }>('/config/system-prompt');
+  },
+
+  getTools() {
+    return request<{ tools: Array<{ name: string; description: string; parameters: Record<string, unknown> }> }>('/config/tools');
   },
 };
 

@@ -199,21 +199,46 @@ class VikunjaClient:
 
     # ── Labels ────────────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _normalize_label_hex(label: dict) -> dict:
+        """Ensure hex_color has '#' prefix for frontend consumption."""
+        hc = label.get("hex_color", "")
+        if hc and not hc.startswith("#"):
+            label["hex_color"] = f"#{hc}"
+        return label
+
+    @staticmethod
+    def _strip_hex_hash(data: dict) -> dict:
+        """Strip '#' prefix from hex_color before sending to Vikunja."""
+        if "hex_color" in data and data["hex_color"].startswith("#"):
+            data["hex_color"] = data["hex_color"][1:]
+        return data
+
     async def list_labels(self) -> list[dict]:
         """Return all labels."""
         data = await self._request("GET", "/labels")
-        return data if isinstance(data, list) else []
+        if not isinstance(data, list):
+            return []
+        return [self._normalize_label_hex(l) for l in data]
 
     async def create_label(self, data: dict) -> dict:
         """Create a label. PUT creates in Vikunja."""
-        return await self._request("PUT", "/labels", json=data)
+        data = self._strip_hex_hash(data)
+        result = await self._request("PUT", "/labels", json=data)
+        return self._normalize_label_hex(result)
+
+    async def get_label(self, label_id: int) -> dict:
+        """Fetch a single label by ID."""
+        result = await self._request("GET", f"/labels/{label_id}")
+        return self._normalize_label_hex(result)
 
     async def update_label(self, label_id: int, data: dict) -> dict:
-        """Update a label. Fetches current state first to avoid Go zero-value wipe."""
-        labels = await self.list_labels()
-        current = next((l for l in labels if l["id"] == label_id), {})
+        """Update a label. POST updates in Vikunja. Fetches current state first to avoid Go zero-value wipe."""
+        current = await self.get_label(label_id)
+        data = self._strip_hex_hash(data)
         current.update(data)
-        return await self._request("PUT", f"/labels/{label_id}", json=current)
+        result = await self._request("POST", f"/labels/{label_id}", json=current)
+        return self._normalize_label_hex(result)
 
     async def delete_label(self, label_id: int) -> dict:
         """Delete a label."""

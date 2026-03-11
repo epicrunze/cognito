@@ -116,6 +116,12 @@ def init_schema(conn: sqlite3.Connection) -> None:
     except Exception:
         pass  # Column already exists
 
+    # Migration: add base_prompt_override to existing DBs
+    try:
+        conn.execute("ALTER TABLE agent_config ADD COLUMN base_prompt_override TEXT")
+    except Exception:
+        pass  # Column already exists
+
     # ── Label descriptions ────────────────────────────────────────────────────
     conn.execute("""
         CREATE TABLE IF NOT EXISTS label_descriptions (

@@ -102,6 +102,24 @@ def test_label_stats_empty(client):
     assert res.json()["stats"] == {}
 
 
+# ── Label Update (color) ─────────────────────────────────────────────────
+
+
+def test_update_label_color(client):
+    """PUT /api/labels/{id} fetches label by ID, merges changes, sends full object."""
+    current_label = {"id": 5, "title": "Bug", "hex_color": "#ff0000", "description": "", "created_by": {"id": 1}}
+    updated_label = {**current_label, "hex_color": "#00ff00"}
+
+    with (
+        patch("app.routers.labels.vikunja.get_label", new_callable=AsyncMock, return_value=current_label) as mock_get,
+        patch("app.routers.labels.vikunja.update_label", new_callable=AsyncMock, return_value=updated_label) as mock_update,
+    ):
+        res = client.put("/api/labels/5", json={"hex_color": "#00ff00"})
+
+    assert res.status_code == 200
+    mock_update.assert_called_once_with(5, {"hex_color": "#00ff00"})
+
+
 # ── Label Cleanup ────────────────────────────────────────────────────────
 
 
@@ -135,6 +153,50 @@ def test_cleanup_unused_labels(client):
     # Verify SQLite descriptions were also cleaned up
     descs_res = client.get("/api/labels/descriptions")
     assert len(descs_res.json()["descriptions"]) == 0
+
+
+# ── Generate Description ─────────────────────────────────────────────────
+
+
+def test_generate_description(client):
+    """LLM generates a label description from matching tasks."""
+    mock_labels = [{"id": 10, "title": "Bug", "hex_color": "#E85D5D"}]
+    mock_tasks = [
+        {"id": 1, "title": "Fix login crash", "description": "App crashes on login", "done": False, "labels": [{"id": 10, "title": "Bug"}]},
+        {"id": 2, "title": "Fix typo in header", "description": "", "done": False, "labels": [{"id": 10, "title": "Bug"}]},
+        {"id": 3, "title": "Add dark mode", "description": "", "done": False, "labels": [{"id": 20, "title": "Feature"}]},
+    ]
+
+    mock_llm = AsyncMock()
+    mock_llm.generate = AsyncMock(return_value="Apply this label to bug reports and defects.")
+
+    with (
+        patch("app.routers.labels.vikunja.list_labels", new_callable=AsyncMock, return_value=mock_labels),
+        patch("app.routers.labels.vikunja.list_tasks", new_callable=AsyncMock, return_value=mock_tasks),
+        patch("app.routers.labels.get_llm_client", return_value=mock_llm),
+    ):
+        res = client.post("/api/labels/10/generate-description")
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["label_id"] == 10
+    assert data["description"] == "Apply this label to bug reports and defects."
+
+
+def test_generate_description_no_tasks(client):
+    """Returns 400 when no tasks have the target label."""
+    mock_labels = [{"id": 10, "title": "Bug", "hex_color": "#E85D5D"}]
+    mock_tasks = [
+        {"id": 1, "title": "Add dark mode", "description": "", "done": False, "labels": [{"id": 20, "title": "Feature"}]},
+    ]
+
+    with (
+        patch("app.routers.labels.vikunja.list_labels", new_callable=AsyncMock, return_value=mock_labels),
+        patch("app.routers.labels.vikunja.list_tasks", new_callable=AsyncMock, return_value=mock_tasks),
+    ):
+        res = client.post("/api/labels/10/generate-description")
+
+    assert res.status_code == 400
 
 
 def test_cleanup_no_unused_labels(client):

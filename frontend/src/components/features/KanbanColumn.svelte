@@ -3,7 +3,22 @@
   import { dndzone } from 'svelte-dnd-action';
   import { bubbleStore } from '$lib/stores/bubble.svelte';
   import { toggleDone } from '$lib/stores/taskMutations';
+  import { registerCelebrationElement, unregisterCelebrationElement } from '$lib/celebrate';
   import ThoughtBubble from './ThoughtBubble.svelte';
+
+  // Track card elements for celebration on drag-to-done
+  const cardElements = new Map<number, HTMLDivElement>();
+
+  function trackCard(node: HTMLDivElement, taskId: number) {
+    cardElements.set(taskId, node);
+    registerCelebrationElement(taskId, node);
+    return {
+      destroy() {
+        cardElements.delete(taskId);
+        unregisterCelebrationElement(taskId);
+      },
+    };
+  }
 
   let {
     bucket,
@@ -84,7 +99,7 @@
     style="flex: 1; overflow-y: auto; padding: 0 10px 10px; display: flex; flex-direction: column; gap: 8px; min-height: 60px;"
   >
     {#each localItems as task (task.id)}
-      <div>
+      <div use:trackCard={task.id}>
         <ThoughtBubble {task} kanban={true} kanbanCompact={density === 'compact'} onclick={() => onTaskClick?.(task.id)} />
       </div>
     {/each}

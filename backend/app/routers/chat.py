@@ -205,6 +205,60 @@ async def execute_action(
     return result
 
 
+@router.delete("/{conversation_id}")
+async def delete_conversation(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a conversation and its messages."""
+    with get_db() as conn:
+        conv = conn.execute(
+            "SELECT id FROM conversations WHERE id = ? AND user_id = ?",
+            [conversation_id, current_user.email],
+        ).fetchone()
+        if not conv:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        conn.execute(
+            "DELETE FROM conversation_messages WHERE conversation_id = ?",
+            [conversation_id],
+        )
+        conn.execute(
+            "DELETE FROM conversations WHERE id = ?",
+            [conversation_id],
+        )
+
+    return {"success": True}
+
+
+@router.get("/history")
+async def list_chat_history(
+    current_user: User = Depends(get_current_user),
+):
+    """List recent conversations with snippets."""
+    with get_db() as conn:
+        convs = conn.execute(
+            "SELECT c.id, c.created_at, c.updated_at, "
+            "(SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = c.id) as msg_count, "
+            "(SELECT content FROM conversation_messages WHERE conversation_id = c.id AND role = 'user' ORDER BY id LIMIT 1) as first_msg "
+            "FROM conversations c WHERE c.user_id = ? "
+            "ORDER BY c.updated_at DESC LIMIT 50",
+            [current_user.email],
+        ).fetchall()
+
+    conversations = []
+    for row in convs:
+        snippet = (row[4] or "")[:100]
+        conversations.append({
+            "id": row[0],
+            "snippet": snippet,
+            "created_at": row[1],
+            "message_count": row[3],
+        })
+
+    return {"conversations": conversations}
+
+
 @router.get("/{conversation_id}")
 async def get_conversation(
     conversation_id: str,

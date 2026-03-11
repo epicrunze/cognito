@@ -195,11 +195,11 @@ Overdue tasks also get a subtle warm 2px left-border (`var(--overdue)` color) th
 
 | # | Issue | Status |
 |---|-------|--------|
-| 7 | Settings page redesign | TODO |
-| 8 | Label colors + AI descriptions | TODO |
-| 9 | More color options | TODO |
-| 31 | AI behavior tab enhancements | TODO |
-| 32 | Label statistics | TODO |
+| 7 | Settings page redesign | DONE |
+| 8 | Label colors + AI descriptions | DONE |
+| 9 | More color options | DONE |
+| 31 | AI behavior tab enhancements | DONE |
+| 32 | Label statistics | DONE |
 
 ### Issue 7 — Settings not organized
 **Problem:** Settings is a flat list of cards — hard to navigate.
@@ -242,9 +242,9 @@ Backend: new `GET /api/chat/history` endpoint listing all conversations with pag
 
 | # | Issue | Status |
 |---|-------|--------|
-| 27 | Smart sorting algorithm | TODO |
-| 26 | Max cards / focus mode | TODO |
-| 25 | AI extract positioning | TODO |
+| 27 | Smart sorting algorithm | DONE |
+| 26 | Max cards / focus mode | DONE |
+| 25 | AI extract positioning | DONE |
 
 ### Issue 27 — Smart sorting
 **Problem:** No intelligent sorting that considers due date, priority, and task urgency together.
@@ -285,8 +285,8 @@ Sort descending by composite score. Create `lib/smartSort.ts` utility. Use as de
 
 | # | Issue | Status |
 |---|-------|--------|
-| 4 | Project creation visual weight | TODO |
-| 5 | Task completion celebration | TODO |
+| 4 | Project creation visual weight | DONE |
+| 5 | Task completion celebration | DONE |
 | 29 | Side window + new task snap | DONE |
 | 30 | Auto-label in editor | TODO |
 
@@ -297,12 +297,8 @@ Sort descending by composite score. Create `lib/smartSort.ts` utility. Use as de
 
 ### Issue 5 — Task completion celebration
 **Problem:** Checking off a task has no celebration — should be a moment of satisfaction.
-**Solution:** Subtle particle burst animation:
-1. Hover checkbox (from Issue #17) fills with checkmark (scale pulse).
-2. 3-5 small dots in the task's project color radiate outward from the checkbox and fade over 400ms.
-3. Card smoothly transitions to 0.65 opacity (completed state).
-Total ~500ms. Create a `celebrate()` utility that injects temporary DOM elements for particles. Fire from ThoughtBubble's done toggle handler.
-**Files:** `ThoughtBubble.svelte`, `taskMutations.ts`, new `lib/celebrate.ts`
+**Solution:** Canvas-based particle system with priority-scaled tiers (epic/grand/standard/modest/minimal). Confetti rectangles+circles burst upward with gravity, drift, rotation. Sparkle dots arc outward with fading trails. 5 tiers mapped from priority (P5: 80-100 confetti + 6-8 sparkles, down to P0: 5-8 confetti). Card gets green wash (inset shadow + background fill + pulse) for 700ms before relocating to completed. Element registry lets components register their checkbox/button for origin coordinates. Centralized in `toggleDone()` — all 6 completion paths celebrate. Side panel and kanban editor auto-close after celebration. Optional celebration sounds (AudioContext chimes) toggled in Settings > Account > Preferences.
+**Files:** `lib/celebrate.ts` (full rewrite), `taskMutations.ts`, `ThoughtBubble.svelte`, `TaskDetailContent.svelte`, `KanbanColumn.svelte`, `app.css`, `settings/AccountTab.svelte`
 
 ### Issue 29 — New task snap with side window
 **Problem:** Creating a task while side panel is open doesn't navigate to the new task.

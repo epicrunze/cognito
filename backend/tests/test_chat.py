@@ -213,3 +213,54 @@ def test_execute_action_unknown_type(client):
     """Unknown action type returns 400."""
     res = client.post("/api/chat/execute-action", json={"type": "unknown", "task_id": 1})
     assert res.status_code == 400
+
+
+def test_list_chat_history(client):
+    """GET /api/chat/history returns conversation list."""
+    # Create a conversation first
+    with patch("app.routers.chat.ChatAgent") as MockAgent:
+        mock_instance = MockAgent.return_value
+        mock_instance.process = AsyncMock(return_value={
+            "reply": "Hello!", "proposals": [], "actions": [], "pending_actions": [],
+        })
+        client.post("/api/chat", json={"message": "Test message for history"})
+
+    res = client.get("/api/chat/history")
+    assert res.status_code == 200
+    data = res.json()
+    assert "conversations" in data
+    assert len(data["conversations"]) >= 1
+    conv = data["conversations"][0]
+    assert "id" in conv
+    assert "snippet" in conv
+    assert "created_at" in conv
+    assert "message_count" in conv
+    assert conv["snippet"] == "Test message for history"
+    assert conv["message_count"] == 2  # user + assistant
+
+
+def test_delete_conversation(client):
+    """DELETE /api/chat/{id} removes conversation and messages."""
+    # Create a conversation
+    with patch("app.routers.chat.ChatAgent") as MockAgent:
+        mock_instance = MockAgent.return_value
+        mock_instance.process = AsyncMock(return_value={
+            "reply": "Hello!", "proposals": [], "actions": [], "pending_actions": [],
+        })
+        res = client.post("/api/chat", json={"message": "To be deleted"})
+    conv_id = res.json()["conversation_id"]
+
+    # Delete it
+    res = client.delete(f"/api/chat/{conv_id}")
+    assert res.status_code == 200
+    assert res.json()["success"] is True
+
+    # Verify it's gone
+    res = client.get(f"/api/chat/{conv_id}")
+    assert res.status_code == 404
+
+
+def test_delete_conversation_not_found(client):
+    """DELETE /api/chat/{id} returns 404 for non-existent conversation."""
+    res = client.delete("/api/chat/nonexistent-id")
+    assert res.status_code == 404

@@ -135,6 +135,14 @@ function createChatStore() {
       extractingMsgIndex = null;
     },
 
+    loadConversation(convId: string, msgs: ChatMessage[]) {
+      conversationId = convId;
+      messages = msgs;
+      pendingProposals = [];
+      pendingActions = [];
+      extractingMsgIndex = null;
+    },
+
     clear() {
       messages = [];
       conversationId = null;

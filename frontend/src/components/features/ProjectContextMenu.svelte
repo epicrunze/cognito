@@ -4,6 +4,7 @@
   import { projectsStore } from '$lib/stores/projects.svelte';
   import { addToast } from '$lib/stores/toast.svelte';
   import { projectIconStore, ICON_EMOJIS } from '$lib/stores/projectIcons.svelte';
+  import { PRESET_COLORS } from '$lib/constants';
 
   let {
     project,
@@ -28,17 +29,6 @@
   let menuEl = $state<HTMLDivElement | null>(null);
 
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-
-  const COLORS = [
-    { name: 'Tangerine', hex: '#E8772E' },
-    { name: 'Coral', hex: '#E85D5D' },
-    { name: 'Gold', hex: '#D4A845' },
-    { name: 'Emerald', hex: '#4CAF7D' },
-    { name: 'Teal', hex: '#45A5A5' },
-    { name: 'Blue', hex: '#5B8DEF' },
-    { name: 'Violet', hex: '#9B72CF' },
-    { name: 'Rose', hex: '#CF72A8' },
-  ] as const;
 
   // Clamp position to viewport
   const clampedX = $derived(Math.min(position.x, window.innerWidth - 280));
@@ -187,7 +177,7 @@
         Color
       </button>
       <div class="swatch-grid">
-        {#each COLORS as color (color.hex)}
+        {#each PRESET_COLORS as color (color.hex)}
           <button
             class="swatch"
             class:selected={project.hex_color === color.hex}

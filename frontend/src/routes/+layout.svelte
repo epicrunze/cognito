@@ -6,6 +6,7 @@
   import { onMount } from 'svelte';
   import { authStore, tasksStore, projectsStore, labelsStore, bubbleStore } from '$lib/stores.svelte';
   import { shortcuts } from '$lib/shortcuts';
+  import { extractIcon } from '$lib/icons';
   import Sidebar from '$components/features/Sidebar.svelte';
   import ThinkingMargin from '$components/features/ThinkingMargin.svelte';
   import ProjectContextMenu from '$components/features/ProjectContextMenu.svelte';
@@ -19,6 +20,7 @@
   import { filterStore } from '$lib/stores/filter.svelte';
   import { revisionsStore } from '$lib/stores/revisions.svelte';
   import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
+  import { viewModeStore } from '$lib/stores/viewMode.svelte';
   import ViewOrchestrator from '$components/features/ViewOrchestrator.svelte';
   import TaskDetail from '$components/features/TaskDetail.svelte';
 
@@ -84,10 +86,21 @@
     thinkingOpen = !thinkingOpen;
   }
 
+  // Listen for open-thinking-margin event (from settings resume)
+  onMount(() => {
+    function handleOpenThinking() {
+      taskDetailStore.close();
+      thinkingOpen = true;
+    }
+    window.addEventListener('open-thinking-margin', handleOpenThinking);
+    return () => window.removeEventListener('open-thinking-margin', handleOpenThinking);
+  });
+
   // Keyboard shortcuts
   onMount(() => {
     shortcuts.register('/', () => searchRef?.focus());
     shortcuts.register('e', () => openThinking());
+    shortcuts.register('f', () => viewModeStore.toggleFocus());
     shortcuts.register('?', () => shortcutsOpen = !shortcutsOpen);
     shortcuts.register('Escape', () => {
       if (taskDetailStore.isOpen) {
@@ -162,7 +175,7 @@
 {:else if authStore.authenticated}
   <div style="display: flex; height: 100vh;">
     <div style="flex-shrink: 0;">
-      <Sidebar ontoggleextract={openThinking} extractOpen={thinkingOpen} />
+      <Sidebar />
     </div>
     <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;">
       <!-- Top bar -->
@@ -245,6 +258,9 @@
   <ThinkingMargin open={thinkingOpen && !taskDetailStore.isOpen} onclose={() => thinkingOpen = false} ontaskschanged={() => tasksStore.fetchAll()} />
   <ToastContainer />
   <ConfirmDialog />
+  <button class="fab-extract" class:fab-active={thinkingOpen} aria-label="AI Extract" onclick={openThinking}>
+    <span class="diamond-icon">{@html extractIcon}</span>
+  </button>
 {/if}
 
 <style>
@@ -279,5 +295,44 @@
 
   .project-title-menu:hover {
     background: var(--bg-surface-hover);
+  }
+
+  .fab-extract {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 40;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg-base);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(232, 119, 46, 0.3);
+    transition: transform 150ms ease-out, background 150ms ease-out, box-shadow 150ms ease-out;
+  }
+
+  .fab-extract:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 20px rgba(232, 119, 46, 0.45);
+  }
+
+  .fab-active {
+    background: var(--accent-glow);
+  }
+
+  .fab-extract :global(.diamond-icon) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: diamond-drift 12s linear infinite;
+  }
+
+  .fab-extract:hover :global(.diamond-icon) {
+    animation-duration: 4s;
   }
 </style>
