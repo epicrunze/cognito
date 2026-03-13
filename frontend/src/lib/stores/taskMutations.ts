@@ -1,6 +1,7 @@
 import { tasksApi } from '$lib/api';
 import { tasksStore } from '$lib/stores/tasks.svelte';
 import { kanbanStore } from '$lib/stores/kanban.svelte';
+import { revisionsStore } from '$lib/stores/revisions.svelte';
 import { optimisticUpdate } from '$lib/optimistic';
 import { celebrateTask } from '$lib/celebrate';
 import type { Task } from '$lib/types';
@@ -38,6 +39,7 @@ export async function updateTask(id: number, data: Partial<Task>) {
     tasksStore.patchTask(id, { updated: result.updated });
     kanbanStore.patchTask(id, { updated: result.updated });
   }
+  if (result) revisionsStore.fetchRecent();
 }
 
 /** Delay (ms) before the optimistic update moves the card to completed */
@@ -64,7 +66,7 @@ export async function deleteTask(id: number) {
   const tasksSnapshot = [...tasksStore.tasks];
   const kanbanSnapshot = new Map(kanbanStore.tasksByBucket);
 
-  await optimisticUpdate({
+  const result = await optimisticUpdate({
     apply: () => {
       tasksStore.removeTask(id);
       kanbanStore.removeTask(id);
@@ -76,4 +78,5 @@ export async function deleteTask(id: number) {
     },
     errorMessage: 'Failed to delete task',
   });
+  if (result) revisionsStore.fetchRecent();
 }

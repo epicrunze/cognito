@@ -17,6 +17,7 @@
   import Dropdown from '$components/ui/Dropdown.svelte';
   import Kbd from '$components/ui/Kbd.svelte';
   import DatePicker from '$components/ui/DatePicker.svelte';
+  import SchedulePicker from '$components/ui/SchedulePicker.svelte';
   import Checkbox from '$components/ui/Checkbox.svelte';
   import { showConfirmDialog } from '$lib/stores/confirmDialog.svelte';
   import { registerCelebrationElement, unregisterCelebrationElement } from '$lib/celebrate';
@@ -45,6 +46,8 @@
   let dueDate = $state('');
   let estimatedMinutes = $state('');
   let projectValue = $state('');
+  let scheduleStart = $state<string | null>(null);
+  let scheduleEnd = $state<string | null>(null);
   let creating = $state(false);
   let deleting = $state(false);
   let titleRef = $state<HTMLTextAreaElement | undefined>(undefined);
@@ -168,6 +171,8 @@
         priority = 3;
         dueDate = '';
         estimatedMinutes = '';
+        scheduleStart = null;
+        scheduleEnd = null;
         currentLabels = [];
         proposalLabelNames = [];
         const pid = defaultProjectId ?? projectsStore.projects[0]?.id;
@@ -185,6 +190,8 @@
         priority = task.priority;
         dueDate = task.due_date ? task.due_date.split('T')[0] : '';
         estimatedMinutes = '';
+        scheduleStart = task.start_date && !task.start_date.startsWith('0001-01-01') ? task.start_date : null;
+        scheduleEnd = task.end_date && !task.end_date.startsWith('0001-01-01') ? task.end_date : null;
         currentLabels = [...(task.labels ?? [])];
         proposalLabelNames = [];
         projectValue = String(task.project_id);
@@ -237,6 +244,8 @@
       // Always sync non-text fields (no dirty state needed)
       priority = task.priority;
       dueDate = task.due_date ? task.due_date.split('T')[0] : '';
+      scheduleStart = task.start_date && !task.start_date.startsWith('0001-01-01') ? task.start_date : null;
+      scheduleEnd = task.end_date && !task.end_date.startsWith('0001-01-01') ? task.end_date : null;
       currentLabels = [...(task.labels ?? [])];
       projectValue = String(task.project_id);
     });
@@ -350,6 +359,19 @@
   function handleDateChange(date: string | null) {
     dueDate = date ?? '';
     immediateSave('due_date', date);
+  }
+
+  function handleScheduleChange(start: string | null, end: string | null) {
+    scheduleStart = start;
+    scheduleEnd = end;
+    if (mode === 'edit' && task) {
+      // Send zero-epoch to Vikunja to clear (null gets excluded by exclude_none)
+      const ZERO = '0001-01-01T00:00:00Z';
+      updateTask(task.id, {
+        start_date: start ?? ZERO,
+        end_date: end ?? ZERO,
+      } as Partial<Task>);
+    }
   }
 
   function handleEstimatedMinutesInput() {
@@ -590,6 +612,8 @@
         title: title.trim(),
         priority,
         due_date: dueDate || undefined,
+        start_date: scheduleStart || undefined,
+        end_date: scheduleEnd || undefined,
         description: description.trim() || undefined,
       });
       if (created && currentLabels.length > 0) {
@@ -715,6 +739,11 @@
     <div style="flex-shrink: 0;">
       <DatePicker value={dueDate} onchange={handleDateChange} />
     </div>
+    {#if mode !== 'proposal'}
+      <div style="flex-shrink: 0;">
+        <SchedulePicker startDate={scheduleStart} endDate={scheduleEnd} onchange={handleScheduleChange} />
+      </div>
+    {/if}
     {#if mode === 'proposal' || mode === 'create'}
       <div style="flex-shrink: 0;">
         <Input placeholder="Est. minutes" type="number" bind:value={estimatedMinutes} oninput={mode !== 'create' ? handleEstimatedMinutesInput : undefined} height={34} style="width: 110px;" />

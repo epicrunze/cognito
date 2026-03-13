@@ -182,7 +182,7 @@ async def approve_proposal(
                     )
                 except VikunjaError as e:
                     raise HTTPException(
-                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                         detail=f"Failed to create project '{proposal.project_name}': {e}",
                     )
             else:
@@ -219,7 +219,7 @@ async def approve_proposal(
                 [utc_now(), proposal_id],
             )
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Vikunja task creation failed: {e}. Proposal marked as approved — retry from proposal history.",
         )
 

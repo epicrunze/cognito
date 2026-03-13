@@ -177,7 +177,7 @@ export interface Revision {
   id: number;
   task_id: number;
   action_type: 'create' | 'update' | 'complete' | 'move' | 'delete' | 'auto_tag';
-  source: 'chat' | 'proposal' | 'auto_tag';
+  source: 'chat' | 'proposal' | 'auto_tag' | 'manual';
   before_state: Record<string, unknown> | null;
   after_state: Record<string, unknown> | null;
   changes: Record<string, unknown> | null;

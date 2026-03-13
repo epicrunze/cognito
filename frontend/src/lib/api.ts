@@ -49,7 +49,12 @@ async function request<T>(
       },
     });
 
-  let res = await fetchOnce(url);
+  let res: Response;
+  try {
+    res = await fetchOnce(url);
+  } catch {
+    throw new ApiError(0, 'Unable to reach the server');
+  }
 
   if (res.status === 401) {
     // Try silent refresh
@@ -107,7 +112,7 @@ export const tasksApi = {
   },
 
   /** PUT creates in Vikunja */
-  create(data: { project_id: number; title: string; priority?: number; due_date?: string; description?: string }) {
+  create(data: { project_id: number; title: string; priority?: number; due_date?: string; start_date?: string; end_date?: string; description?: string }) {
     return request<Task>('/tasks', { method: 'PUT', body: JSON.stringify(data) });
   },
 

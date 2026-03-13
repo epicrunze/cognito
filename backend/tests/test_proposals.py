@@ -160,7 +160,7 @@ def test_approve_vikunja_error(client, seeded_db):
     ):
         response = client.post(f"/api/proposals/{proposal_id}/approve")
 
-    assert response.status_code == 502
+    assert response.status_code == 422
 
     row = conn.execute(
         "SELECT status FROM task_proposals WHERE id = ?",

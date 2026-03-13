@@ -151,7 +151,7 @@ def test_delete_nonexistent_project(in_memory_db, mock_user):
     with patch("app.routers.projects.vikunja") as mock_v:
         mock_v.delete_project = AsyncMock(side_effect=VikunjaError("DELETE /projects/999 failed: 404"))
         res = client.delete("/api/projects/999")
-    assert res.status_code == 502
+    assert res.status_code == 422
 
 
 def test_create_project_with_color(in_memory_db, mock_user):

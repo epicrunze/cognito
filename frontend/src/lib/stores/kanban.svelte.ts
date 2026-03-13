@@ -252,6 +252,38 @@ function createKanbanStore() {
       }
     },
 
+    async reorderBuckets(bucketId: number, newIndex: number) {
+      if (!view) return;
+      const pid = projectId;
+      const viewId = view.id;
+
+      const oldBuckets = [...buckets];
+      const idx = buckets.findIndex(b => b.id === bucketId);
+      if (idx < 0 || idx === newIndex) return;
+
+      // Calculate new position from neighbors at target index
+      const reordered = [...buckets];
+      const [moved] = reordered.splice(idx, 1);
+      reordered.splice(newIndex, 0, moved);
+
+      const before = newIndex > 0 ? reordered[newIndex - 1].position : null;
+      const after = newIndex < reordered.length - 1 ? reordered[newIndex + 1].position : null;
+      const newPosition = midpoint(before, after);
+
+      await optimisticUpdate({
+        apply: () => {
+          const updated = [...buckets];
+          const [m] = updated.splice(idx, 1);
+          m.position = newPosition;
+          updated.splice(newIndex, 0, m);
+          buckets = updated;
+        },
+        apiCall: () => kanbanApi.updateBucket(pid, viewId, bucketId, { position: newPosition }),
+        rollback: () => { buckets = oldBuckets; },
+        errorMessage: 'Failed to reorder columns',
+      });
+    },
+
     /** Update local state after DnD events (before API call) */
     updateLocalBucketTasks(bucketId: number, tasks: Task[]) {
       const newMap = new Map(tasksByBucket);

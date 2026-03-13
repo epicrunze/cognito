@@ -20,6 +20,7 @@
     chat: { bg: 'rgba(99, 140, 255, 0.15)', color: 'rgb(130, 165, 255)' },
     proposal: { bg: 'rgba(180, 130, 255, 0.15)', color: 'rgb(190, 150, 255)' },
     auto_tag: { bg: 'rgba(232, 119, 46, 0.15)', color: 'var(--accent)' },
+    manual: { bg: 'rgba(161, 160, 154, 0.15)', color: 'rgb(161, 160, 154)' },
   };
 
   function timeAgo(dateStr: string): string {

@@ -116,7 +116,7 @@ async def create_project(
             project = await vikunja.update_project(project["id"], {"hex_color": body.hex_color})
     except VikunjaError as e:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Failed to create project in Vikunja: {e}",
         )
     _add_project_to_cache(project)
@@ -145,7 +145,7 @@ async def update_project(
         project = await vikunja.update_project(project_id, data)
     except VikunjaError as e:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Failed to update project in Vikunja: {e}",
         )
     _add_project_to_cache(project)
@@ -162,7 +162,7 @@ async def delete_project(
         await vikunja.delete_project(project_id)
     except VikunjaError as e:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Failed to delete project in Vikunja: {e}",
         )
     with get_db() as conn:
@@ -201,7 +201,7 @@ async def list_views(
         views = await vikunja.list_project_views(project_id)
         return {"views": views}
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 class CreateViewRequest(BaseModel):
@@ -220,7 +220,7 @@ async def create_view(
         view = await vikunja.create_view(project_id, body.title, body.view_kind)
         return view
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.get("/{project_id}/views/{view_id}/buckets")
@@ -234,7 +234,7 @@ async def list_buckets(
         buckets = await vikunja.list_buckets(project_id, view_id)
         return {"buckets": buckets}
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 class CreateBucketRequest(BaseModel):
@@ -254,7 +254,7 @@ async def create_bucket(
         bucket = await vikunja.create_bucket(project_id, view_id, body.title, body.limit)
         return bucket
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.post("/{project_id}/views/{view_id}/buckets/{bucket_id}")
@@ -269,7 +269,7 @@ async def update_bucket(
     try:
         return await vikunja.update_bucket(project_id, view_id, bucket_id, body)
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.delete("/{project_id}/views/{view_id}/buckets/{bucket_id}")
@@ -284,7 +284,7 @@ async def delete_bucket(
         await vikunja.delete_bucket(project_id, view_id, bucket_id)
         return {"success": True}
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.get("/{project_id}/views/{view_id}/tasks")
@@ -306,7 +306,7 @@ async def list_view_tasks(
                     ]
         return data
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 class MoveTaskRequest(BaseModel):
@@ -327,7 +327,7 @@ async def move_task_to_bucket(
             project_id, view_id, body.task_id, bucket_id
         )
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 def _update_cache(projects: list[dict]) -> None:

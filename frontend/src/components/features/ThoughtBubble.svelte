@@ -13,6 +13,7 @@
   import Badge from '$components/ui/Badge.svelte';
   import DateDisplay from '$components/ui/DateDisplay.svelte';
   import DatePicker from '$components/ui/DatePicker.svelte';
+  import ScheduleDisplay from '$components/ui/ScheduleDisplay.svelte';
   import Checkbox from '$components/ui/Checkbox.svelte';
   import { registerCelebrationElement, unregisterCelebrationElement } from '$lib/celebrate';
 
@@ -72,6 +73,8 @@
     description: string;
     priority: number;
     dueDate: string | null;
+    startDate: string | null;
+    endDate: string | null;
     projectId: number | null;
     projectName: string | null;
     labels: { id?: number; title: string; hex_color?: string }[];
@@ -92,6 +95,8 @@
         description: proposal.description,
         priority: proposal.priority,
         dueDate: proposal.due_date,
+        startDate: null,
+        endDate: null,
         projectId: proposal.project_id,
         projectName: proposal.project_name,
         labels: proposal.labels.map(l => ({ title: l })),
@@ -111,6 +116,8 @@
         description: task.description,
         priority: task.priority,
         dueDate: task.due_date && !task.due_date.startsWith('0001-01-01') ? task.due_date : null,
+        startDate: task.start_date && !task.start_date.startsWith('0001-01-01') ? task.start_date : null,
+        endDate: task.end_date && !task.end_date.startsWith('0001-01-01') ? task.end_date : null,
         projectId: task.project_id,
         projectName: null,
         labels: task.labels,
@@ -123,7 +130,7 @@
         status: null,
       };
     }
-    return { id: 0, title: '', description: '', priority: 3, dueDate: null, projectId: null, projectName: null, labels: [], done: false, attachmentCount: 0, subtaskDone: 0, subtaskTotal: 0, estimatedMinutes: null, isProposal: false, status: null };
+    return { id: 0, title: '', description: '', priority: 3, dueDate: null, startDate: null, endDate: null, projectId: null, projectName: null, labels: [], done: false, attachmentCount: 0, subtaskDone: 0, subtaskTotal: 0, estimatedMinutes: null, isProposal: false, status: null };
   });
 
   const project = $derived(data.projectId ? projectsStore.projects.find(p => p.id === data.projectId) : null);
@@ -133,7 +140,14 @@
   const viewed = $derived(typeof data.id === 'number' && filterStore.viewedTaskIds.has(data.id));
   const showGlow = $derived(isAiTagged && (!viewed || data.isProposal));
 
-  const hasIndicators = $derived(isOverdue || data.attachmentCount > 0 || data.subtaskTotal > 0);
+  const isScheduled = $derived(Boolean(data.startDate && data.endDate));
+  const isScheduledToday = $derived.by(() => {
+    if (!data.startDate) return false;
+    const start = new Date(data.startDate);
+    const now = new Date();
+    return start.getFullYear() === now.getFullYear() && start.getMonth() === now.getMonth() && start.getDate() === now.getDate();
+  });
+  const hasIndicators = $derived(isOverdue || data.attachmentCount > 0 || data.subtaskTotal > 0 || (isScheduledToday && !data.done));
   const expanded = $derived(bubbleStore.expandedTaskId === data.id);
   const supportsVT = $derived(typeof document !== 'undefined' && !!document.startViewTransition);
 
@@ -197,6 +211,8 @@
   // --- Expanded state editing ---
   let editTitle = $state('');
   let editDescription = $state('');
+  let titleFocused = $state(false);
+  let descFocused = $state(false);
   let titleTimer: ReturnType<typeof setTimeout> | null = null;
   let descTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -327,8 +343,8 @@
 
   $effect(() => {
     if (expanded) {
-      editTitle = data.title;
-      editDescription = data.description;
+      if (!titleFocused) editTitle = data.title;
+      if (!descFocused) editDescription = data.description;
       showDatePicker = false;
       hoveredPriority = null;
     }
@@ -516,6 +532,9 @@
     {#if data.dueDate}
       <DateDisplay date={data.dueDate} overdue={isOverdue} />
     {/if}
+    {#if isScheduled}
+      <ScheduleDisplay startDate={data.startDate} endDate={data.endDate} done={data.done} />
+    {/if}
     {#if project}
       <div style="width: 8px; height: 8px; border-radius: 50%; background: {projectColor}; flex-shrink: 0;"></div>
     {/if}
@@ -537,7 +556,21 @@
   >
     <!-- Project corner triangle -->
     {#if projectColor}
-      <div style="position: absolute; top: 0; right: 0; width: 0; height: 0; border-left: 18px solid transparent; border-top: 18px solid {projectColor}; border-top-right-radius: 9px; opacity: {expanded ? 0.6 : 0.3}; transition: opacity 200ms; pointer-events: none;"></div>
+      <div class="project-triangle" style="position: absolute; top: 0; right: 0; width: 0; height: 0; border-left: 18px solid transparent; border-top: 18px solid {projectColor}; border-top-right-radius: 9px; opacity: {expanded ? 0.6 : 0.3}; transition: opacity 200ms; pointer-events: none;"></div>
+    {/if}
+
+    <!-- Quick-complete circle — top-right, appears on hover -->
+    {#if !expanded && !kanbanCompact && !data.done && !data.isProposal && !proposalMode}
+      <button
+        bind:this={quickCompleteRef}
+        class="quick-complete"
+        onclick={handleDoneToggle}
+        aria-label="Complete task"
+      >
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3.5 8.5l3 3 6-6" />
+        </svg>
+      </button>
     {/if}
 
     {#if proposalMode && !expanded}
@@ -554,22 +587,10 @@
       </div>
       <!-- Unified bottom row: indicators + quick-complete + hover meta -->
       {#if !kanbanCompact}
-      <div class="card-bottom-row" style="{proposalMode ? 'margin-left: 28px;' : ''}">
-        {#if !data.done && !data.isProposal && !proposalMode}
-          <button
-            bind:this={quickCompleteRef}
-            class="quick-complete"
-            onclick={handleDoneToggle}
-            aria-label="Complete task"
-          >
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3.5 8.5l3 3 6-6" />
-            </svg>
-          </button>
-        {/if}
-        {#if hasIndicators && !data.done}
-          {#if isOverdue}
-            <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--overdue); flex-shrink: 0;"></span>
+      <div class="card-bottom-row" class:has-hover-labels={data.labels.length > 0} style="position: relative; {proposalMode ? 'margin-left: 28px;' : ''}">
+        <div class="card-meta">
+          {#if data.dueDate}
+            <span style="color: {isOverdue ? 'var(--overdue)' : 'inherit'};">{formatDate(data.dueDate)}</span>
           {/if}
           {#if data.subtaskTotal > 0}
             <span class="card-indicator">
@@ -583,15 +604,15 @@
               {data.attachmentCount}
             </span>
           {/if}
+          {#if isScheduledToday && !data.done}
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: 0.5; flex-shrink: 0;"></span>
+          {/if}
+        </div>
+        {#if data.labels.length > 0}
+          <div class="card-hover-labels">
+            <Badge color={data.labels[0].hex_color}>{data.labels[0].title}</Badge>
+          </div>
         {/if}
-        <span class="hover-meta">
-          {#if data.dueDate}
-            <span style="color: {isOverdue ? 'var(--overdue)' : 'inherit'};">{formatDate(data.dueDate)}</span>
-          {/if}
-          {#if data.labels.length > 0}
-            <span>{data.labels[0].title}</span>
-          {/if}
-        </span>
       </div>
       {/if}
 
@@ -603,6 +624,8 @@
           bind:this={titleTextarea}
           bind:value={editTitle}
           oninput={(e) => { autoResize(e.currentTarget as HTMLTextAreaElement); debounceSaveTitle(); }}
+          onfocus={() => titleFocused = true}
+          onblur={() => titleFocused = false}
           onclick={(e) => e.stopPropagation()}
           rows="1"
           class="bubble-editable"
@@ -614,6 +637,8 @@
           bind:this={descTextarea}
           bind:value={editDescription}
           oninput={(e) => { autoResize(e.currentTarget as HTMLTextAreaElement); debounceSaveDescription(); }}
+          onfocus={() => descFocused = true}
+          onblur={() => descFocused = false}
           onclick={(e) => e.stopPropagation()}
           placeholder="Add description..."
           rows="1"
@@ -645,6 +670,10 @@
             onclick={(e) => { e.stopPropagation(); showDatePicker ? closeDatePicker() : openDatePicker(); }}
             style="font-size: 12.5px; color: {isOverdue ? 'var(--overdue)' : 'var(--text-tertiary)'}; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 6px; font-family: var(--font-sans); opacity: {data.dueDate ? 1 : 0.5};"
           >{data.dueDate ? formatDate(data.dueDate) : '+ date'}</button>
+
+          {#if isScheduled}
+            <ScheduleDisplay startDate={data.startDate} endDate={data.endDate} done={data.done} />
+          {/if}
 
           <!-- Project name -->
           {#if project || data.projectName}
@@ -859,8 +888,11 @@
     opacity: 0.55;
   }
 
-  /* Quick-complete: inline, hidden by default, shown on card hover */
+  /* Quick-complete: absolutely positioned top-right, shown on card hover */
   .quick-complete {
+    position: absolute;
+    top: 8px;
+    right: 8px;
     width: 16px;
     height: 16px;
     border-radius: 50%;
@@ -872,7 +904,7 @@
     cursor: pointer;
     padding: 0;
     color: transparent;
-    flex-shrink: 0;
+    z-index: 1;
     opacity: 0;
     transition: opacity 150ms, background 150ms, border-color 150ms, color 150ms;
   }
@@ -888,17 +920,39 @@
     color: var(--bg-base);
   }
 
-  /* Hover meta: date + label, hidden by default */
-  .hover-meta {
+  /* Project triangle fades out on card hover */
+  :global([role="button"]:hover) .project-triangle {
+    opacity: 0 !important;
+  }
+
+  /* Persistent metadata row */
+  .card-meta {
     display: flex;
     gap: 6px;
+    align-items: center;
+    opacity: 0.55;
+    transition: opacity 150ms;
+  }
+
+  /* Hover labels — hidden by default, shown on card hover */
+  .card-hover-labels {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    display: flex;
     align-items: center;
     opacity: 0;
     transition: opacity 150ms;
   }
 
-  :global([role="button"]:hover) .hover-meta {
-    opacity: 0.55;
+  /* When card has labels: swap meta for labels on hover */
+  :global([role="button"]:hover) .has-hover-labels .card-meta {
+    opacity: 0;
+  }
+
+  :global([role="button"]:hover) .has-hover-labels .card-hover-labels {
+    opacity: 1;
   }
 
   @keyframes expandIn {

@@ -9,6 +9,7 @@
   import { viewModeStore } from '$lib/stores/viewMode.svelte';
   import { snapshotCards, diffSnapshots, animateFlights } from '$lib/viewTransitionAnimator';
   import BubbleCanvas from './BubbleCanvas.svelte';
+  import GanttChart from './GanttChart.svelte';
   import KanbanBoard from './KanbanBoard.svelte';
   import TaskList from './TaskList.svelte';
 
@@ -20,7 +21,7 @@
     pathname === '/overdue' ? 'overdue' : null
   );
 
-  let viewMode = $state<'bubbles' | 'kanban' | 'list'>('bubbles');
+  let viewMode = $state<'bubbles' | 'kanban' | 'list' | 'gantt'>('bubbles');
   $effect(() => { viewModeStore.set(viewMode); });
   let prevPathname = $state('');
 
@@ -35,7 +36,7 @@
     const oldPath = prevPathname;
     prevPathname = pathname;
 
-    const newMode: 'bubbles' | 'kanban' | 'list' = projectId != null ? 'kanban' : 'bubbles';
+    const newMode: 'bubbles' | 'kanban' | 'list' | 'gantt' = projectId != null ? 'kanban' : 'bubbles';
 
     if (!oldPath) {
       viewMode = newMode;
@@ -62,7 +63,7 @@
       if (newMode === 'kanban' && newProjectId != null) {
         await kanbanStore.prefetch(newProjectId);
         kanbanStore.skipNextFetch();
-      } else if (newMode === 'bubbles') {
+      } else if (newMode === 'bubbles' || newMode === 'gantt') {
         await tasksStore.prefetch(newProjectId ?? undefined);
         tasksStore.skipNextFetch();
       }
@@ -70,7 +71,7 @@
   }
 
   async function updateView(
-    newMode: 'bubbles' | 'kanban' | 'list',
+    newMode: 'bubbles' | 'kanban' | 'list' | 'gantt',
     newProjectId: number | null = projectId,
     newFilterMode: string | null = filterMode,
     oldPath: string = '',
@@ -136,16 +137,23 @@
     displayFilterMode === 'overdue' ? overdueFilter : undefined
   );
 
-  // Whether to show the view toggle (only for project pages)
-  const showViewToggle = $derived(displayProjectId != null);
+  // Whether to show the view toggle (project pages always, home page shows gantt option too)
+  const showViewToggle = $derived(true);
 
-  const viewOptions: { value: 'bubbles' | 'kanban' | 'list'; label: string }[] = [
-    { value: 'bubbles', label: 'Bubbles' },
-    { value: 'kanban', label: 'Kanban' },
-    { value: 'list', label: 'List' },
-  ];
+  type ViewOption = 'bubbles' | 'kanban' | 'list' | 'gantt';
+  const viewOptions = $derived.by(() => {
+    const opts: { value: ViewOption; label: string }[] = [
+      { value: 'bubbles', label: 'Bubbles' },
+      { value: 'list', label: 'List' },
+      { value: 'gantt', label: 'Gantt' },
+    ];
+    if (displayProjectId != null) {
+      opts.splice(1, 0, { value: 'kanban', label: 'Kanban' });
+    }
+    return opts;
+  });
 
-  async function switchView(newMode: 'bubbles' | 'kanban' | 'list') {
+  async function switchView(newMode: ViewOption) {
     if (newMode === viewMode) return;
     await updateView(newMode);
   }
@@ -162,7 +170,7 @@
   {/if}
   <button
     onclick={() => viewModeStore.toggleFocus()}
-    style="height: 28px; padding: 0 12px; font-size: 12.5px; font-weight: 500; border-radius: 6px; border: 1px solid {viewModeStore.isFocus ? 'var(--accent)' : 'var(--border-default)'}; background: {viewModeStore.isFocus ? 'var(--accent-subtle)' : 'transparent'}; color: {viewModeStore.isFocus ? 'var(--accent)' : 'var(--text-secondary)'}; cursor: pointer; font-family: var(--font-sans); transition: all 150ms; {showViewToggle ? '' : 'margin-left: auto;'}"
+    style="height: 28px; padding: 0 12px; font-size: 12.5px; font-weight: 500; border-radius: 6px; border: 1px solid {viewModeStore.isFocus ? 'var(--accent)' : 'var(--border-default)'}; background: {viewModeStore.isFocus ? 'var(--accent-subtle)' : 'transparent'}; color: {viewModeStore.isFocus ? 'var(--accent)' : 'var(--text-secondary)'}; cursor: pointer; font-family: var(--font-sans); transition: all 150ms;"
   >Focus</button>
 </div>
 
@@ -170,6 +178,8 @@
   <KanbanBoard projectId={displayProjectId!} />
 {:else if viewMode === 'list'}
   <TaskList projectId={displayProjectId ?? undefined} filter={activeFilter} />
+{:else if viewMode === 'gantt'}
+  <GanttChart projectId={displayProjectId ?? undefined} />
 {:else}
   <BubbleCanvas projectId={displayProjectId ?? undefined} filter={activeFilter} />
 {/if}

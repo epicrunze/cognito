@@ -3,7 +3,7 @@
   import type { Project } from '$lib/types';
   import { projectsStore } from '$lib/stores/projects.svelte';
   import { addToast } from '$lib/stores/toast.svelte';
-  import { projectIconStore, ICON_EMOJIS } from '$lib/stores/projectIcons.svelte';
+  import { projectIdentifierStore } from '$lib/stores/projectIdentifiers.svelte';
   import { PRESET_COLORS } from '$lib/constants';
 
   let {
@@ -28,7 +28,136 @@
   const confirmMatch = $derived(confirmText === project.title);
   let menuEl = $state<HTMLDivElement | null>(null);
 
+  let identifierValue = $state('');
+  let identifierInput = $state<HTMLInputElement | null>(null);
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // Custom color picker state
+  let showCustom = $state(false);
+  let hexInput = $state('');
+  let hexValid = $state(true);
+  let hue = $state(0);
+  let saturation = $state(100);
+  let lightness = $state(50);
+  let dragging = $state<'hue' | 'sl' | null>(null);
+  let hueEl = $state<HTMLDivElement | null>(null);
+  let slEl = $state<HTMLDivElement | null>(null);
+
+  function hslToHex(h: number, s: number, l: number): string {
+    s /= 100;
+    l /= 100;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => {
+      const k = (n + h / 30) % 12;
+      const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+      return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
+  }
+
+  function hexToHsl(hex: string): [number, number, number] {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    let h = 0;
+    let s = 0;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+        case g: h = ((b - r) / d + 2) / 6; break;
+        case b: h = ((r - g) / d + 4) / 6; break;
+      }
+    }
+    return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+  }
+
+  const customHex = $derived(hslToHex(hue, saturation, lightness));
+
+  function initCustomFromProject() {
+    const hex = project.hex_color ? (project.hex_color.startsWith('#') ? project.hex_color : `#${project.hex_color}`) : '#E8772E';
+    if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+      const [h, s, l] = hexToHsl(hex);
+      hue = h;
+      saturation = s;
+      lightness = l;
+      hexInput = hex.toUpperCase();
+    }
+  }
+
+  function applyCustomColor(hex: string) {
+    projectsStore.update(project.id, { hex_color: hex }).catch(() => {});
+  }
+
+  function updateHue(clientX: number) {
+    if (!hueEl) return;
+    const rect = hueEl.getBoundingClientRect();
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    hue = Math.round((x / rect.width) * 360);
+    hexInput = hslToHex(hue, saturation, lightness);
+    hexValid = true;
+    applyCustomColor(hexInput);
+  }
+
+  function handleHueDown(e: MouseEvent) {
+    e.preventDefault();
+    dragging = 'hue';
+    updateHue(e.clientX);
+  }
+
+  function updateSL(clientX: number, clientY: number) {
+    if (!slEl) return;
+    const rect = slEl.getBoundingClientRect();
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    const y = Math.max(0, Math.min(clientY - rect.top, rect.height));
+    saturation = Math.round((x / rect.width) * 100);
+    lightness = Math.round((1 - y / rect.height) * 100);
+    hexInput = hslToHex(hue, saturation, lightness);
+    hexValid = true;
+    applyCustomColor(hexInput);
+  }
+
+  function handleSLDown(e: MouseEvent) {
+    e.preventDefault();
+    dragging = 'sl';
+    updateSL(e.clientX, e.clientY);
+  }
+
+  $effect(() => {
+    if (!dragging) return;
+    function handleMove(e: MouseEvent) {
+      e.preventDefault();
+      if (dragging === 'hue') {
+        updateHue(e.clientX);
+      } else if (dragging === 'sl') {
+        updateSL(e.clientX, e.clientY);
+      }
+    }
+    function handleUp() {
+      dragging = null;
+    }
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleUp);
+    };
+  });
+
+  function handleHexInput(e: Event) {
+    const val = (e.target as HTMLInputElement).value;
+    hexInput = val;
+    if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+      hexValid = true;
+      applyCustomColor(val);
+    } else {
+      hexValid = false;
+    }
+  }
 
   // Clamp position to viewport
   const clampedX = $derived(Math.min(position.x, window.innerWidth - 280));
@@ -125,9 +254,9 @@
       </svg>
       Rename
     </button>
-    <button class="menu-item" onclick={() => view = 'icon'}>
-      <span style="font-size: 14px; width: 14px; text-align: center; line-height: 1;">{projectIconStore.get(project.id, project.title)}</span>
-      Icon
+    <button class="menu-item" onclick={() => { identifierValue = projectIdentifierStore.get(project.id, project.title); view = 'icon'; requestAnimationFrame(() => identifierInput?.focus()); }}>
+      <span style="font-size: 12px; font-weight: 600; width: 14px; text-align: center; line-height: 1;">{projectIdentifierStore.get(project.id, project.title)}</span>
+      Identifier
     </button>
     <button class="menu-item" onclick={() => view = 'color'}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -169,7 +298,7 @@
 
   {:else if view === 'color'}
     <div class="color-panel">
-      <button class="back-btn" onclick={() => view = 'menu'}>
+      <button class="back-btn" onclick={() => { showCustom = false; view = 'menu'; }}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 12H5"/>
           <path d="m12 19-7-7 7-7"/>
@@ -198,6 +327,64 @@
           </svg>
         </button>
       </div>
+
+      <!-- Custom color toggle -->
+      <button class="custom-toggle" onclick={() => { showCustom = !showCustom; if (showCustom) initCustomFromProject(); }}>
+        {showCustom ? 'Hide custom' : 'Custom...'}
+      </button>
+
+      {#if showCustom}
+        <div class="custom-section">
+          <!-- Hue strip -->
+          <div
+            bind:this={hueEl}
+            class="hue-strip"
+            role="slider"
+            tabindex="0"
+            aria-label="Hue"
+            aria-valuemin={0}
+            aria-valuemax={360}
+            aria-valuenow={hue}
+            onmousedown={handleHueDown}
+          >
+            <div class="hue-thumb" style="left: {(hue / 360) * 100}%;"></div>
+          </div>
+
+          <!-- Saturation/Lightness pad -->
+          <div
+            bind:this={slEl}
+            class="sl-pad"
+            role="slider"
+            tabindex="0"
+            aria-label="Saturation and Lightness"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={saturation}
+            style="background: linear-gradient(to top, #000, transparent, #fff), linear-gradient(to right, #888, hsl({hue}, 100%, 50%));"
+            onmousedown={handleSLDown}
+          >
+            <div
+              class="sl-thumb"
+              style="left: {saturation}%; top: {100 - lightness}%; background: {customHex};"
+            ></div>
+          </div>
+
+          <!-- Hex input -->
+          <div class="hex-row">
+            <div class="hex-preview" style="background: {customHex};"></div>
+            <input
+              class="hex-input"
+              class:invalid={!hexValid}
+              type="text"
+              value={hexInput}
+              oninput={handleHexInput}
+              spellcheck="false"
+              maxlength={7}
+              placeholder="#000000"
+            />
+          </div>
+        </div>
+      {/if}
     </div>
 
   {:else if view === 'icon'}
@@ -207,22 +394,32 @@
           <path d="M19 12H5"/>
           <path d="m12 19-7-7 7-7"/>
         </svg>
-        Icon
+        Identifier
       </button>
-      <div class="icon-grid">
-        {#each ICON_EMOJIS as emoji (emoji)}
-          <button
-            class="icon-btn"
-            class:selected={projectIconStore.get(project.id, project.title) === emoji}
-            onclick={() => { projectIconStore.set(project.id, emoji); onclose(); }}
-          >{emoji}</button>
-        {/each}
+      <div class="identifier-edit">
+        <input
+          bind:this={identifierInput}
+          bind:value={identifierValue}
+          class="identifier-input"
+          type="text"
+          maxlength="3"
+          placeholder={project.title.charAt(0).toUpperCase()}
+          oninput={() => { identifierValue = identifierValue.toUpperCase(); }}
+          onkeydown={(e) => { if (e.key === 'Enter') { const v = identifierValue.trim(); if (v) projectIdentifierStore.set(project.id, v); onclose(); } else if (e.key === 'Escape') { onclose(); } }}
+          spellcheck="false"
+        />
+        <span class="identifier-hint">1–3 characters</span>
       </div>
-      {#if projectIconStore.hasOverride(project.id)}
-        <button class="reset-icon-btn" onclick={() => { projectIconStore.clear(project.id); onclose(); }}>
-          Reset to auto
+      <div class="identifier-actions">
+        <button class="identifier-save-btn" onclick={() => { const v = identifierValue.trim(); if (v) projectIdentifierStore.set(project.id, v); onclose(); }}>
+          Save
         </button>
-      {/if}
+        {#if projectIdentifierStore.hasOverride(project.id)}
+          <button class="reset-icon-btn" onclick={() => { projectIdentifierStore.clear(project.id); onclose(); }}>
+            Reset
+          </button>
+        {/if}
+      </div>
     </div>
 
   {:else if view === 'delete'}
@@ -396,37 +593,61 @@
     padding: 4px;
   }
 
-  .icon-grid {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: 2px;
-    padding: 4px 2px 8px;
-    justify-items: center;
-  }
-
-  .icon-btn {
-    width: 28px;
-    height: 28px;
+  .identifier-edit {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    background: none;
-    border: 2px solid transparent;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 8px 8px;
+  }
+
+  .identifier-input {
+    width: 80px;
+    padding: 7px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-primary);
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
     border-radius: 6px;
-    cursor: pointer;
-    padding: 0;
-    transition: background 150ms, border-color 150ms, transform 150ms;
+    outline: none;
+    font-family: var(--font-sans);
+    box-sizing: border-box;
   }
 
-  .icon-btn:hover {
-    background: var(--bg-surface-hover);
-    transform: scale(1.15);
-  }
-
-  .icon-btn.selected {
+  .identifier-input:focus {
     border-color: var(--accent);
-    background: var(--accent-subtle);
+  }
+
+  .identifier-hint {
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+
+  .identifier-actions {
+    display: flex;
+    gap: 8px;
+    padding: 0 8px 4px;
+  }
+
+  .identifier-save-btn {
+    flex: 1;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    background: var(--accent);
+    color: #fff;
+    transition: background 150ms;
+  }
+
+  .identifier-save-btn:hover {
+    background: var(--accent-hover);
   }
 
   .reset-icon-btn {
@@ -527,5 +748,119 @@
   .confirm-delete-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  .custom-toggle {
+    width: 100%;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    text-align: center;
+    border-radius: 4px;
+    transition: color 150ms, background 150ms;
+  }
+
+  .custom-toggle:hover {
+    color: var(--text-secondary);
+    background: var(--bg-surface-hover);
+  }
+
+  .custom-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 4px 4px;
+  }
+
+  .hue-strip {
+    position: relative;
+    width: 100%;
+    height: 14px;
+    border-radius: 7px;
+    background: linear-gradient(
+      to right,
+      hsl(0, 100%, 50%),
+      hsl(60, 100%, 50%),
+      hsl(120, 100%, 50%),
+      hsl(180, 100%, 50%),
+      hsl(240, 100%, 50%),
+      hsl(300, 100%, 50%),
+      hsl(360, 100%, 50%)
+    );
+    cursor: crosshair;
+    user-select: none;
+  }
+
+  .hue-thumb {
+    position: absolute;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid rgba(0, 0, 0, 0.3);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .sl-pad {
+    position: relative;
+    width: 100%;
+    height: 120px;
+    border-radius: 6px;
+    cursor: crosshair;
+    background-blend-mode: normal, overlay;
+    user-select: none;
+  }
+
+  .sl-thumb {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.4);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .hex-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .hex-preview {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 1px solid var(--border-default);
+    flex-shrink: 0;
+  }
+
+  .hex-input {
+    flex: 1;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-family: var(--font-mono, monospace);
+    color: var(--text-primary);
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 150ms;
+  }
+
+  .hex-input:focus {
+    border-color: var(--accent);
+  }
+
+  .hex-input.invalid {
+    border-color: #E85D5D;
   }
 </style>

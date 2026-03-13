@@ -37,7 +37,7 @@ async def list_labels(current_user: User = Depends(get_current_user)):
         labels = await vikunja.list_labels()
         return {"labels": labels}
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.put("")
@@ -49,7 +49,7 @@ async def create_label(
     try:
         return await vikunja.create_label(body.model_dump(exclude_none=True))
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 class LabelUpdate(BaseModel):
@@ -72,7 +72,7 @@ async def update_label(
         return await vikunja.update_label(label_id, data)
     except VikunjaError as e:
         logger.error("Label update failed for %d with data %s: %s", label_id, data, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.post("/cleanup")
@@ -82,7 +82,7 @@ async def cleanup_unused_labels(current_user: User = Depends(get_current_user)):
         # Get task counts per label
         tasks = await vikunja.list_tasks(per_page=500)
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
     used_label_ids: set[int] = set()
     for task in tasks:
@@ -92,7 +92,7 @@ async def cleanup_unused_labels(current_user: User = Depends(get_current_user)):
     try:
         all_labels = await vikunja.list_labels()
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
     deleted: list[int] = []
     for label in all_labels:
@@ -126,7 +126,7 @@ async def delete_label(
         await vikunja.delete_label(label_id)
         return {"success": True}
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 # ── Label Descriptions (SQLite) ──────────────────────────────────────────
@@ -192,7 +192,7 @@ async def label_stats(current_user: User = Depends(get_current_user)):
     try:
         tasks = await vikunja.list_tasks(per_page=500)
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
     stats: dict[int, dict] = {}
     for task in tasks:
@@ -221,7 +221,7 @@ async def generate_description(
     try:
         labels = await vikunja.list_labels()
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
     label_info = next((l for l in labels if l["id"] == label_id), None)
     label_title = label_info["title"] if label_info else f"Label {label_id}"
@@ -229,7 +229,7 @@ async def generate_description(
     try:
         tasks = await vikunja.list_tasks(per_page=500)
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
     matching_tasks = [
         t for t in tasks

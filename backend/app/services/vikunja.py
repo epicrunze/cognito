@@ -38,13 +38,24 @@ class VikunjaClient:
     async def _request(self, method: str, path: str, **kwargs) -> Any:
         """Base request method — injects auth header."""
         url = f"{self.base_url}/api/v1{path}"
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.request(method, url, headers=self._headers, **kwargs)
-            if not response.is_success:
-                raise VikunjaError(
-                    f"{method} {path} failed: {response.status_code} {response.text}"
-                )
-            return response.json()
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.request(method, url, headers=self._headers, **kwargs)
+                if not response.is_success:
+                    # Try to extract Vikunja's error message from JSON response
+                    detail = response.text
+                    try:
+                        body = response.json()
+                        if isinstance(body, dict) and "message" in body:
+                            detail = body["message"]
+                    except Exception:
+                        pass
+                    raise VikunjaError(detail)
+                return response.json()
+        except VikunjaError:
+            raise
+        except httpx.HTTPError as exc:
+            raise VikunjaError(f"{method} {path} failed: {exc}") from exc
 
     # ── Projects ──────────────────────────────────────────────────────────────
 
@@ -119,6 +130,8 @@ class VikunjaClient:
         description: str | None = None,
         priority: int = 3,
         due_date: str | None = None,  # ISO date string
+        start_date: str | None = None,  # ISO datetime for schedule start
+        end_date: str | None = None,  # ISO datetime for schedule end
         labels: list[str] | None = None,
     ) -> dict:
         """
@@ -133,11 +146,13 @@ class VikunjaClient:
         }
         if description:
             payload["description"] = description
-        if due_date and not due_date.startswith("0001-01-01"):
-            if "T" in due_date:
-                payload["due_date"] = due_date
-            else:
-                payload["due_date"] = f"{due_date}T00:00:00Z"
+        for field, value in [("due_date", due_date), ("start_date", start_date), ("end_date", end_date)]:
+            if value and not value.startswith("0001-01-01"):
+                if "T" in value:
+                    # Ensure timezone suffix for RFC 3339 compliance
+                    payload[field] = value if value.endswith("Z") or "+" in value else f"{value}Z"
+                else:
+                    payload[field] = f"{value}T00:00:00Z"
 
         logger.debug("Creating task in project %d: %s", project_id, payload)
         task = await self._request("PUT", f"/projects/{project_id}/tasks", json=payload)

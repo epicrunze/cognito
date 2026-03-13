@@ -33,6 +33,8 @@ class TaskCreate(BaseModel):
     description: Optional[str] = None
     priority: int = 3
     due_date: Optional[str] = None  # ISO date YYYY-MM-DD
+    start_date: Optional[str] = None  # ISO datetime for schedule start
+    end_date: Optional[str] = None  # ISO datetime for schedule end
     labels: Optional[list[str]] = None
 
 
@@ -41,6 +43,8 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = None
     priority: Optional[int] = None
     due_date: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
     done: Optional[bool] = None
     project_id: Optional[int] = None
 
@@ -95,7 +99,7 @@ async def list_tasks(
         return {"tasks": tasks}
     except VikunjaError as e:
         logger.error("Failed to list tasks: %s", e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.get("/{task_id}")
@@ -109,7 +113,7 @@ async def get_task(
         return _enrich_subtask_counts(task)
     except VikunjaError as e:
         logger.error("Failed to get task %s: %s", task_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.put("")
@@ -129,15 +133,25 @@ async def create_task(
             description=body.description,
             priority=body.priority,
             due_date=body.due_date,
+            start_date=body.start_date,
+            end_date=body.end_date,
             labels=body.labels,
         )
         if "project_id" not in result:
             result["project_id"] = body.project_id
         logger.info("Created task id=%s project=%s title=%r", result.get("id"), result.get("project_id"), body.title)
+        with get_db() as conn:
+            RevisionService.record(
+                conn,
+                task_id=result["id"],
+                action_type="create",
+                source="manual",
+                after_state=result,
+            )
         return result
     except VikunjaError as e:
         logger.error("Task creation failed: %s", e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.post("/{task_id}")
@@ -155,15 +169,41 @@ async def update_task(
     if not data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
 
-    # Vikunja expects due_date as RFC3339 — only append if not already a full timestamp
-    if "due_date" in data and data["due_date"] and "T" not in data["due_date"]:
-        data["due_date"] = f"{data['due_date']}T00:00:00Z"
+    # Vikunja expects dates as RFC3339 — normalize and ensure timezone suffix
+    for date_field in ("due_date", "start_date", "end_date"):
+        if date_field in data and data[date_field]:
+            val = data[date_field]
+            if "T" not in val:
+                data[date_field] = f"{val}T00:00:00Z"
+            elif not val.endswith("Z") and "+" not in val:
+                data[date_field] = f"{val}Z"
 
     try:
-        return await vikunja.update_task(task_id, data)
+        before_state = await vikunja.get_task(task_id)
+        result = await vikunja.update_task(task_id, data)
+
+        # Determine action_type from which fields changed
+        changed_keys = set(data.keys())
+        if changed_keys == {"done"}:
+            action_type = "complete"
+        elif changed_keys == {"project_id"}:
+            action_type = "move"
+        else:
+            action_type = "update"
+
+        with get_db() as conn:
+            RevisionService.record(
+                conn,
+                task_id=task_id,
+                action_type=action_type,
+                source="manual",
+                before_state=before_state,
+                after_state=result,
+            )
+        return result
     except VikunjaError as e:
         logger.error("Failed to update task %s: %s", task_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.delete("/{task_id}")
@@ -173,11 +213,20 @@ async def delete_task(
 ):
     """Delete a task."""
     try:
+        before_state = await vikunja.get_task(task_id)
         await vikunja.delete_task(task_id)
+        with get_db() as conn:
+            RevisionService.record(
+                conn,
+                task_id=task_id,
+                action_type="delete",
+                source="manual",
+                before_state=before_state,
+            )
         return {"success": True}
     except VikunjaError as e:
         logger.error("Failed to delete task %s: %s", task_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 class UpdatePositionRequest(BaseModel):
@@ -198,7 +247,7 @@ async def update_task_position(
         )
     except VikunjaError as e:
         logger.error("Failed to update position for task %s: %s", task_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.put("/{task_id}/labels")
@@ -215,7 +264,7 @@ async def add_label(
         return await vikunja.add_label_to_task(task_id, label_id)
     except VikunjaError as e:
         logger.error("Failed to add label to task %s: %s", task_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.delete("/{task_id}/labels/{label_id}")
@@ -230,7 +279,7 @@ async def remove_label(
         return {"success": True}
     except VikunjaError as e:
         logger.error("Failed to remove label %s from task %s: %s", label_id, task_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 # ── Auto-tag ─────────────────────────────────────────────────────────────
@@ -270,7 +319,7 @@ async def auto_tag(
             all_tasks = await vikunja.list_tasks(per_page=200)
             tasks = [t for t in all_tasks if not t.get("done") and not (t.get("labels") or [])]
     except VikunjaError as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
     if not tasks:
         return {"tagged": 0, "results": []}
@@ -331,7 +380,7 @@ async def list_attachments(
         return await vikunja.list_attachments(task_id)
     except VikunjaError as e:
         logger.error("Failed to list attachments for task %s: %s", task_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.put("/{task_id}/attachments")
@@ -356,7 +405,7 @@ async def upload_attachment(
         )
     except VikunjaError as e:
         logger.error("Failed to upload attachment to task %s: %s", task_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.get("/{task_id}/attachments/{attachment_id}")
@@ -378,7 +427,7 @@ async def download_attachment(
         )
     except VikunjaError as e:
         logger.error("Failed to download attachment %s: %s", attachment_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.delete("/{task_id}/attachments/{attachment_id}")
@@ -393,7 +442,7 @@ async def delete_attachment(
         return {"success": True}
     except VikunjaError as e:
         logger.error("Failed to delete attachment %s: %s", attachment_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 # ── Subtasks ────────────────────────────────────────────────────────────
@@ -410,7 +459,7 @@ async def list_subtasks(
         return {"subtasks": subtasks}
     except VikunjaError as e:
         logger.error("Failed to list subtasks for task %s: %s", task_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.put("/{task_id}/subtasks")
@@ -429,7 +478,7 @@ async def create_subtask(
         return result
     except VikunjaError as e:
         logger.error("Failed to create subtask for task %s: %s", task_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.post("/{task_id}/subtasks/{subtask_id}")
@@ -447,7 +496,7 @@ async def update_subtask(
         return await vikunja.update_task(subtask_id, data)
     except VikunjaError as e:
         logger.error("Failed to update subtask %s: %s", subtask_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))
 
 
 @router.delete("/{task_id}/subtasks/{subtask_id}")
@@ -462,4 +511,4 @@ async def delete_subtask(
         return {"message": "ok"}
     except VikunjaError as e:
         logger.error("Failed to delete subtask %s: %s", subtask_id, e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e))

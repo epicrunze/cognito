@@ -1,9 +1,10 @@
 <script lang="ts">
-  import type { Task } from '$lib/types';
+  import type { Bucket, Task } from '$lib/types';
   import { kanbanStore } from '$lib/stores/kanban.svelte';
   import { filterStore } from '$lib/stores/filter.svelte';
   import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
   import { applyClientFilters } from '$lib/filterUtils';
+  import { dragHandleZone } from 'svelte-dnd-action';
   import KanbanColumn from './KanbanColumn.svelte';
   import Skeleton from '$components/ui/Skeleton.svelte';
 
@@ -11,6 +12,38 @@
 
   let addingColumn = $state(false);
   let newColumnTitle = $state('');
+  let localBuckets = $state<Bucket[]>([]);
+  let isDraggingColumn = $state(false);
+
+  $effect(() => {
+    if (!isDraggingColumn) {
+      localBuckets = [...kanbanStore.buckets];
+    }
+  });
+
+  function handleColumnConsider(e: CustomEvent<{ items: Bucket[] }>) {
+    isDraggingColumn = true;
+    localBuckets = e.detail.items;
+  }
+
+  function handleColumnFinalize(e: CustomEvent<{ items: Bucket[] }>) {
+    isDraggingColumn = false;
+    localBuckets = e.detail.items;
+    // Find which bucket moved and to where
+    const oldIds = kanbanStore.buckets.map(b => b.id);
+    const newIds = e.detail.items.map(b => b.id);
+    for (let i = 0; i < newIds.length; i++) {
+      if (oldIds[i] !== newIds[i]) {
+        const movedId = newIds[i];
+        // Verify it actually moved (not just a downstream shift)
+        const oldIdx = oldIds.indexOf(movedId);
+        if (oldIdx !== i) {
+          kanbanStore.reorderBuckets(movedId, i);
+          return;
+        }
+      }
+    }
+  }
 
   // Density toggle with localStorage persistence
   let kanbanDensity = $state<'full' | 'compact'>(
@@ -134,7 +167,13 @@
       >{kanbanDensity === 'full' ? 'Compact' : 'Full'}</button>
     </div>
     <div style="display: flex; gap: 16px; padding: 12px 24px 20px; overflow-x: auto; flex: 1; align-items: flex-start;">
-    {#each kanbanStore.buckets as bucket (bucket.id)}
+    <div
+      use:dragHandleZone={{ items: localBuckets, type: 'kanban-column', dropTargetStyle: { outline: '2px dashed var(--accent)', outlineOffset: '-2px' } }}
+      onconsider={handleColumnConsider}
+      onfinalize={handleColumnFinalize}
+      style="display: flex; gap: 16px; align-items: flex-start;"
+    >
+    {#each localBuckets as bucket (bucket.id)}
       <KanbanColumn
         {bucket}
         tasks={filteredTasksByBucket.get(bucket.id) ?? []}
@@ -147,6 +186,7 @@
         onCreateTask={(title) => kanbanStore.createTaskInBucket(bucket.id, title)}
       />
     {/each}
+    </div>
 
     <!-- Add column button -->
     {#if addingColumn}

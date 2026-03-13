@@ -288,7 +288,7 @@ Sort descending by composite score. Create `lib/smartSort.ts` utility. Use as de
 | 4 | Project creation visual weight | DONE |
 | 5 | Task completion celebration | DONE |
 | 29 | Side window + new task snap | DONE |
-| 30 | Auto-label in editor | TODO |
+| 30 | Auto-label in editor | DONE |
 
 ### Issue 4 — Project creation lackluster
 **Problem:** Creating a project doesn't feel like a significant moment.
@@ -319,7 +319,7 @@ Sort descending by composite score. Create `lib/smartSort.ts` utility. Use as de
 
 | # | Issue | Status |
 |---|-------|--------|
-| 6 | Undo/redo for non-AI edits | TODO |
+| 6 | Undo/redo for non-AI edits | DONE |
 
 ### Issue 6 — Undo/redo for manual edits
 **Problem:** Undo/redo only works for AI-originated changes, not manual edits.

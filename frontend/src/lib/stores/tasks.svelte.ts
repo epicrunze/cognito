@@ -13,6 +13,8 @@ function normalizeTask(t: Task): Task {
     ...t,
     labels: t.labels ?? [],
     due_date: t.due_date && !t.due_date.startsWith('0001-01-01') ? t.due_date : null,
+    start_date: t.start_date && !t.start_date.startsWith('0001-01-01') ? t.start_date : null,
+    end_date: t.end_date && !t.end_date.startsWith('0001-01-01') ? t.end_date : null,
   };
 }
 
@@ -79,7 +81,7 @@ function createTasksStore() {
       return false;
     },
 
-    async create(data: { project_id: number; title: string; priority?: number; due_date?: string; description?: string }): Promise<Task | undefined> {
+    async create(data: { project_id: number; title: string; priority?: number; due_date?: string; start_date?: string; end_date?: string; description?: string }): Promise<Task | undefined> {
       const tempId = -Date.now();
       const temp: Task = {
         id: tempId,
@@ -92,8 +94,8 @@ function createTasksStore() {
         attachments: [],
         description: data.description ?? '',
         done_at: null,
-        start_date: null,
-        end_date: null,
+        start_date: data.start_date ?? null,
+        end_date: data.end_date ?? null,
         percent_done: 0,
         hex_color: '',
         repeat_after: 0,

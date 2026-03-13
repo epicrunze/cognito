@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Bucket, Task } from '$lib/types';
-  import { dndzone } from 'svelte-dnd-action';
+  import { dndzone, dragHandle } from 'svelte-dnd-action';
   import { bubbleStore } from '$lib/stores/bubble.svelte';
   import { toggleDone } from '$lib/stores/taskMutations';
   import { registerCelebrationElement, unregisterCelebrationElement } from '$lib/celebrate';
@@ -83,6 +83,9 @@
   <!-- Header -->
   <div style="padding: 14px 16px 10px; display: flex; align-items: center; justify-content: space-between; border-top: 2px solid {columnColor}; border-radius: 10px 10px 0 0;">
     <span style="font-size: 14px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+      <span use:dragHandle aria-label="drag handle for {bucket.title}" style="cursor: grab; color: var(--text-tertiary); opacity: 0.4; display: flex; align-items: center; transition: opacity 150ms;" onmouseenter={(e) => { const el = e.currentTarget as HTMLElement; el.style.opacity = '1'; }} onmouseleave={(e) => { const el = e.currentTarget as HTMLElement; el.style.opacity = '0.4'; }}>
+        <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="2" r="1.5"/><circle cx="7" cy="2" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="7" cy="8" r="1.5"/><circle cx="3" cy="14" r="1.5"/><circle cx="7" cy="14" r="1.5"/></svg>
+      </span>
       {#if isDoneBucket}
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--done)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5" /><path d="M5.5 8l2 2 3.5-3.5" /></svg>
       {/if}

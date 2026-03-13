@@ -3,7 +3,7 @@
   import { projectsStore, tasksStore } from '$lib/stores.svelte';
   import { allTasksIcon, upcomingIcon, overdueIcon, settingsIcon } from '$lib/icons';
   import { registerRect } from '$lib/stores/sidebarRects.svelte';
-  import { projectIconStore, ICON_EMOJIS } from '$lib/stores/projectIcons.svelte';
+  import { projectIdentifierStore } from '$lib/stores/projectIdentifiers.svelte';
   import Tip from '$components/ui/Tip.svelte';
   import ProjectContextMenu from './ProjectContextMenu.svelte';
   import ColorPicker from '$components/ui/ColorPicker.svelte';
@@ -43,7 +43,7 @@
   let createInput = $state<HTMLInputElement | null>(null);
   let createPanel = $state<HTMLDivElement | null>(null);
   let selectedColor = $state('');
-  let selectedEmoji = $state('');
+  let selectedIdentifier = $state('');
   let showCustomColor = $state(false);
 
   // Drag-and-drop state (svelte-dnd-action)
@@ -89,7 +89,7 @@
     createOpen = true;
     newProjectName = '';
     selectedColor = '';
-    selectedEmoji = '';
+    selectedIdentifier = '';
     showCustomColor = false;
     requestAnimationFrame(() => createInput?.focus());
   }
@@ -102,8 +102,8 @@
     }
     try {
       const project = await projectsStore.create({ title: name, ...(selectedColor ? { hex_color: selectedColor } : {}) });
-      if (selectedEmoji && project) {
-        projectIconStore.set(project.id, selectedEmoji);
+      if (selectedIdentifier && project) {
+        projectIdentifierStore.set(project.id, selectedIdentifier);
       }
       if (project) {
         // Trigger celebration animation after DOM updates
@@ -128,7 +128,7 @@
     createOpen = false;
     newProjectName = '';
     selectedColor = '';
-    selectedEmoji = '';
+    selectedIdentifier = '';
     showCustomColor = false;
   }
 
@@ -149,7 +149,7 @@
         createOpen = false;
         newProjectName = '';
         selectedColor = '';
-        selectedEmoji = '';
+        selectedIdentifier = '';
         showCustomColor = false;
       }
     }
@@ -230,11 +230,8 @@
               {#if active}
                 <span class="project-bar" style:background={project.hex_color || 'var(--text-tertiary)'}></span>
               {/if}
-              <span class="project-emoji-ring" style="border-color: {project.hex_color || 'var(--text-tertiary)'}; opacity: {active ? 1 : 0.6};">
-                {projectIconStore.get(project.id, project.title)}
-              </span>
-              <span class="project-label" class:project-label-active={active}>
-                {project.title.slice(0, 2).toUpperCase()}
+              <span class="project-monogram-ring" style="border-color: {project.hex_color || 'var(--text-tertiary)'}; opacity: {active ? 1 : 0.5};">
+                {projectIdentifierStore.get(project.id, project.title)}
               </span>
             </Tip>
           </div>
@@ -273,7 +270,7 @@
       <!-- Live preview -->
       <div class="create-preview">
         <span class="create-preview-ring" style="border-color: {selectedColor || 'var(--text-tertiary)'};">
-          {selectedEmoji || (newProjectName.trim() ? newProjectName.trim().slice(0, 1).toUpperCase() : '?')}
+          {selectedIdentifier || (newProjectName.trim() ? newProjectName.trim().charAt(0).toUpperCase() : '?')}
         </span>
         <span class="create-preview-name">
           {newProjectName.trim() || 'New project'}
@@ -290,17 +287,17 @@
         spellcheck="false"
       />
 
-      <!-- Icon picker -->
-      <div class="create-section-label">Icon</div>
-      <div class="create-emoji-row">
-        {#each ICON_EMOJIS.slice(0, 8) as emoji (emoji)}
-          <button
-            class="create-emoji"
-            class:selected={selectedEmoji === emoji}
-            onclick={() => selectedEmoji = selectedEmoji === emoji ? '' : emoji}
-          >{emoji}</button>
-        {/each}
-      </div>
+      <!-- Identifier -->
+      <div class="create-section-label">Identifier</div>
+      <input
+        class="create-identifier-input"
+        type="text"
+        maxlength="3"
+        placeholder={newProjectName.trim() ? newProjectName.trim().charAt(0).toUpperCase() : 'A'}
+        bind:value={selectedIdentifier}
+        oninput={() => { selectedIdentifier = selectedIdentifier.toUpperCase(); }}
+        onkeydown={handleCreateKeydown}
+      />
 
       <!-- Color swatches -->
       <div class="create-section-label">Color</div>
@@ -485,37 +482,27 @@
     border-radius: 1px;
   }
 
-  .project-emoji-ring {
+  .project-monogram-ring {
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    border: 2px solid; /* color set via inline style */
+    border: 1.5px solid; /* color set via inline style */
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
     line-height: 1;
     transition: opacity 150ms, border-color 150ms;
   }
 
-  .project-zone:hover .project-emoji-ring {
-    opacity: 0.8 !important;
-  }
-
-  .project-active .project-emoji-ring {
+  .project-zone:hover .project-monogram-ring {
     opacity: 1 !important;
   }
 
-  .project-label {
-    font-size: 10px;
-    color: var(--text-tertiary);
-    letter-spacing: 0.05em;
-    line-height: 1;
-    transition: color var(--transition-fast) ease-out;
-  }
-
-  .project-label-active {
-    color: var(--text-primary);
+  .project-active .project-monogram-ring {
+    opacity: 1 !important;
   }
 
   /* Settings — centered with proper hit target */
@@ -628,36 +615,25 @@
     border-color: var(--text-primary);
   }
 
-  /* Icon picker row */
-  .create-emoji-row {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-    padding: 0 2px;
-  }
-
-  .create-emoji {
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    background: none;
-    border: 2px solid transparent;
+  /* Identifier input */
+  .create-identifier-input {
+    width: 60px;
+    padding: 5px 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    text-transform: uppercase;
+    color: var(--text-primary);
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
     border-radius: 6px;
-    cursor: pointer;
-    padding: 0;
-    transition: border-color 150ms, transform 150ms;
+    outline: none;
+    font-family: var(--font-sans);
+    letter-spacing: 0.05em;
   }
 
-  .create-emoji:hover {
-    transform: scale(1.15);
-  }
-
-  .create-emoji.selected {
-    border-color: var(--text-primary);
-    background: var(--bg-surface-hover);
+  .create-identifier-input:focus {
+    border-color: var(--accent);
   }
 
   /* Custom color toggle */
@@ -700,11 +676,13 @@
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    border: 2px solid;
+    border: 1.5px solid;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 15px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
     line-height: 1;
     flex-shrink: 0;
     transition: border-color 150ms;
