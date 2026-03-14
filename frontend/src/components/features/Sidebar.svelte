@@ -423,7 +423,7 @@
     height: 2px;
     background: var(--accent);
     border-radius: 1px;
-    animation: underline-in 200ms ease-out forwards;
+    animation: underline-in var(--transition-normal) ease-out forwards;
   }
 
   /* Gradient separator between nav and projects */
@@ -465,7 +465,7 @@
     border-radius: 6px;
     padding: 4px 0;
     transition: background var(--transition-fast) ease-out, box-shadow 1.5s ease-out;
-    animation: fadeIn 300ms ease-out both;
+    animation: fadeIn var(--transition-slow) ease-out both;
   }
 
   .project-zone:hover {
@@ -494,7 +494,7 @@
     font-weight: 600;
     color: var(--text-secondary);
     line-height: 1;
-    transition: opacity 150ms, border-color 150ms;
+    transition: opacity var(--transition-fast), border-color var(--transition-fast);
   }
 
   .project-zone:hover .project-monogram-ring {
@@ -570,7 +570,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    animation: popout-enter 150ms ease-out;
+    animation: popout-enter var(--transition-fast) ease-out;
   }
 
   .create-popout-input {
@@ -603,7 +603,7 @@
     border-radius: 50%;
     border: 2px solid transparent;
     cursor: pointer;
-    transition: border-color 150ms, transform 150ms;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
     padding: 0;
   }
 
@@ -648,7 +648,7 @@
     font-family: var(--font-sans);
     text-align: center;
     border-radius: 4px;
-    transition: color 150ms, background 150ms;
+    transition: color var(--transition-fast), background var(--transition-fast);
   }
 
   .create-custom-toggle:hover {
@@ -685,7 +685,7 @@
     color: var(--text-secondary);
     line-height: 1;
     flex-shrink: 0;
-    transition: border-color 150ms;
+    transition: border-color var(--transition-fast);
   }
 
   .create-preview-name {

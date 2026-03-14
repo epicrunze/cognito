@@ -1,5 +1,6 @@
 <script lang="ts">
   import { slide } from 'svelte/transition';
+  import { DURATION } from '$lib/transitions';
   import { labelsStore } from '$lib/stores.svelte';
   import { filterStore, type DueDatePreset } from '$lib/stores/filter.svelte';
   import Dropdown from '$components/ui/Dropdown.svelte';
@@ -51,7 +52,7 @@
 
 {#if open}
   <div
-    transition:slide={{ duration: 200 }}
+    transition:slide={{ duration: DURATION.normal }}
     style="padding: 10px 24px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: 10px; flex-shrink: 0; overflow-x: auto; background: var(--bg-surface);"
   >
     <Dropdown
@@ -101,7 +102,7 @@
       <button
         type="button"
         onclick={() => filterStore.clearAll()}
-        style="height: 34px; padding: 0 12px; font-size: 12.5px; color: var(--text-tertiary); background: none; border: 1px solid var(--border-default); border-radius: 8px; cursor: pointer; font-family: var(--font-sans); white-space: nowrap; flex-shrink: 0; transition: all 150ms;"
+        style="height: 34px; padding: 0 12px; font-size: 12.5px; color: var(--text-tertiary); background: none; border: 1px solid var(--border-default); border-radius: 8px; cursor: pointer; font-family: var(--font-sans); white-space: nowrap; flex-shrink: 0; transition: all var(--transition-fast);"
       >Clear all</button>
     {/if}
   </div>

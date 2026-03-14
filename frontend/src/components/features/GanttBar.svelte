@@ -88,7 +88,7 @@
 			align-items: center;
 			justify-content: center;
 			opacity: {isDone ? 0.5 : 1};
-			transition: box-shadow 150ms, opacity 150ms;
+			transition: box-shadow var(--transition-fast), opacity var(--transition-fast);
 			box-shadow: {hovered ? '0 2px 8px rgba(0,0,0,0.3)' : 'none'};
 			z-index: {hovered ? 2 : 1};
 		"
@@ -128,7 +128,7 @@
 			padding: 0 10px;
 			overflow: hidden;
 			opacity: {isDone ? 0.5 : 1};
-			transition: box-shadow 150ms, opacity 150ms;
+			transition: box-shadow var(--transition-fast), opacity var(--transition-fast);
 			box-shadow: {hovered ? '0 2px 8px rgba(0,0,0,0.3)' : 'var(--shadow-sm)'};
 			z-index: {hovered ? 2 : 1};
 			user-select: none;

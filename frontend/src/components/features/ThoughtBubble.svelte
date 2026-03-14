@@ -511,7 +511,7 @@
     onkeydown={handleKeydown}
     data-transition-id="{data.id}"
     data-task-priority="{data.priority}"
-    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; display: flex; align-items: center; width: 100%; border-radius: 8px; padding: 8px 12px; gap: 10px; background: {hovering ? 'var(--bg-surface-hover)' : 'transparent'}; border-bottom: 1px solid var(--border-subtle); border-left: {compactBorderLeft}; box-shadow: {showGlow ? 'inset 3px 0 8px -4px var(--accent-glow)' : 'none'}; cursor: pointer; transition: width 150ms ease-out, background 150ms ease-out, border-bottom-color 150ms ease-out, box-shadow 150ms ease-out, opacity 150ms ease-out; opacity: {presenceOpacity}; min-height: 44px;"
+    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; display: flex; align-items: center; width: 100%; border-radius: 8px; padding: 8px 12px; gap: 10px; background: {hovering ? 'var(--bg-surface-hover)' : 'transparent'}; border-bottom: 1px solid var(--border-subtle); border-left: {compactBorderLeft}; box-shadow: {showGlow ? 'inset 3px 0 8px -4px var(--accent-glow)' : 'none'}; cursor: pointer; transition: width var(--transition-fast) ease-out, background var(--transition-fast) ease-out, border-bottom-color var(--transition-fast) ease-out, box-shadow var(--transition-fast) ease-out, opacity var(--transition-fast) ease-out; opacity: {presenceOpacity}; min-height: 44px;"
   >
     {#if proposalMode}
       <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -556,11 +556,11 @@
     onkeydown={handleKeydown}
     data-transition-id="{data.id}"
     data-task-priority="{data.priority}"
-    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? '360px' : kanban ? '100%' : `${bubbleWidth}px`}; min-height: {expanded ? 'auto' : kanbanCompact ? '50px' : `${bubbleMinHeight}px`}; border-radius: 10px; background: {expanded ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border-top: 1px solid {borderColor}; border-right: 1px solid {borderColor}; border-bottom: 1px solid {borderColor}; border-left: {priorityBorderWidth} solid {priorityBorderColor}; padding: {expanded ? '18px 20px' : kanbanCompact ? '8px 10px' : '14px 14px 11px'}; cursor: pointer; box-shadow: {shadowStyle}{showGlow && !expanded ? ', inset 0 0 12px -4px var(--accent-glow)' : ''}; transition: background 200ms ease-out, border-top-color 200ms ease-out, border-right-color 200ms ease-out, border-bottom-color 200ms ease-out, box-shadow 200ms ease-out, opacity 200ms ease-out; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden;"
+    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? '360px' : kanban ? '100%' : `${bubbleWidth}px`}; min-height: {expanded ? 'auto' : kanbanCompact ? '50px' : `${bubbleMinHeight}px`}; border-radius: 10px; background: {expanded ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border-top: 1px solid {borderColor}; border-right: 1px solid {borderColor}; border-bottom: 1px solid {borderColor}; border-left: {priorityBorderWidth} solid {priorityBorderColor}; padding: {expanded ? '18px 20px' : kanbanCompact ? '8px 10px' : '14px 14px 11px'}; cursor: pointer; box-shadow: {shadowStyle}{showGlow && !expanded ? ', inset 0 0 12px -4px var(--accent-glow)' : ''}; transition: background var(--transition-normal) ease-out, border-top-color var(--transition-normal) ease-out, border-right-color var(--transition-normal) ease-out, border-bottom-color var(--transition-normal) ease-out, box-shadow var(--transition-normal) ease-out, opacity var(--transition-normal) ease-out; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden;"
   >
     <!-- Project corner triangle -->
     {#if projectColor}
-      <div class="project-triangle" style="position: absolute; top: 0; right: 0; width: 0; height: 0; border-left: 18px solid transparent; border-top: 18px solid {projectColor}; border-top-right-radius: 9px; opacity: {expanded ? 0.6 : 0.7}; transition: opacity 200ms; pointer-events: none;"></div>
+      <div class="project-triangle" style="position: absolute; top: 0; right: 0; width: 0; height: 0; border-left: 18px solid transparent; border-top: 18px solid {projectColor}; border-top-right-radius: 9px; opacity: {expanded ? 0.6 : 0.7}; transition: opacity var(--transition-normal); pointer-events: none;"></div>
     {/if}
 
     <!-- Quick-complete circle — top-right, appears on hover -->
@@ -622,7 +622,7 @@
 
     {:else}
       <!-- EXPANDED STATE -->
-      <div style="{supportsVT ? '' : 'animation: expandIn 200ms ease-out;'}">
+      <div style="{supportsVT ? '' : 'animation: expandIn var(--transition-normal) ease-out;'}">
         <!-- Editable title -->
         <textarea
           bind:this={titleTextarea}
@@ -720,7 +720,7 @@
                     class="subtask-delete"
                     onclick={(e) => { e.stopPropagation(); deleteSubtask(st); }}
                     aria-label="Delete subtask"
-                    style="background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; opacity: 0; transition: opacity 150ms;"
+                    style="background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; opacity: 0; transition: opacity var(--transition-fast);"
                   >&times;</button>
                 </div>
               {/each}
@@ -816,7 +816,7 @@
     border-radius: 6px;
     font-family: var(--font-sans);
     outline: none;
-    transition: border-color 150ms, background-color 150ms;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
   }
   .bubble-editable::placeholder {
     color: var(--text-tertiary);
@@ -834,7 +834,7 @@
 
   /* Editable inline zones (date label) */
   .bubble-editable-zone {
-    transition: background-color 150ms;
+    transition: background-color var(--transition-fast);
   }
   .bubble-editable-zone:hover {
     background-color: rgba(0, 0, 0, 0.15) !important;
@@ -853,7 +853,7 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    transition: color 150ms, background-color 150ms;
+    transition: color var(--transition-fast), background-color var(--transition-fast);
   }
   .bubble-action-btn:hover {
     color: var(--hover-color, var(--text-secondary));
@@ -906,7 +906,7 @@
     color: transparent;
     z-index: 1;
     opacity: 0;
-    transition: opacity 150ms, background 150ms, border-color 150ms, color 150ms;
+    transition: opacity var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
   }
 
   :global([role="button"]:hover) .quick-complete {
@@ -932,7 +932,7 @@
     gap: 6px;
     align-items: center;
     opacity: 0.55;
-    transition: opacity 150ms;
+    transition: opacity var(--transition-fast);
   }
 
   /* Hover labels — hidden by default, shown on card hover */
@@ -944,7 +944,7 @@
     display: flex;
     align-items: center;
     opacity: 0;
-    transition: opacity 150ms;
+    transition: opacity var(--transition-fast);
   }
 
   /* When card has labels: swap meta for labels on hover */
@@ -956,8 +956,4 @@
     opacity: 1;
   }
 
-  @keyframes expandIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
 </style>

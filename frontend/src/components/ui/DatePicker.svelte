@@ -200,7 +200,7 @@
 
 <div bind:this={ref} style="position: relative; display: inline-flex;">
   <!-- Text input + calendar icon -->
-  <div style="display: flex; align-items: center; gap: 0; height: 40px; background: var(--bg-elevated); border: 1px solid {open ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; transition: all 150ms ease-out; box-shadow: {open ? '0 0 0 2px rgba(232,119,46,0.15)' : 'none'};">
+  <div style="display: flex; align-items: center; gap: 0; height: 40px; background: var(--bg-elevated); border: 1px solid {open ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; transition: all var(--transition-fast) ease-out; box-shadow: {open ? '0 0 0 2px rgba(232,119,46,0.15)' : 'none'};">
     <input
       type="text"
       bind:value={inputValue}
@@ -213,7 +213,7 @@
       type="button"
       onclick={toggleCalendar}
       aria-label="Toggle calendar"
-      style="height: 100%; padding: 0 10px; background: none; border: none; border-left: 1px solid var(--border-subtle); color: var(--text-tertiary); cursor: pointer; display: flex; align-items: center; font-size: 16px; border-radius: 0 8px 8px 0; transition: color 150ms;"
+      style="height: 100%; padding: 0 10px; background: none; border: none; border-left: 1px solid var(--border-subtle); color: var(--text-tertiary); cursor: pointer; display: flex; align-items: center; font-size: 16px; border-radius: 0 8px 8px 0; transition: color var(--transition-fast);"
     >&#128197;</button>
   </div>
 
@@ -231,7 +231,7 @@
           <button
             type="button"
             onclick={() => pickerMode = 'month'}
-            style="background: none; border: none; font-size: 14px; font-weight: 600; color: var(--text-primary); cursor: pointer; padding: 4px 8px; border-radius: 6px; font-family: var(--font-sans); transition: background 150ms;"
+            style="background: none; border: none; font-size: 14px; font-weight: 600; color: var(--text-primary); cursor: pointer; padding: 4px 8px; border-radius: 6px; font-family: var(--font-sans); transition: background var(--transition-fast);"
           >
             {MONTHS[viewMonth]} {viewYear}
           </button>
@@ -239,7 +239,7 @@
           <button
             type="button"
             onclick={() => pickerMode = 'year'}
-            style="background: none; border: none; font-size: 14px; font-weight: 600; color: var(--text-primary); cursor: pointer; padding: 4px 8px; border-radius: 6px; font-family: var(--font-sans); transition: background 150ms;"
+            style="background: none; border: none; font-size: 14px; font-weight: 600; color: var(--text-primary); cursor: pointer; padding: 4px 8px; border-radius: 6px; font-family: var(--font-sans); transition: background var(--transition-fast);"
           >
             {viewYear}
           </button>

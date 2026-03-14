@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { confirmDialogState, resolveDialog } from '$lib/stores/confirmDialog.svelte';
 	import { fade, fly } from 'svelte/transition';
+	import { DURATION } from '$lib/transitions';
 
 	const request = $derived(confirmDialogState.request);
 
@@ -15,14 +16,14 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		class="confirm-backdrop"
-		transition:fade={{ duration: 150 }}
+		transition:fade={{ duration: DURATION.fast }}
 		onclick={() => resolveDialog(false)}
 		onkeydown={handleKeydown}
 	>
 		{#key request.id}
 			<div
 				class="confirm-card"
-				transition:fly={{ y: 8, duration: 200 }}
+				transition:fly={{ y: 8, duration: DURATION.normal }}
 				onclick={(e) => e.stopPropagation()}
 				onkeydown={(e) => e.stopPropagation()}
 			>
@@ -95,7 +96,7 @@
 		cursor: pointer;
 		font-family: var(--font-sans);
 		font-size: 14px;
-		transition: opacity 150ms ease;
+		transition: opacity var(--transition-fast) ease;
 	}
 
 	.confirm-btn:hover {

@@ -46,7 +46,7 @@
   disabled={disabled || loading}
   onmouseenter={() => hovering = true}
   onmouseleave={() => hovering = false}
-  style="height: {s.h}px; padding: {s.p}; font-size: {s.fs}px; font-weight: 500; font-family: var(--font-sans); background: {bg}; color: {color}; border: {border}; border-radius: 8px; cursor: {disabled ? 'not-allowed' : 'pointer'}; opacity: {disabled ? 0.4 : 1}; display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; transition: all 150ms ease-out; line-height: 1; letter-spacing: -0.01em; white-space: nowrap; {style}"
+  style="height: {s.h}px; padding: {s.p}; font-size: {s.fs}px; font-weight: 500; font-family: var(--font-sans); background: {bg}; color: {color}; border: {border}; border-radius: 8px; cursor: {disabled ? 'not-allowed' : 'pointer'}; opacity: {disabled ? 0.4 : 1}; display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; transition: all var(--transition-fast) ease-out; line-height: 1; letter-spacing: -0.01em; white-space: nowrap; {style}"
 >
   {#if loading}
     <span style="display: inline-flex; animation: spin 0.8s linear infinite;">

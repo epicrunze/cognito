@@ -113,7 +113,7 @@
       <button
         onclick={handleCleanup}
         disabled={cleaningUp}
-        style="padding: 6px 14px; font-size: 12px; font-weight: 500; color: var(--text-secondary); background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 6px; cursor: pointer; font-family: var(--font-sans); transition: background 150ms; opacity: {cleaningUp ? 0.5 : 1};"
+        style="padding: 6px 14px; font-size: 12px; font-weight: 500; color: var(--text-secondary); background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 6px; cursor: pointer; font-family: var(--font-sans); transition: background var(--transition-fast); opacity: {cleaningUp ? 0.5 : 1};"
       >
         {cleaningUp ? 'Cleaning up...' : 'Clean up unused labels'}
       </button>
@@ -154,7 +154,7 @@
             <button
               onclick={() => handleDeleteLabel(label.id, label.title)}
               title="Delete label"
-              style="padding: 6px; background: none; border: none; border-radius: 6px; cursor: pointer; color: var(--text-tertiary); transition: color 150ms, background 150ms; flex-shrink: 0;"
+              style="padding: 6px; background: none; border: none; border-radius: 6px; cursor: pointer; color: var(--text-tertiary); transition: color var(--transition-fast), background var(--transition-fast); flex-shrink: 0;"
               onmouseenter={(e) => { (e.currentTarget as HTMLElement).style.color = '#E85D5D'; (e.currentTarget as HTMLElement).style.background = 'rgba(232, 93, 93, 0.1)'; }}
               onmouseleave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
             >
@@ -202,7 +202,7 @@
               onclick={() => handleGenerate(label.id)}
               disabled={generatingFor === label.id}
               title="Generate description with AI"
-              style="padding: 6px 10px; background: var(--accent-subtle); border: 1px solid transparent; border-radius: 6px; cursor: pointer; color: var(--accent); font-size: 12px; font-family: var(--font-sans); transition: background 150ms; flex-shrink: 0; display: flex; align-items: center; gap: 4px; opacity: {generatingFor === label.id ? 0.5 : 1};"
+              style="padding: 6px 10px; background: var(--accent-subtle); border: 1px solid transparent; border-radius: 6px; cursor: pointer; color: var(--accent); font-size: 12px; font-family: var(--font-sans); transition: background var(--transition-fast); flex-shrink: 0; display: flex; align-items: center; gap: 4px; opacity: {generatingFor === label.id ? 0.5 : 1};"
             >
               {#if generatingFor === label.id}
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
@@ -223,8 +223,4 @@
 </div>
 
 <style>
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
 </style>

@@ -3,6 +3,7 @@
   import { SvelteMap } from 'svelte/reactivity';
   import { slide } from 'svelte/transition';
   import { flip } from 'svelte/animate';
+  import { DURATION } from '$lib/transitions';
   import type { Task } from '$lib/types';
   import { tasksStore, projectsStore } from '$lib/stores.svelte';
   import { kanbanStore } from '$lib/stores/kanban.svelte';
@@ -282,7 +283,7 @@
 {:else}
   <!-- Active tasks -->
   {#each activeTasks as task, i (task.id)}
-    <div use:trackRow={task.id} animate:flip={{ duration: 200 }} transition:slide|local={{ duration: 200 }}>
+    <div use:trackRow={task.id} animate:flip={{ duration: DURATION.normal }} transition:slide|local={{ duration: DURATION.normal }}>
       <ThoughtBubble
         {task}
         compact
@@ -301,7 +302,7 @@
     >
       <span style="flex: 1; height: 1px; background: var(--border-default);"></span>
       <span>Completed ({completedTasks.length})</span>
-      <span style="font-size: 10px; transition: transform 150ms; transform: {showCompleted ? 'rotate(180deg)' : 'rotate(0deg)'};">&#9660;</span>
+      <span style="font-size: 10px; transition: transform var(--transition-fast); transform: {showCompleted ? 'rotate(180deg)' : 'rotate(0deg)'};">&#9660;</span>
       <span style="flex: 1; height: 1px; background: var(--border-default);"></span>
     </button>
     {#if showCompleted}

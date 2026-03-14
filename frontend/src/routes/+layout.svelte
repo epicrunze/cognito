@@ -209,7 +209,7 @@
           onclick={handleUndo}
           disabled={!revisionsStore.canUndo || revisionsStore.loading}
           title="Undo (Ctrl+Z)"
-          style="background: transparent; border: none; color: var(--text-secondary); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; flex-shrink: 0; white-space: nowrap; opacity: {revisionsStore.canUndo && !revisionsStore.loading ? 1 : 0.35}; transition: opacity 150ms, background 150ms;"
+          style="background: transparent; border: none; color: var(--text-secondary); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; flex-shrink: 0; white-space: nowrap; opacity: {revisionsStore.canUndo && !revisionsStore.loading ? 1 : 0.35}; transition: opacity var(--transition-fast), background var(--transition-fast);"
           onmouseenter={(e) => { if (revisionsStore.canUndo) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
           onmouseleave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
         >&#8630;</button>
@@ -217,7 +217,7 @@
           onclick={handleRedo}
           disabled={!revisionsStore.canRedo || revisionsStore.loading}
           title="Redo (Ctrl+Shift+Z)"
-          style="background: transparent; border: none; color: var(--text-secondary); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; flex-shrink: 0; white-space: nowrap; opacity: {revisionsStore.canRedo && !revisionsStore.loading ? 1 : 0.35}; transition: opacity 150ms, background 150ms;"
+          style="background: transparent; border: none; color: var(--text-secondary); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; flex-shrink: 0; white-space: nowrap; opacity: {revisionsStore.canRedo && !revisionsStore.loading ? 1 : 0.35}; transition: opacity var(--transition-fast), background var(--transition-fast);"
           onmouseenter={(e) => { if (revisionsStore.canRedo) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
           onmouseleave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
         >&#8631;</button>
@@ -285,7 +285,7 @@
     color: var(--text-tertiary);
     font-size: 16px;
     cursor: pointer;
-    transition: opacity 150ms, background 150ms;
+    transition: opacity var(--transition-fast), background var(--transition-fast);
     padding: 0;
   }
 
@@ -313,7 +313,7 @@
     align-items: center;
     justify-content: center;
     box-shadow: 0 4px 16px rgba(232, 119, 46, 0.3);
-    transition: transform 150ms ease-out, background 150ms ease-out, box-shadow 150ms ease-out;
+    transition: transform var(--transition-fast) ease-out, background var(--transition-fast) ease-out, box-shadow var(--transition-fast) ease-out;
   }
 
   .fab-extract:hover {

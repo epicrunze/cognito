@@ -732,7 +732,7 @@
           type="button"
           aria-label="Priority {level}"
           onclick={() => handlePriorityChange(level)}
-          style="width: 16px; height: 16px; border-radius: 50%; border: none; cursor: pointer; background: {level <= priority ? priorityColors[priority] : 'var(--border-default)'}; transition: all 150ms; transform: {level <= priority ? 'scale(1)' : 'scale(0.85)'};"
+          style="width: 16px; height: 16px; border-radius: 50%; border: none; cursor: pointer; background: {level <= priority ? priorityColors[priority] : 'var(--border-default)'}; transition: all var(--transition-fast); transform: {level <= priority ? 'scale(1)' : 'scale(0.85)'};"
         ></button>
       {/each}
     </div>
@@ -849,7 +849,7 @@
                         type="button"
                         aria-label="Color {color}"
                         onclick={() => { newLabelColor = color; }}
-                        style="width: 20px; height: 20px; border-radius: 50%; background: {color}; border: 2px solid {newLabelColor === color ? 'var(--text-primary)' : 'transparent'}; cursor: pointer; padding: 0; transition: all 150ms; transform: {newLabelColor === color ? 'scale(1.15)' : 'scale(1)'};"
+                        style="width: 20px; height: 20px; border-radius: 50%; background: {color}; border: 2px solid {newLabelColor === color ? 'var(--text-primary)' : 'transparent'}; cursor: pointer; padding: 0; transition: all var(--transition-fast); transform: {newLabelColor === color ? 'scale(1.15)' : 'scale(1)'};"
                       ></button>
                     {/each}
                   </div>
@@ -887,7 +887,7 @@
                   type="button"
                   onclick={() => deleteSubtask(st)}
                   aria-label="Delete subtask"
-                  style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--text-tertiary); cursor: pointer; border-radius: 4px; font-size: 14px; flex-shrink: 0; opacity: 0.6; transition: opacity 150ms;"
+                  style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--text-tertiary); cursor: pointer; border-radius: 4px; font-size: 14px; flex-shrink: 0; opacity: 0.6; transition: opacity var(--transition-fast);"
                 >&times;</button>
               </div>
             {/each}
@@ -985,7 +985,7 @@
           role="button"
           tabindex="0"
           onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef?.click(); }}
-          style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px; border: 1.5px dashed {dragOver ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-tertiary); background: {dragOver ? 'var(--accent-ghost)' : 'transparent'}; transition: all 150ms;"
+          style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px; border: 1.5px dashed {dragOver ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-tertiary); background: {dragOver ? 'var(--accent-ghost)' : 'transparent'}; transition: all var(--transition-fast);"
         >
           {#if uploading}
             <span>Uploading...</span>
@@ -1049,7 +1049,7 @@
     overflow: hidden;
     padding: 4px 8px;
     line-height: 1.3;
-    transition: border-color 150ms, background-color 150ms;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
   }
   .detail-title-editable::placeholder {
     color: var(--text-tertiary);
@@ -1080,7 +1080,7 @@
     overflow: hidden;
     padding: 8px;
     line-height: 1.5;
-    transition: border-color 150ms, background-color 150ms;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
     box-sizing: border-box;
   }
   .detail-description::placeholder {
@@ -1111,7 +1111,7 @@
     border-radius: 6px;
     font-size: 18px;
     flex-shrink: 0;
-    transition: color 150ms, background-color 150ms;
+    transition: color var(--transition-fast), background-color var(--transition-fast);
   }
   .detail-close-btn:hover {
     color: var(--text-primary);
@@ -1128,7 +1128,7 @@
     cursor: pointer;
     padding: 4px 0;
     text-align: left;
-    transition: color 150ms;
+    transition: color var(--transition-fast);
   }
   .detail-delete-btn:hover {
     color: var(--priority-urgent);
@@ -1151,7 +1151,7 @@
     cursor: pointer;
     border-radius: 6px;
     padding: 0;
-    transition: color 150ms, background 150ms;
+    transition: color var(--transition-fast), background var(--transition-fast);
   }
 
   .auto-label-btn:hover:not(:disabled) {
@@ -1168,11 +1168,6 @@
     animation: spin 1s linear infinite;
   }
 
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
   .no-labels-msg {
     font-size: 12px;
     color: var(--text-tertiary);
@@ -1180,28 +1175,10 @@
     animation: fadeInOut 2s ease-out forwards;
   }
 
-  @keyframes fadeInOut {
-    0% { opacity: 0; }
-    15% { opacity: 1; }
-    80% { opacity: 1; }
-    100% { opacity: 0; }
-  }
-
   /* AI-suggested label glow */
   .ai-suggested {
     box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent);
     border: 1px solid var(--accent);
     animation: aiGlowFade 500ms ease-out 4.5s forwards;
-  }
-
-  @keyframes aiGlowFade {
-    from {
-      box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent);
-      border-color: var(--accent);
-    }
-    to {
-      box-shadow: none;
-      border-color: transparent;
-    }
   }
 </style>

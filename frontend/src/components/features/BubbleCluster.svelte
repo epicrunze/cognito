@@ -2,20 +2,32 @@
   import type { Project, Task } from '$lib/types';
   import { slide, scale } from 'svelte/transition';
   import { flip } from 'svelte/animate';
+  import { DURATION } from '$lib/transitions';
   import { smartSort } from '$lib/smartSort';
   import ThoughtBubble from './ThoughtBubble.svelte';
   import SeedBubble from './SeedBubble.svelte';
   import ProjectContextMenu from './ProjectContextMenu.svelte';
 
+  type TransitionFn = (node: Element, params: any) => any;
+
   let {
     project,
     tasks,
     ontaskclick,
+    send,
+    receive,
   }: {
     project: Project;
     tasks: Task[];
     ontaskclick?: (id: number) => void;
+    send?: TransitionFn;
+    receive?: TransitionFn;
   } = $props();
+
+  const defaultIn: TransitionFn = (node) => scale(node, { duration: DURATION.normal, start: 0.85, opacity: 0 });
+  const defaultOut: TransitionFn = (node) => scale(node, { duration: DURATION.normal, start: 0.85, opacity: 0 });
+  const inFn = $derived(receive ?? defaultIn);
+  const outFn = $derived(send ?? defaultOut);
 
   let showCompleted = $state(false);
   let menuOpen = $state(false);
@@ -38,7 +50,7 @@
         menuPos = { x: rect.left, y: rect.bottom + 4 };
         menuOpen = true;
       }}
-      style="width: 20px; height: 20px; border-radius: 50%; background: none; border: none; display: flex; align-items: center; justify-content: center; opacity: 0; color: var(--text-tertiary); font-size: 14px; cursor: pointer; transition: opacity 150ms; padding: 0; margin-left: auto;"
+      style="width: 20px; height: 20px; border-radius: 50%; background: none; border: none; display: flex; align-items: center; justify-content: center; opacity: 0; color: var(--text-tertiary); font-size: 14px; cursor: pointer; transition: opacity var(--transition-fast); padding: 0; margin-left: auto;"
     >
       &#8942;
     </button>
@@ -53,7 +65,7 @@
   {:else}
     <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; align-content: flex-start;">
       {#each activeTasks as task (task.id)}
-        <div animate:flip={{ duration: 250 }} transition:scale|local={{ duration: 200, start: 0.85, opacity: 0 }}>
+        <div animate:flip={{ duration: DURATION.normal }} in:inFn={{ key: task.id }} out:outFn={{ key: task.id }}>
           <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
         </div>
       {/each}
@@ -70,7 +82,7 @@
       {showCompleted ? '\u25BE' : '\u25B8'} {completedTasks.length} completed
     </button>
     {#if showCompleted}
-      <div transition:slide={{ duration: 200 }} style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; opacity: 0.65;">
+      <div transition:slide={{ duration: DURATION.normal }} style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; opacity: 0.65;">
         {#each completedTasks as task (task.id)}
           <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
         {/each}
@@ -90,7 +102,7 @@
     align-items: center;
     gap: 14px;
     padding: 32px 0;
-    animation: fadeIn 200ms ease-out;
+    animation: fadeIn var(--transition-normal) ease-out;
   }
 
   .empty-hint {
@@ -98,11 +110,6 @@
     color: var(--text-tertiary);
     font-style: italic;
     opacity: 0.6;
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
   }
 
   .cluster-header:hover .menu-trigger {
@@ -120,7 +127,7 @@
     border-radius: 6px;
     opacity: 0.5;
     font-family: var(--font-sans);
-    transition: opacity 150ms, background 150ms;
+    transition: opacity var(--transition-fast), background var(--transition-fast);
   }
   .completed-toggle:hover {
     opacity: 0.8;

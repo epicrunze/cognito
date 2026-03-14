@@ -481,7 +481,7 @@
     cursor: pointer;
     text-align: left;
     font-family: var(--font-sans);
-    transition: background 150ms;
+    transition: background var(--transition-fast);
   }
 
   .menu-item:hover {
@@ -563,7 +563,7 @@
     border-radius: 50%;
     border: 2px solid transparent;
     cursor: pointer;
-    transition: border-color 150ms, transform 150ms;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
     padding: 0;
   }
 
@@ -643,7 +643,7 @@
     font-family: var(--font-sans);
     background: var(--accent);
     color: #fff;
-    transition: background 150ms;
+    transition: background var(--transition-fast);
   }
 
   .identifier-save-btn:hover {
@@ -661,7 +661,7 @@
     cursor: pointer;
     font-family: var(--font-sans);
     text-align: center;
-    transition: color 150ms;
+    transition: color var(--transition-fast);
   }
 
   .reset-icon-btn:hover {
@@ -724,7 +724,7 @@
     border: none;
     cursor: pointer;
     font-family: var(--font-sans);
-    transition: background 150ms;
+    transition: background var(--transition-fast);
   }
 
   .cancel-btn {
@@ -761,7 +761,7 @@
     font-family: var(--font-sans);
     text-align: center;
     border-radius: 4px;
-    transition: color 150ms, background 150ms;
+    transition: color var(--transition-fast), background var(--transition-fast);
   }
 
   .custom-toggle:hover {
@@ -853,7 +853,7 @@
     border: 1px solid var(--border-default);
     border-radius: 4px;
     outline: none;
-    transition: border-color 150ms;
+    transition: border-color var(--transition-fast);
   }
 
   .hex-input:focus {

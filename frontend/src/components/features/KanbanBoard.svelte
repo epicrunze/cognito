@@ -163,7 +163,7 @@
     <div style="display: flex; align-items: center; justify-content: flex-end; padding: 8px 24px 0; flex-shrink: 0;">
       <button
         onclick={toggleDensity}
-        style="height: 28px; padding: 0 10px; font-size: 12px; font-weight: 500; color: var(--text-tertiary); background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 6px; cursor: pointer; font-family: var(--font-sans); transition: all 150ms;"
+        style="height: 28px; padding: 0 10px; font-size: 12px; font-weight: 500; color: var(--text-tertiary); background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 6px; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
       >{kanbanDensity === 'full' ? 'Compact' : 'Full'}</button>
     </div>
     <div style="display: flex; gap: 16px; padding: 12px 24px 20px; overflow-x: auto; flex: 1; align-items: flex-start;">
@@ -203,7 +203,7 @@
     {:else}
       <button
         onclick={() => addingColumn = true}
-        style="width: 280px; flex-shrink: 0; padding: 14px 16px; background: var(--bg-surface); border: 1px dashed var(--border-default); border-radius: 10px; color: var(--text-tertiary); font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); transition: all 150ms;"
+        style="width: 280px; flex-shrink: 0; padding: 14px 16px; background: var(--bg-surface); border: 1px dashed var(--border-default); border-radius: 10px; color: var(--text-tertiary); font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
       >+ Add Column</button>
     {/if}
     </div>

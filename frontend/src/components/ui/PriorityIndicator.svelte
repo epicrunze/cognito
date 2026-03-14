@@ -8,7 +8,7 @@
 <div class="flex items-center" style="gap: 3px;">
   {#each [1, 2, 3, 4, 5] as i (i)}
     <div
-      style="width: {dotSize}px; height: {dotSize}px; border-radius: 50%; background: {i <= level ? activeColor : 'var(--border-default)'}; transition: all 150ms;"
+      style="width: {dotSize}px; height: {dotSize}px; border-radius: 50%; background: {i <= level ? activeColor : 'var(--border-default)'}; transition: all var(--transition-fast);"
     ></div>
   {/each}
 </div>

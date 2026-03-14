@@ -12,6 +12,7 @@
   import TaskPanel from '$components/features/TaskPanel.svelte';
   import ThoughtBubble from '$components/features/ThoughtBubble.svelte';
   import { fly, slide, fade } from 'svelte/transition';
+  import { DURATION } from '$lib/transitions';
   import { onMount, tick } from 'svelte';
 
   let modelOptions = $state<{ value: string; label: string; description: string }[]>([
@@ -179,11 +180,11 @@
   <div style="display: flex; gap: 0; margin-bottom: 20px; border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden; width: fit-content;">
     <button
       onclick={() => tab = 'paste'}
-      style="padding: 7px 18px; font-size: 13px; font-weight: 500; font-family: var(--font-sans); border: none; cursor: pointer; background: {tab === 'paste' ? 'var(--accent)' : 'transparent'}; color: {tab === 'paste' ? 'white' : 'var(--text-secondary)'}; transition: all 150ms;"
+      style="padding: 7px 18px; font-size: 13px; font-weight: 500; font-family: var(--font-sans); border: none; cursor: pointer; background: {tab === 'paste' ? 'var(--accent)' : 'transparent'}; color: {tab === 'paste' ? 'white' : 'var(--text-secondary)'}; transition: all var(--transition-fast);"
     >Paste</button>
     <button
       onclick={() => tab = 'chat'}
-      style="padding: 7px 18px; font-size: 13px; font-weight: 500; font-family: var(--font-sans); border: none; border-left: 1px solid var(--border-default); cursor: pointer; background: {tab === 'chat' ? 'var(--accent)' : 'transparent'}; color: {tab === 'chat' ? 'white' : 'var(--text-secondary)'}; transition: all 150ms;"
+      style="padding: 7px 18px; font-size: 13px; font-weight: 500; font-family: var(--font-sans); border: none; border-left: 1px solid var(--border-default); cursor: pointer; background: {tab === 'chat' ? 'var(--accent)' : 'transparent'}; color: {tab === 'chat' ? 'white' : 'var(--text-secondary)'}; transition: all var(--transition-fast);"
     >Chat</button>
   </div>
 
@@ -242,7 +243,7 @@
           onclick={() => showRaw = !showRaw}
           style="display: flex; align-items: center; gap: 6px; background: none; border: none; color: var(--text-tertiary); font-size: 13px; cursor: pointer; padding: 0; font-family: var(--font-sans);"
         >
-          <span style="transform: {showRaw ? 'rotate(90deg)' : 'rotate(0deg)'}; transition: transform 150ms; font-size: 10px;">&#9654;</span>
+          <span style="transform: {showRaw ? 'rotate(90deg)' : 'rotate(0deg)'}; transition: transform var(--transition-fast); font-size: 10px;">&#9654;</span>
           Raw AI Response
         </button>
         {#if showRaw}
@@ -268,7 +269,7 @@
       <div style="display: flex; flex-wrap: wrap; gap: 12px;">
         {#each proposals as proposal, i (proposal.id)}
           {#if proposal.status !== 'approved'}
-            <div in:fly={{ y: 20, duration: 250, delay: i * 50 }} out:slide|local={{ duration: 200 }}>
+            <div in:fly={{ y: 20, duration: DURATION.normal, delay: i * 50 }} out:slide|local={{ duration: DURATION.normal }}>
               <ThoughtBubble
                 {proposal}
                 proposalMode
@@ -290,7 +291,7 @@
               />
             </div>
           {:else}
-            <div out:slide|local={{ duration: 200 }} style="opacity: 0.5;">
+            <div out:slide|local={{ duration: DURATION.normal }} style="opacity: 0.5;">
               <ThoughtBubble
                 {proposal}
                 proposalMode
@@ -377,21 +378,8 @@
 />
 
 <style>
-  @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(232, 119, 46, 0.4); }
-    50% { box-shadow: 0 0 12px 4px rgba(232, 119, 46, 0.3); }
-  }
-
   .typing-indicator::after {
     content: '';
     animation: dots 1.5s steps(4, end) infinite;
-  }
-
-  @keyframes dots {
-    0% { content: ''; }
-    25% { content: '.'; }
-    50% { content: '..'; }
-    75% { content: '...'; }
-    100% { content: ''; }
   }
 </style>

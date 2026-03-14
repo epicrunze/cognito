@@ -26,7 +26,7 @@
 		width: {collapsed ? 32 : 200}px;
 		background: var(--bg-surface);
 		border-right: 1px solid var(--border-default);
-		transition: width 200ms ease;
+		transition: width var(--transition-normal) ease;
 		overflow: hidden;
 		flex-shrink: 0;
 		display: flex;
@@ -137,7 +137,7 @@
 						padding: 8px 12px;
 						border-bottom: 1px solid var(--border-subtle);
 						cursor: grab;
-						transition: background 150ms ease;
+						transition: background var(--transition-fast) ease;
 					"
 					onmouseenter={(e) => {
 						(e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)';

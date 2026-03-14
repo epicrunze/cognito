@@ -268,7 +268,7 @@
     border: 2px solid var(--border-default);
     cursor: pointer;
     padding: 0;
-    transition: border-color 150ms, transform 150ms;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
   }
 
   .trigger:hover {
@@ -306,7 +306,7 @@
     border: 2px solid transparent;
     cursor: pointer;
     padding: 0;
-    transition: border-color 150ms, transform 150ms;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
   }
 
   .preset-swatch:hover {
@@ -329,7 +329,7 @@
     font-family: var(--font-sans);
     text-align: center;
     border-radius: 4px;
-    transition: color 150ms, background 150ms;
+    transition: color var(--transition-fast), background var(--transition-fast);
   }
 
   .custom-toggle:hover {
@@ -374,7 +374,7 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
     transform: translate(-50%, -50%);
     pointer-events: none;
-    transition: box-shadow 150ms;
+    transition: box-shadow var(--transition-fast);
   }
 
   /* Saturation/Lightness pad */
@@ -424,7 +424,7 @@
     border: 1px solid var(--border-default);
     border-radius: 4px;
     outline: none;
-    transition: border-color 150ms;
+    transition: border-color var(--transition-fast);
   }
 
   .hex-input:focus {

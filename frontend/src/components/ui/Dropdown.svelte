@@ -36,12 +36,12 @@
   <button
     type="button"
     onclick={() => open = !open}
-    style="width: 100%; height: 34px; padding: 0 12px; font-size: 13.5px; font-weight: 400; color: {selected ? 'var(--text-primary)' : 'var(--text-tertiary)'}; background: var(--bg-elevated); border: 1px solid {open ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 150ms ease-out; outline: none; box-shadow: {open ? '0 0 0 2px rgba(232,119,46,0.15)' : 'none'}; font-family: var(--font-sans);"
+    style="width: 100%; height: 34px; padding: 0 12px; font-size: 13.5px; font-weight: 400; color: {selected ? 'var(--text-primary)' : 'var(--text-tertiary)'}; background: var(--bg-elevated); border: 1px solid {open ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all var(--transition-fast) ease-out; outline: none; box-shadow: {open ? '0 0 0 2px rgba(232,119,46,0.15)' : 'none'}; font-family: var(--font-sans);"
   >
     <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
       {selected ? selected.label : placeholder}
     </span>
-    <span style="font-size: 10px; color: var(--text-tertiary); margin-left: 8px; transform: {open ? 'rotate(180deg)' : 'rotate(0deg)'}; transition: transform 150ms;">&#9660;</span>
+    <span style="font-size: 10px; color: var(--text-tertiary); margin-left: 8px; transform: {open ? 'rotate(180deg)' : 'rotate(0deg)'}; transition: transform var(--transition-fast);">&#9660;</span>
   </button>
   {#if open}
     <div

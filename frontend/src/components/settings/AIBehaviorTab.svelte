@@ -228,7 +228,7 @@
           <span style="font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--accent-subtle); color: var(--accent);">customized</span>
         {/if}
       </span>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate({showBasePrompt ? 180 : 0}deg); transition: transform 200ms;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate({showBasePrompt ? 180 : 0}deg); transition: transform var(--transition-normal);">
         <path d="m6 9 6 6 6-6"/>
       </svg>
     </button>
@@ -252,7 +252,7 @@
               {#if hasBaseOverride}
                 <button
                   onclick={resetBasePrompt}
-                  style="font-size: 11px; padding: 2px 8px; background: none; border: 1px solid var(--border-default); border-radius: 4px; color: var(--text-tertiary); cursor: pointer; font-family: var(--font-sans); transition: color 150ms, border-color 150ms;"
+                  style="font-size: 11px; padding: 2px 8px; background: none; border: 1px solid var(--border-default); border-radius: 4px; color: var(--text-tertiary); cursor: pointer; font-family: var(--font-sans); transition: color var(--transition-fast), border-color var(--transition-fast);"
                   onmouseenter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--text-tertiary)'; }}
                   onmouseleave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-default)'; }}
                 >
@@ -265,7 +265,7 @@
             bind:value={basePromptText}
             oninput={handleBasePromptInput}
             spellcheck="false"
-            style="width: 100%; min-height: 300px; padding: 12px; background: var(--bg-base); border: 1px solid var(--border-subtle); border-radius: 6px; font-size: 12px; line-height: 1.6; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; font-family: 'IBM Plex Mono', monospace; resize: vertical; outline: none; box-sizing: border-box; transition: border-color 150ms;"
+            style="width: 100%; min-height: 300px; padding: 12px; background: var(--bg-base); border: 1px solid var(--border-subtle); border-radius: 6px; font-size: 12px; line-height: 1.6; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; font-family: 'IBM Plex Mono', monospace; resize: vertical; outline: none; box-sizing: border-box; transition: border-color var(--transition-fast);"
           ></textarea>
         {/if}
       </div>
@@ -277,7 +277,7 @@
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
       <span style="font-size: 13px; font-weight: 500; color: var(--text-primary);">Custom Instructions</span>
       {#if saved}
-        <span style="font-size: 12px; color: var(--accent); transition: opacity 150ms;">Saved</span>
+        <span style="font-size: 12px; color: var(--accent); transition: opacity var(--transition-fast);">Saved</span>
       {/if}
     </div>
     {#if configLoading}
@@ -291,7 +291,7 @@
         bind:value={systemPrompt}
         oninput={handleInput}
         placeholder="Custom instructions for task extraction, e.g.:&#10;&#8226; Always categorize tasks into specific projects&#10;&#8226; Prefer high priority for deadline-sensitive items"
-        style="width: 100%; min-height: 100px; padding: 10px 12px; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 6px; color: var(--text-primary); font-size: 14px; font-family: inherit; line-height: 1.5; resize: vertical; outline: none; transition: border-color 150ms; box-sizing: border-box;"
+        style="width: 100%; min-height: 100px; padding: 10px 12px; background: var(--bg-base); border: 1px solid var(--border-default); border-radius: 6px; color: var(--text-primary); font-size: 14px; font-family: inherit; line-height: 1.5; resize: vertical; outline: none; transition: border-color var(--transition-fast); box-sizing: border-box;"
       ></textarea>
     {/if}
     <span style="font-size: 12px; color: var(--text-tertiary); margin-top: 8px; display: block;">
@@ -306,7 +306,7 @@
       style="width: 100%; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; background: none; border: none; cursor: pointer; color: var(--text-primary); font-family: var(--font-sans); font-size: 13px; font-weight: 500;"
     >
       Available Tools
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate({showTools ? 180 : 0}deg); transition: transform 200ms;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate({showTools ? 180 : 0}deg); transition: transform var(--transition-normal);">
         <path d="m6 9 6 6 6-6"/>
       </svg>
     </button>
@@ -361,7 +361,7 @@
             onclick={() => toggleConversation(conv.id)}
             onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') toggleConversation(conv.id); }}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; transform: rotate({expandedConvId === conv.id ? 90 : 0}deg); transition: transform 150ms; color: var(--text-tertiary);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; transform: rotate({expandedConvId === conv.id ? 90 : 0}deg); transition: transform var(--transition-fast); color: var(--text-tertiary);">
               <path d="m9 18 6-6-6-6"/>
             </svg>
             <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary);">{conv.snippet || 'Empty conversation'}</span>
@@ -488,7 +488,7 @@
     width: 100%;
     text-align: left;
     font-family: var(--font-sans);
-    transition: background 150ms, border-color 150ms;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
   }
 
   .conv-row:hover {
@@ -635,7 +635,7 @@
     cursor: pointer;
     flex-shrink: 0;
     opacity: 0;
-    transition: opacity 150ms, color 150ms, background 150ms;
+    transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
   }
 
   .conv-row:hover .conv-delete-btn {
@@ -659,7 +659,7 @@
     font-size: 12px;
     font-family: var(--font-sans);
     cursor: pointer;
-    transition: background 150ms, border-color 150ms;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
   }
 
   .resume-btn:hover {

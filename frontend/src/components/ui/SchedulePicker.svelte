@@ -297,7 +297,7 @@
 		bind:this={triggerRef}
 		type="button"
 		onclick={handleTriggerClick}
-		style="display: inline-flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 6px; font-family: var(--font-sans); font-size: 13px; transition: background 150ms; color: {hasValue ? 'var(--text-primary)' : 'var(--text-tertiary)'}; opacity: {hasValue ? 1 : 0.5};"
+		style="display: inline-flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 6px; font-family: var(--font-sans); font-size: 13px; transition: background var(--transition-fast); color: {hasValue ? 'var(--text-primary)' : 'var(--text-tertiary)'}; opacity: {hasValue ? 1 : 0.5};"
 		class="trigger-btn"
 	>
 		{#if hasValue}
@@ -333,7 +333,7 @@
 				<button
 					type="button"
 					onclick={() => { activeTime = 'start'; showDurationPicker = false; }}
-					style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: {activeTime === 'start' && !showDurationPicker ? 'var(--bg-surface-hover)' : 'transparent'}; border: none; border-left: 3px solid {activeTime === 'start' && !showDurationPicker ? 'var(--accent)' : 'transparent'}; border-radius: 0 6px 6px 0; cursor: pointer; font-family: var(--font-sans); transition: all 150ms;"
+					style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: {activeTime === 'start' && !showDurationPicker ? 'var(--bg-surface-hover)' : 'transparent'}; border: none; border-left: 3px solid {activeTime === 'start' && !showDurationPicker ? 'var(--accent)' : 'transparent'}; border-radius: 0 6px 6px 0; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
 				>
 					<span style="font-size: 12px; color: var(--text-tertiary); min-width: 32px;">Start</span>
 					<span style="font-size: 13.5px; font-weight: 500; color: {activeTime === 'start' && !showDurationPicker ? 'var(--accent)' : 'var(--text-primary)'};">
@@ -343,7 +343,7 @@
 				<button
 					type="button"
 					onclick={() => { activeTime = 'end'; showDurationPicker = false; }}
-					style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: {activeTime === 'end' && !showDurationPicker ? 'var(--bg-surface-hover)' : 'transparent'}; border: none; border-left: 3px solid {activeTime === 'end' && !showDurationPicker ? 'var(--accent)' : 'transparent'}; border-radius: 0 6px 6px 0; cursor: pointer; font-family: var(--font-sans); transition: all 150ms;"
+					style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: {activeTime === 'end' && !showDurationPicker ? 'var(--bg-surface-hover)' : 'transparent'}; border: none; border-left: 3px solid {activeTime === 'end' && !showDurationPicker ? 'var(--accent)' : 'transparent'}; border-radius: 0 6px 6px 0; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
 				>
 					<span style="font-size: 12px; color: var(--text-tertiary); min-width: 32px;">End</span>
 					<span style="font-size: 13.5px; font-weight: 500; color: {activeTime === 'end' && !showDurationPicker ? 'var(--accent)' : 'var(--text-primary)'};">
@@ -354,7 +354,7 @@
 				<button
 					type="button"
 					onclick={() => showDurationPicker = !showDurationPicker}
-					style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: {showDurationPicker ? 'var(--bg-surface-hover)' : 'transparent'}; border: none; border-left: 3px solid {showDurationPicker ? 'var(--accent)' : 'transparent'}; border-radius: 0 6px 6px 0; cursor: pointer; font-family: var(--font-sans); transition: all 150ms;"
+					style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: {showDurationPicker ? 'var(--bg-surface-hover)' : 'transparent'}; border: none; border-left: 3px solid {showDurationPicker ? 'var(--accent)' : 'transparent'}; border-radius: 0 6px 6px 0; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
 				>
 					<span style="font-size: 12px; color: var(--text-tertiary); min-width: 32px;">For</span>
 					<span style="font-size: 13.5px; font-weight: 500; color: {showDurationPicker ? 'var(--accent)' : 'var(--text-primary)'};">
@@ -371,7 +371,7 @@
 						<button
 							type="button"
 							onclick={() => setDuration(mins)}
-							style="padding: 6px 12px; border-radius: 8px; border: 1px solid {isActive ? 'var(--accent)' : 'var(--border-default)'}; background: {isActive ? 'var(--accent)' : 'var(--bg-surface)'}; color: {isActive ? 'white' : 'var(--text-primary)'}; font-size: 13px; font-family: var(--font-sans); cursor: pointer; transition: all 150ms; font-weight: {isActive ? 600 : 400};"
+							style="padding: 6px 12px; border-radius: 8px; border: 1px solid {isActive ? 'var(--accent)' : 'var(--border-default)'}; background: {isActive ? 'var(--accent)' : 'var(--bg-surface)'}; color: {isActive ? 'white' : 'var(--text-primary)'}; font-size: 13px; font-family: var(--font-sans); cursor: pointer; transition: all var(--transition-fast); font-weight: {isActive ? 600 : 400};"
 						>
 							{formatDurationMins(mins)}
 						</button>
@@ -432,7 +432,7 @@
 		font-family: var(--font-sans);
 		padding: 4px 6px;
 		border-radius: 4px;
-		transition: color 150ms;
+		transition: color var(--transition-fast);
 	}
 	.quick-btn:hover {
 		color: var(--accent);
@@ -447,7 +447,7 @@
 		font-family: var(--font-sans);
 		padding: 5px 14px;
 		border-radius: 6px;
-		transition: opacity 150ms;
+		transition: opacity var(--transition-fast);
 	}
 	.set-btn:hover {
 		opacity: 0.85;

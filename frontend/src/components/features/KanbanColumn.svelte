@@ -83,7 +83,7 @@
   <!-- Header -->
   <div style="padding: 14px 16px 10px; display: flex; align-items: center; justify-content: space-between; border-top: 2px solid {columnColor}; border-radius: 10px 10px 0 0;">
     <span style="font-size: 14px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
-      <span use:dragHandle aria-label="drag handle for {bucket.title}" style="cursor: grab; color: var(--text-tertiary); opacity: 0.4; display: flex; align-items: center; transition: opacity 150ms;" onmouseenter={(e) => { const el = e.currentTarget as HTMLElement; el.style.opacity = '1'; }} onmouseleave={(e) => { const el = e.currentTarget as HTMLElement; el.style.opacity = '0.4'; }}>
+      <span use:dragHandle aria-label="drag handle for {bucket.title}" style="cursor: grab; color: var(--text-tertiary); opacity: 0.4; display: flex; align-items: center; transition: opacity var(--transition-fast);" onmouseenter={(e) => { const el = e.currentTarget as HTMLElement; el.style.opacity = '1'; }} onmouseleave={(e) => { const el = e.currentTarget as HTMLElement; el.style.opacity = '0.4'; }}>
         <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="2" r="1.5"/><circle cx="7" cy="2" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="7" cy="8" r="1.5"/><circle cx="3" cy="14" r="1.5"/><circle cx="7" cy="14" r="1.5"/></svg>
       </span>
       {#if isDoneBucket}
@@ -114,7 +114,7 @@
       bind:value={quickAddValue}
       onkeydown={handleQuickAdd}
       placeholder="+ Add task..."
-      style="width: 100%; background: transparent; border: 1px solid var(--border-default); border-radius: 6px; padding: 8px 10px; font-size: 13px; color: var(--text-primary); font-family: var(--font-sans); outline: none; transition: border-color 150ms;"
+      style="width: 100%; background: transparent; border: 1px solid var(--border-default); border-radius: 6px; padding: 8px 10px; font-size: 13px; color: var(--text-primary); font-family: var(--font-sans); outline: none; transition: border-color var(--transition-fast);"
     />
   </div>
 </div>

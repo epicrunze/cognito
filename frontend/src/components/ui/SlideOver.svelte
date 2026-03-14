@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { fly, fade } from 'svelte/transition';
+  import { DURATION } from '$lib/transitions';
 
   let {
     open = false,
@@ -33,14 +34,14 @@
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div
     role="presentation"
-    transition:fade={{ duration: 200 }}
+    transition:fade={{ duration: DURATION.normal }}
     onclick={onclose}
     style="position: fixed; inset: 0; background: var(--bg-overlay); z-index: 100;"
   ></div>
 
   <!-- Panel -->
   <div
-    transition:fly={{ x: width, duration: 300 }}
+    transition:fly={{ x: width, duration: DURATION.slow }}
     style="position: fixed; top: 0; right: 0; bottom: 0; width: {width}px; max-width: 100vw; background: var(--bg-surface); border-left: 1px solid var(--border-default); box-shadow: var(--shadow-slide-over); z-index: 101; display: flex; flex-direction: column; overflow: hidden;"
   >
     {@render children()}

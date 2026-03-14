@@ -1,16 +1,27 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { fade } from 'svelte/transition';
+  import { crossfade, fade, slide, scale } from 'svelte/transition';
   import { flip } from 'svelte/animate';
+  import { DURATION } from '$lib/transitions';
+
+  const [send, receive] = crossfade({
+    duration: DURATION.normal,
+    fallback(node) {
+      return scale(node, { duration: DURATION.normal, start: 0.85, opacity: 0 });
+    }
+  });
   import type { Task, Project } from '$lib/types';
   import { tasksStore, projectsStore } from '$lib/stores.svelte';
   import { kanbanStore } from '$lib/stores/kanban.svelte';
   import { filterStore } from '$lib/stores/filter.svelte';
   import { bubbleStore } from '$lib/stores/bubble.svelte';
   import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
+  import { viewModeStore } from '$lib/stores/viewMode.svelte';
   import { applyClientFilters } from '$lib/filterUtils';
+  import { smartSort } from '$lib/smartSort';
   import type { FetchParams } from '$lib/stores/tasks.svelte';
   import BubbleCluster from './BubbleCluster.svelte';
+  import ThoughtBubble from './ThoughtBubble.svelte';
   import Skeleton from '$components/ui/Skeleton.svelte';
 
   let {
@@ -82,6 +93,11 @@
     return ordered;
   });
 
+  // Focus mode: single unified cluster
+  const focusActiveTasks = $derived(smartSort(filteredTasks.filter(t => !t.done)));
+  const focusCompletedTasks = $derived(filteredTasks.filter(t => t.done));
+  let showFocusCompleted = $state(false);
+
   function handleCanvasClick() {
     bubbleStore.collapse();
   }
@@ -111,6 +127,37 @@
         <Skeleton width={200} height={90} radius={10} />
       {/each}
     </div>
+  {:else if viewModeStore.isFocus}
+    <!-- Focus mode: single unified cluster, no project headers -->
+    {#if focusActiveTasks.length === 0 && focusCompletedTasks.length === 0}
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; gap: 12px;">
+        <span style="font-size: 40px; opacity: 0.3;">&#9744;</span>
+        <span style="font-size: 15px; color: var(--text-tertiary);">No tasks</span>
+      </div>
+    {:else}
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; align-content: flex-start;">
+        {#each focusActiveTasks as task (task.id)}
+          <div animate:flip={{ duration: DURATION.normal }} in:receive={{ key: task.id }} out:send={{ key: task.id }}>
+            <ThoughtBubble {task} onclick={() => handleTaskClick(task.id)} />
+          </div>
+        {/each}
+      </div>
+      {#if focusCompletedTasks.length > 0}
+        <button
+          class="completed-toggle"
+          onclick={() => showFocusCompleted = !showFocusCompleted}
+        >
+          {showFocusCompleted ? '\u25BE' : '\u25B8'} {focusCompletedTasks.length} completed
+        </button>
+        {#if showFocusCompleted}
+          <div transition:slide={{ duration: DURATION.normal }} style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; opacity: 0.65;">
+            {#each focusCompletedTasks as task (task.id)}
+              <ThoughtBubble {task} onclick={() => handleTaskClick(task.id)} />
+            {/each}
+          </div>
+        {/if}
+      {/if}
+    {/if}
   {:else if projectGroups.length === 0}
     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; gap: 12px;">
       <span style="font-size: 40px; opacity: 0.3;">&#9744;</span>
@@ -118,9 +165,28 @@
     </div>
   {:else}
     {#each projectGroups as group (group.projectId)}
-      <div animate:flip={{ duration: 300 }} transition:fade|local={{ duration: 200 }}>
-        <BubbleCluster project={group.project} tasks={group.tasks} ontaskclick={handleTaskClick} />
+      <div animate:flip={{ duration: DURATION.slow }} transition:fade|local={{ duration: DURATION.normal }}>
+        <BubbleCluster project={group.project} tasks={group.tasks} ontaskclick={handleTaskClick} {send} {receive} />
       </div>
     {/each}
   {/if}
 </div>
+
+<style>
+  .completed-toggle {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    margin-top: 14px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    opacity: 0.5;
+    font-family: var(--font-sans);
+  }
+  .completed-toggle:hover {
+    opacity: 0.8;
+    background: var(--bg-surface-hover);
+  }
+</style>

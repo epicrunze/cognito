@@ -92,7 +92,7 @@
     cursor: pointer;
     text-align: left;
     font-family: var(--font-sans);
-    transition: color 150ms, background 150ms;
+    transition: color var(--transition-fast), background var(--transition-fast);
   }
 
   .nav-item:hover {

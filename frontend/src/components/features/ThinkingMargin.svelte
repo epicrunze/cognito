@@ -11,6 +11,7 @@
   import { onMount, tick } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import { slide } from 'svelte/transition';
+  import { DURATION } from '$lib/transitions';
   import type { ChatAction, TaskProposal } from '$lib/types';
   import type { ModelOption } from '$lib/api';
   import { formatChangeValue } from '$lib/formatUtils';
@@ -388,7 +389,7 @@
   <!-- Bulk action bar -->
   {#if chatStore.pendingProposals.length > 1}
     <div
-      transition:slide={{ duration: 200 }}
+      transition:slide={{ duration: DURATION.normal }}
       style="display: flex; align-items: center; gap: 8px; padding: 8px 20px; border-bottom: 1px solid var(--border-default); background: var(--bg-elevated); flex-shrink: 0;"
     >
       <span style="font-size: 13px; color: var(--text-secondary); font-family: var(--font-sans); flex: 1;">
@@ -558,18 +559,6 @@
     animation: thinkingBounce 1s ease-in-out infinite;
   }
 
-  @keyframes thinkingBounce {
-    0%,
-    60%,
-    100% {
-      opacity: 0.3;
-      transform: translateY(0);
-    }
-    30% {
-      opacity: 1;
-      transform: translateY(-4px);
-    }
-  }
 
   .cloud-local-toggle {
     display: flex;
@@ -582,7 +571,7 @@
     background: var(--bg-elevated);
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all 150ms ease-out;
+    transition: all var(--transition-fast) ease-out;
     flex-shrink: 0;
   }
 
