@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cognito — Card Prototypes v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-base: #111110;
+    --bg-surface: #1A1A19;
+    --bg-surface-hover: #222221;
+    --bg-elevated: #252524;
+    --border-default: #2A2A28;
+    --border-strong: #3A3A37;
+    --border-subtle: #1F1F1E;
+    --text-primary: #EDEDEC;
+    --text-secondary: #A1A09A;
+    --text-tertiary: #6B6A65;
+    --accent: #E8772E;
+    --accent-hover: #D4691F;
+    --accent-glow: rgba(232, 119, 46, 0.25);
+    --priority-urgent: #EF5744;
+    --priority-high: #E8772E;
+    --priority-medium: #E2C541;
+    --priority-low: #5BBC6E;
+    --priority-none: #4A4A46;
+    --done: #5BBC6E;
+    --overdue: #EF5744;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lift: 0 6px 20px rgba(0, 0, 0, 0.4);
+    --font-sans: 'IBM Plex Sans', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --transition-fast: 150ms;
+    --transition-normal: 200ms;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 60px 32px 100px;
+  }
+
+  .page-header { margin-bottom: 56px; }
+  .page-header h1 {
+    font-size: 13px; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-tertiary);
+    margin-bottom: 6px; font-family: var(--font-mono);
+  }
+  .page-header p {
+    font-size: 14px; color: var(--text-tertiary); font-weight: 300; opacity: 0.7;
+  }
+
+  .section-label {
+    font-size: 11px; font-weight: 500; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-tertiary);
+    margin-bottom: 28px; font-family: var(--font-mono); opacity: 0.6;
+  }
+
+  .section-divider {
+    height: 1px; background: var(--border-subtle); margin: 56px 0;
+  }
+
+  /* ═══ BUBBLE VIEW ═══ */
+  .bubble-grid {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    align-items: flex-start; padding: 8px 0;
+  }
+
+  .bubble {
+    position: relative;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 14px 14px 11px;
+    cursor: pointer;
+    transition: box-shadow var(--transition-normal) ease;
+    display: flex; flex-direction: column; justify-content: space-between;
+    overflow: hidden;
+  }
+
+  .bubble:hover { box-shadow: var(--shadow-lift); }
+
+  /* Priority left border */
+  .bubble--p5 { border-left: 3px solid var(--priority-urgent); }
+  .bubble--p4 { border-left: 3px solid var(--priority-high); }
+  .bubble--p3 { border-left: 3px solid var(--priority-medium); }
+  .bubble--p2 { border-left: 2px solid var(--priority-low); }
+  .bubble--p1 { border-left: 2px solid var(--priority-none); }
+
+  /* Overdue overrides */
+  .bubble--overdue { border-left: 3px solid var(--overdue) !important; }
+
+  /* AI glow */
+  .bubble--ai {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 12px -4px var(--accent-glow);
+  }
+
+  /* Done */
+  .bubble--done { opacity: 0.35; }
+  .bubble--done .bubble-title {
+    text-decoration: line-through; text-decoration-color: var(--text-tertiary);
+  }
+
+  /* Quick-complete CHECKBOX */
+  .bubble .quick-complete {
+    position: absolute; top: 10px; right: 10px;
+    width: 16px; height: 16px;
+    border-radius: 3px;
+    border: 1.5px solid var(--border-strong);
+    background: transparent; cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast) ease,
+                background var(--transition-fast) ease,
+                border-color var(--transition-fast) ease;
+    z-index: 2;
+  }
+  .bubble:hover .quick-complete { opacity: 1; }
+  .bubble .quick-complete:hover {
+    border-color: var(--done); background: var(--done);
+  }
+  .bubble .quick-complete::after {
+    content: ''; position: absolute; top: 1px; left: 3.5px;
+    width: 6px; height: 9px;
+    border: solid var(--bg-base); border-width: 0 1.5px 1.5px 0;
+    transform: rotate(40deg); opacity: 0;
+    transition: opacity var(--transition-fast) ease;
+  }
+  .bubble .quick-complete:hover::after { opacity: 1; }
+
+  /* Project corner — HIDES on hover so checkbox is clear */
+  .bubble .project-corner {
+    position: absolute; top: 0; right: 0;
+    width: 0; height: 0; border-style: solid;
+    border-width: 0 22px 22px 0; border-color: transparent;
+    opacity: 0.7;
+    transition: opacity var(--transition-fast) ease;
+    z-index: 1;
+  }
+  .bubble:hover .project-corner { opacity: 0; pointer-events: none; }
+
+  .bubble-title {
+    font-size: 14.5px; line-height: 1.38;
+    color: var(--text-primary);
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    overflow: hidden; margin-bottom: auto; padding-right: 14px;
+  }
+
+  .bubble-meta {
+    display: flex; align-items: center; gap: 8px; margin-top: 10px;
+    font-size: 11px; color: var(--text-tertiary); opacity: 0.55;
+    font-family: var(--font-mono); min-height: 16px;
+    transition: opacity var(--transition-fast) ease;
+  }
+
+  .bubble-labels {
+    display: none; flex-wrap: wrap; gap: 4px;
+    margin-top: 10px; min-height: 16px;
+  }
+  .bubble:hover .bubble-meta { display: none; }
+  .bubble:hover .bubble-labels { display: flex; }
+
+  .label-pill {
+    font-size: 10px; font-weight: 500;
+    padding: 2px 7px; border-radius: 4px;
+    font-family: var(--font-mono); line-height: 1.4;
+  }
+
+
+
+  .meta-icon {
+    display: inline-flex; align-items: center; gap: 3px;
+  }
+  .meta-icon svg { width: 11px; height: 11px; opacity: 0.7; }
+
+  .due--overdue { color: var(--overdue); }
+  .due--today { color: var(--priority-medium); }
+  .due--soon { color: var(--text-secondary); }
+
+  /* ═══ EXPANDED CARD ═══ */
+  .expanded {
+    width: 360px; background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: 12px; padding: 20px;
+  }
+
+  .expanded-title {
+    font-size: 16px; font-weight: 500; color: var(--text-primary);
+    width: 100%; background: transparent; border: none; outline: none;
+    resize: none; font-family: var(--font-sans); line-height: 1.4;
+    margin-bottom: 10px;
+  }
+
+  .expanded-desc {
+    font-size: 13.5px; color: var(--text-secondary);
+    width: 100%; background: transparent; border: none; outline: none;
+    resize: none; font-family: var(--font-sans); line-height: 1.5;
+    margin-bottom: 18px; min-height: 40px;
+  }
+
+  .expanded-meta {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 18px; align-items: center;
+  }
+
+  .meta-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; font-family: var(--font-mono); color: var(--text-secondary);
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    border-radius: 6px; padding: 4px 9px; cursor: default;
+  }
+  .meta-chip svg { width: 13px; height: 13px; opacity: 0.65; }
+
+  .priority-dots { display: inline-flex; gap: 3px; align-items: center; }
+  .priority-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--border-strong);
+  }
+  .priority-dot--filled { background: var(--priority-urgent); }
+
+  .project-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; color: var(--text-secondary); font-family: var(--font-mono);
+  }
+  .project-chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  .subtask-list {
+    margin-bottom: 16px; border-top: 1px solid var(--border-subtle); padding-top: 14px;
+  }
+  .subtask-list-header {
+    font-size: 11px; font-weight: 500; color: var(--text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;
+    font-family: var(--font-mono);
+  }
+  .subtask-item {
+    display: flex; align-items: center; gap: 8px; padding: 5px 0;
+    font-size: 13px; color: var(--text-secondary);
+  }
+  .subtask-item input[type="checkbox"] {
+    appearance: none; width: 15px; height: 15px;
+    border: 1.5px solid var(--border-strong); border-radius: 3px;
+    background: transparent; cursor: pointer; flex-shrink: 0; position: relative;
+  }
+  .subtask-item input[type="checkbox"]:checked {
+    background: var(--done); border-color: var(--done);
+  }
+  .subtask-item input[type="checkbox"]:checked::after {
+    content: ''; position: absolute; top: 1px; left: 3px;
+    width: 6px; height: 9px;
+    border: solid var(--bg-base); border-width: 0 1.5px 1.5px 0;
+    transform: rotate(40deg);
+  }
+  .subtask-item--done span {
+    text-decoration: line-through; color: var(--text-tertiary);
+  }
+  .subtask-add { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .subtask-add input {
+    background: transparent; border: none;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-tertiary); font-size: 12.5px;
+    font-family: var(--font-sans); padding: 4px 0; outline: none; flex: 1;
+  }
+  .subtask-add input::placeholder { color: var(--text-tertiary); opacity: 0.5; }
+
+  .expanded-actions {
+    display: flex; gap: 6px; border-top: 1px solid var(--border-subtle); padding-top: 14px;
+  }
+  .action-btn {
+    font-size: 12px; font-weight: 400; font-family: var(--font-sans);
+    padding: 6px 12px; border-radius: 6px;
+    border: none; background: transparent;
+    color: var(--text-tertiary); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+    transition: color var(--transition-fast) ease, background var(--transition-fast) ease;
+  }
+  .action-btn svg { width: 14px; height: 14px; }
+  .action-btn:hover { background: var(--bg-surface); color: var(--text-secondary); }
+  .action-btn--done { color: var(--text-secondary); }
+  .action-btn--done:hover { color: var(--done); background: rgba(91,188,110,0.08); }
+  .action-btn--delete:hover { color: var(--overdue); background: rgba(239,87,68,0.08); }
+  .action-btn--open { margin-left: auto; color: var(--accent); }
+  .action-btn--open:hover { background: rgba(232,119,46,0.1); }
+
+  /* ═══ COMPACT LIST ═══ */
+  .compact-list { display: flex; flex-direction: column; }
+
+  .compact-row {
+    display: flex; align-items: center; gap: 10px;
+    min-height: 44px; padding: 0 14px;
+    border-bottom: 1px solid var(--border-subtle);
+    transition: background var(--transition-fast) ease; cursor: pointer;
+  }
+  .compact-row:first-child { border-top: 1px solid var(--border-subtle); }
+  .compact-row:hover { background: var(--bg-surface-hover); }
+  .compact-row--ai {
+    border-left: 2px solid var(--accent);
+    box-shadow: inset 6px 0 12px -6px var(--accent-glow);
+  }
+
+  .compact-checkbox {
+    appearance: none; width: 16px; height: 16px;
+    border: 1.5px solid var(--border-strong); border-radius: 3px;
+    background: transparent; cursor: pointer; flex-shrink: 0; position: relative;
+    transition: border-color var(--transition-fast) ease;
+  }
+  .compact-checkbox:hover { border-color: var(--done); }
+  .compact-checkbox:checked { background: var(--done); border-color: var(--done); }
+  .compact-checkbox:checked::after {
+    content: ''; position: absolute; top: 1px; left: 4px;
+    width: 6px; height: 9px;
+    border: solid var(--bg-base); border-width: 0 1.5px 1.5px 0;
+    transform: rotate(40deg);
+  }
+
+  .compact-priority {
+    width: 4px; height: 22px; border-radius: 2px; flex-shrink: 0;
+  }
+  .compact-title {
+    font-size: 13.5px; color: var(--text-primary); flex: 1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+  }
+  .compact-title--done {
+    text-decoration: line-through; color: var(--text-tertiary);
+  }
+  .compact-badge {
+    font-size: 10px; font-family: var(--font-mono);
+    padding: 2px 6px; border-radius: 3px; flex-shrink: 0;
+  }
+  .compact-date {
+    font-size: 11px; font-family: var(--font-mono);
+    color: var(--text-tertiary); flex-shrink: 0; white-space: nowrap;
+  }
+  .compact-project-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  .compare-col-label {
+    font-size: 10px; font-weight: 500; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-tertiary);
+    margin-bottom: 14px; font-family: var(--font-mono); opacity: 0.45;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="page-header">
+    <h1>Cognito v3</h1>
+    <p>All cards readable — priority via border, weight, shadow only. Corner hides on hover.</p>
+  </div>
+
+  <!-- ═══ BUBBLE VIEW ═══ -->
+  <div class="section-label">Bubble View</div>
+  <div class="bubble-grid" id="bubbleGrid"></div>
+
+  <div class="section-divider"></div>
+
+  <!-- ═══ KANBAN PREVIEW ═══ -->
+  <div class="section-label">Kanban Preview — Normalized Width</div>
+  <div style="display:flex;gap:20px;overflow-x:auto;padding-bottom:8px;">
+    <div style="flex:0 0 260px;">
+      <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.08em;">To Do <span style="opacity:0.4;margin-left:4px" id="kanbanTodoCount"></span></div>
+      <div id="kanbanTodoCards" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+    <div style="flex:0 0 260px;">
+      <div style="font-size:11px;font-family:var(--font-mono);color:var(--text-tertiary);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.08em;">Done <span style="opacity:0.4;margin-left:4px" id="kanbanDoneCount"></span></div>
+      <div id="kanbanDoneCards" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+  </div>
+
+  <div class="section-divider"></div>
+
+  <!-- ═══ EXPANDED ═══ -->
+  <div class="section-label">Expanded Card</div>
+  <div id="expandedSection"></div>
+
+  <div class="section-divider"></div>
+
+  <!-- ═══ COMPACT LIST ═══ -->
+  <div class="section-label">Compact List</div>
+  <div class="compact-list" id="compactList"></div>
+
+</div>
+
+<script>
+const tasks = [
+  {id:1, title:"Fix authentication token refresh", priority:5, dueDate:"yesterday", labels:[{title:"bug",hex_color:"EF5744"}], projectName:"Backend", projectColor:"#5BBC6E", subtaskDone:1, subtaskTotal:3, isAiTagged:false, done:false, description:"The refresh token flow is failing silently after 30 min sessions. Investigate the interceptor chain and ensure the retry queue works correctly."},
+  {id:2, title:"Design new onboarding flow for mobile users", priority:4, dueDate:"tomorrow", labels:[{title:"design",hex_color:"8B5CF6"}], projectName:"Mobile", projectColor:"#E8772E", isAiTagged:true, done:false, description:"Create a streamlined 3-step onboarding that captures user preferences and sets up their workspace."},
+  {id:3, title:"Update API documentation for v2 endpoints", priority:3, dueDate:"in 5 days", labels:[{title:"docs",hex_color:"3B82F6"}], projectName:"Backend", projectColor:"#5BBC6E", isAiTagged:false, done:false, description:"Document all new v2 endpoints including request/response shapes, auth requirements, and rate limits."},
+  {id:4, title:"Research competitor pricing models", priority:2, dueDate:null, labels:[], projectName:"Strategy", projectColor:"#E2C541", isAiTagged:false, done:false, description:""},
+  {id:5, title:"Clean up unused CSS variables", priority:1, dueDate:null, labels:[{title:"chore",hex_color:"6B7280"}], projectName:"Frontend", projectColor:"#3B82F6", isAiTagged:false, done:false, description:""},
+  {id:6, title:"Weekly team sync notes", priority:3, dueDate:null, labels:[], projectName:"General", projectColor:"#A1A09A", isAiTagged:false, done:true, description:""},
+  {id:7, title:"Migrate user preferences to new schema", priority:4, dueDate:"2 days ago", labels:[{title:"migration",hex_color:"F59E0B"}], projectName:"Backend", projectColor:"#5BBC6E", attachmentCount:2, isAiTagged:true, done:false, description:"Move legacy user_settings rows into the new preferences JSONB column. Must be backward compatible.", subtaskDone:0, subtaskTotal:2}
+];
+
+function hexToRgb(hex) {
+  hex = hex.replace('#','');
+  return [parseInt(hex.substring(0,2),16), parseInt(hex.substring(2,4),16), parseInt(hex.substring(4,6),16)].join(',');
+}
+
+function priorityColor(p) {
+  return [,'var(--priority-none)','var(--priority-low)','var(--priority-medium)','var(--priority-high)','var(--priority-urgent)'][p] || 'var(--priority-none)';
+}
+
+function dueInfo(dueDate) {
+  if (!dueDate) return null;
+  const d = dueDate.toLowerCase();
+  if (d.includes('yesterday') || d.includes('ago'))
+    return {text: d.includes('yesterday') ? '1d overdue' : d.replace('ago','').trim()+' overdue', cls:'due--overdue'};
+  if (d === 'today') return {text:'Today', cls:'due--today'};
+  if (d === 'tomorrow') return {text:'Tomorrow', cls:'due--soon'};
+  return {text: d.charAt(0).toUpperCase()+d.slice(1), cls:'due--soon'};
+}
+
+function bubbleWidth(p) { return 180 + (p - 1) * 10; }
+function bubbleMinH(p) { return 84 + (p - 1) * 3; }
+
+/* FIXED: title weight varies but color is ALWAYS text-primary */
+function titleWeight(p) { return p >= 4 ? 500 : 400; }
+
+function bubbleShadow(p) {
+  if (p <= 2) return 'none';
+  if (p === 3) return 'var(--shadow-sm)';
+  return 'var(--shadow-md)';
+}
+function bubbleHoverShadow(p) {
+  if (p <= 2) return 'var(--shadow-sm)';
+  return 'var(--shadow-lift)';
+}
+
+const iconCal = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="1.5" y="2.5" width="9" height="8" rx="1.5"/><path d="M1.5 5.5h9"/><path d="M4 1v2M8 1v2"/></svg>';
+const iconSub = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M2 6h3l1.5 2L9 4"/></svg>';
+const iconAtt = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M6.5 3.5v5a2 2 0 01-4 0V4a1.25 1.25 0 012.5 0v4"/></svg>';
+const iconCheck = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="5.5"/><path d="M4.5 7l1.8 1.8L9.5 5.5"/></svg>';
+const iconTrash = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M3 4.5h8M5.5 4.5V3.5a1 1 0 011-1h1a1 1 0 011 1v1M5.5 6.5v3.5M8.5 6.5v3.5M4 4.5l.5 7a1 1 0 001 1h3a1 1 0 001-1l.5-7"/></svg>';
+const iconOpen = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.5" y="2.5" width="9" height="9" rx="2"/><path d="M6 8l3-3M6.5 5H9v2.5"/></svg>';
+
+function createBubble(t, opts) {
+  opts = opts || {};
+  var due = dueInfo(t.dueDate);
+  var isOverdue = due && due.cls === 'due--overdue' && !t.done;
+  var fixedWidth = opts.fixedWidth;
+
+  var el = document.createElement('div');
+  var classes = ['bubble', 'bubble--p' + t.priority];
+  if (isOverdue) classes.push('bubble--overdue');
+  if (t.isAiTagged) classes.push('bubble--ai');
+  if (t.done) classes.push('bubble--done');
+  el.className = classes.join(' ');
+
+  if (fixedWidth) {
+    el.style.width = '100%';
+    el.style.minHeight = '84px';
+  } else {
+    el.style.width = bubbleWidth(t.priority) + 'px';
+    el.style.minHeight = bubbleMinH(t.priority) + 'px';
+  }
+
+  var sh = bubbleShadow(t.priority);
+  var hSh = bubbleHoverShadow(t.priority);
+  var aiExtra = t.isAiTagged ? 'inset 0 0 12px -4px var(--accent-glow), ' : '';
+  el.style.boxShadow = aiExtra + sh;
+  el.dataset.baseShadow = el.style.boxShadow;
+  el.dataset.hoverShadow = aiExtra + hSh;
+
+  /* Project corner — visible at rest */
+  el.innerHTML = '<div class="project-corner" style="border-right-color:' + t.projectColor + '"></div>';
+
+  /* Quick complete checkbox */
+  el.innerHTML += '<div class="quick-complete"></div>';
+
+  /* Title — ALWAYS var(--text-primary), only weight varies */
+  el.innerHTML += '<div class="bubble-title" style="font-weight:' + titleWeight(t.priority) + '">' + t.title + '</div>';
+
+  /* Meta row */
+  var metaHTML = '';
+  if (due) metaHTML += '<span class="meta-icon ' + due.cls + '">' + iconCal + ' ' + due.text + '</span>';
+  if (t.subtaskTotal) metaHTML += '<span class="meta-icon">' + iconSub + ' ' + (t.subtaskDone||0) + '/' + t.subtaskTotal + '</span>';
+  if (t.attachmentCount) metaHTML += '<span class="meta-icon">' + iconAtt + ' ' + t.attachmentCount + '</span>';
+  el.innerHTML += '<div class="bubble-meta">' + (metaHTML || '&nbsp;') + '</div>';
+
+  /* Labels (hover) — framed style */
+  var labelsHTML = '';
+  for (var i = 0; i < t.labels.length; i++) {
+    var l = t.labels[i];
+    labelsHTML += '<span class="label-pill" style="background:rgba(' + hexToRgb(l.hex_color) + ',0.15);color:#' + l.hex_color + '">' + l.title + '</span>';
+  }
+  if (!labelsHTML) {
+    labelsHTML = '<span style="font-size:10px;color:var(--text-tertiary);font-family:var(--font-mono)">' + t.projectName + '</span>';
+  }
+  el.innerHTML += '<div class="bubble-labels">' + labelsHTML + '</div>';
+
+  el.addEventListener('mouseenter', function() { el.style.boxShadow = el.dataset.hoverShadow; });
+  el.addEventListener('mouseleave', function() { el.style.boxShadow = el.dataset.baseShadow; });
+
+  return el;
+}
+
+/* Bubble Grid */
+var grid = document.getElementById('bubbleGrid');
+for (var i = 0; i < tasks.length; i++) {
+  grid.appendChild(createBubble(tasks[i]));
+}
+
+/* Kanban */
+var todoCards = document.getElementById('kanbanTodoCards');
+var doneCards = document.getElementById('kanbanDoneCards');
+var todoCount = 0, doneCount = 0;
+for (var i = 0; i < tasks.length; i++) {
+  if (tasks[i].done) {
+    doneCards.appendChild(createBubble(tasks[i], {fixedWidth: true}));
+    doneCount++;
+  } else {
+    todoCards.appendChild(createBubble(tasks[i], {fixedWidth: true}));
+    todoCount++;
+  }
+}
+document.getElementById('kanbanTodoCount').textContent = todoCount;
+document.getElementById('kanbanDoneCount').textContent = doneCount;
+
+/* Expanded Card */
+var et = tasks[0];
+var eDue = dueInfo(et.dueDate);
+var expandedHTML = '<div class="expanded">';
+expandedHTML += '<textarea class="expanded-title" rows="1">' + et.title + '</textarea>';
+expandedHTML += '<textarea class="expanded-desc" rows="2" placeholder="Add a description…">' + (et.description||'') + '</textarea>';
+expandedHTML += '<div class="expanded-meta">';
+expandedHTML += '<div class="meta-chip"><div class="priority-dots">';
+for (var i = 1; i <= 5; i++) {
+  expandedHTML += '<div class="priority-dot ' + (i <= et.priority ? 'priority-dot--filled' : '') + '"></div>';
+}
+expandedHTML += '</div></div>';
+if (eDue) expandedHTML += '<div class="meta-chip ' + eDue.cls + '">' + iconCal + ' ' + eDue.text + '</div>';
+expandedHTML += '<div class="meta-chip"><svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.2" width="13" height="13"><circle cx="6.5" cy="6.5" r="5"/><path d="M6.5 4v3l2 1.5"/></svg> Schedule</div>';
+expandedHTML += '<div class="project-chip"><div class="dot" style="background:' + et.projectColor + '"></div>' + et.projectName + '</div>';
+for (var i = 0; i < et.labels.length; i++) {
+  var l = et.labels[i];
+  expandedHTML += '<span class="label-pill" style="background:rgba(' + hexToRgb(l.hex_color) + ',0.15);color:#' + l.hex_color + '">' + l.title + '</span>';
+}
+if (et.attachmentCount) expandedHTML += '<div class="meta-chip">' + iconAtt + ' ' + et.attachmentCount + '</div>';
+expandedHTML += '</div>';
+expandedHTML += '<div class="subtask-list">';
+expandedHTML += '<div class="subtask-list-header">Subtasks · ' + (et.subtaskDone||0) + '/' + (et.subtaskTotal||0) + '</div>';
+expandedHTML += '<div class="subtask-item subtask-item--done"><input type="checkbox" checked><span>Set up interceptor tests</span></div>';
+expandedHTML += '<div class="subtask-item"><input type="checkbox"><span>Fix token refresh race condition</span></div>';
+expandedHTML += '<div class="subtask-item"><input type="checkbox"><span>Add retry queue for failed requests</span></div>';
+expandedHTML += '<div class="subtask-add"><input type="text" placeholder="Add subtask…"></div>';
+expandedHTML += '</div>';
+expandedHTML += '<div class="expanded-actions">';
+expandedHTML += '<button class="action-btn action-btn--done">' + iconCheck + ' Done</button>';
+expandedHTML += '<button class="action-btn action-btn--delete">' + iconTrash + ' Delete</button>';
+expandedHTML += '<button class="action-btn action-btn--open">' + iconOpen + ' Open</button>';
+expandedHTML += '</div></div>';
+document.getElementById('expandedSection').innerHTML = expandedHTML;
+
+/* Compact List */
+var listEl = document.getElementById('compactList');
+for (var i = 0; i < tasks.length; i++) {
+  var t = tasks[i];
+  var due = dueInfo(t.dueDate);
+  var row = document.createElement('div');
+  row.className = 'compact-row' + (t.isAiTagged ? ' compact-row--ai' : '');
+  var badge = '';
+  if (t.labels.length) {
+    var l = t.labels[0];
+    badge = '<span class="compact-badge" style="background:rgba(' + hexToRgb(l.hex_color) + ',0.12);color:#' + l.hex_color + '">' + l.title + '</span>';
+  }
+  var rowHTML = '<input type="checkbox" class="compact-checkbox" ' + (t.done ? 'checked' : '') + '>';
+  rowHTML += '<div class="compact-priority" style="background:' + priorityColor(t.priority) + '"></div>';
+  rowHTML += '<span class="compact-title ' + (t.done ? 'compact-title--done' : '') + '">' + t.title + '</span>';
+  rowHTML += badge;
+  if (due) rowHTML += '<span class="compact-date ' + due.cls + '">' + due.text + '</span>';
+  rowHTML += '<div class="compact-project-dot" style="background:' + t.projectColor + '"></div>';
+  row.innerHTML = rowHTML;
+  listEl.appendChild(row);
+}
+</script>
+
+</body>
+</html>

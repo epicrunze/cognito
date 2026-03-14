@@ -44,6 +44,5 @@ Read: Section 5.14
 
 - **Read the referenced spec section before starting each task.**
 - **Use the design tokens.** Never hardcode colours or spacing.
-- **Reference `docs/cognito-design-system.jsx`** for visual component states.
 - **Test each task before moving on** — does it render? Does the API work? Does optimistic rollback work?
 - **Vikunja swagger docs** at `http://tasks.epicrunze.com/api/v1/docs`.

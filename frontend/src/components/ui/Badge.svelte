@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { hexToRgb } from '$lib/formatUtils';
 
   let {
     children,
@@ -12,8 +13,8 @@
   } = $props();
 
   let hovering = $state(false);
-  const bg = $derived(color ? `${color}20` : 'var(--bg-elevated)');
-  const fg = $derived(color || 'var(--text-secondary)');
+  const bg = $derived(color ? `rgba(${hexToRgb(color)}, 0.15)` : 'var(--bg-elevated)');
+  const fg = $derived(color ? (color.startsWith('#') ? color : `#${color}`) : 'var(--text-secondary)');
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -24,7 +25,7 @@
   onmouseleave={() => hovering = false}
 >
   <span
-    style="display: inline-flex; align-items: center; height: 24px; padding: 0 9px; font-size: 12.5px; font-weight: 500; color: {fg}; background: {bg}; border-radius: 9999px; line-height: 1; white-space: nowrap; cursor: {stats ? 'default' : 'inherit'};"
+    style="display: inline-flex; align-items: center; padding: 2px 7px; font-size: 10px; font-weight: 500; color: {fg}; background: {bg}; border-radius: 4px; line-height: 1.4; font-family: var(--font-mono); white-space: nowrap; cursor: {stats ? 'default' : 'inherit'};"
   >
     {@render children()}
   </span>

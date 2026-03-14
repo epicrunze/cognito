@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Cognito is a task-agent app: users input freeform text, an LLM extracts structured tasks, and approved tasks sync to Vikunja (self-hosted task manager). FastAPI backend + SvelteKit frontend + SQLite.
 
-Full spec: `docs/SPEC.md`. Task queue: `TASKS.md`. Live component reference: `docs/cognito-design-system.jsx`. **Before any UI/UX work, read `docs/DESIGN_PHILOSOPHY.md` — it shapes how you approach design decisions and requires proposing changes before implementing.**
+Full spec: `docs/SPEC.md`. Task queue: `TASKS.md`. **Before any UI/UX work, read `docs/DESIGN_PHILOSOPHY.md` — it shapes how you approach design decisions and requires proposing changes before implementing.**
 
 ## Commands
 
@@ -72,7 +72,7 @@ The frontend NEVER calls Vikunja directly — the backend proxy injects the API 
 
 ## Design System
 
-Dark theme. Tangerine accent (#E8772E) on warm dark neutrals. IBM Plex Sans. Full tokens in `docs/SPEC.md` Section 5.2. Live states in `docs/cognito-design-system.jsx`.
+Dark theme. Tangerine accent (#E8772E) on warm dark neutrals. IBM Plex Sans. Full tokens in `docs/SPEC.md` Section 5.2.
 
 **Key patterns:**
 - Optimistic updates on all mutations (update store → API → rollback on failure + toast)

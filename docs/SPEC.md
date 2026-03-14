@@ -378,7 +378,7 @@ Rules:
 
 ### 5.3 Primitives
 
-Build these first in `components/ui/`. The live reference for all component states is in `docs/cognito-design-system.jsx`.
+Build these first in `components/ui/`.
 
 | Component | Key details |
 |---|---|
@@ -419,7 +419,7 @@ Contents: "cognito" wordmark + collapse toggle, nav links (All Thoughts, Upcomin
 
 ### 5.5 Bubble View (Primary)
 
-Tasks are "thought bubbles" — rounded cards that cluster by project on a spatial canvas. This is the primary interaction paradigm. See `docs/DESIGN_PHILOSOPHY.md` for rationale and `docs/cognito-design-system.jsx` for the visual prototype.
+Tasks are "thought bubbles" — rounded cards that cluster by project on a spatial canvas. This is the primary interaction paradigm. See `docs/DESIGN_PHILOSOPHY.md` for rationale.
 
 #### ThoughtBubble Component
 
@@ -575,8 +575,7 @@ cognito/
 ├── docs/
 │   ├── SPEC.md                  # This file
 │   ├── DESIGN_PHILOSOPHY.md     # Bubble view design vision
-│   ├── MIGRATION_PLAN.md        # Phase 4 implementation guide
-│   └── cognito-design-system.jsx  # Live component reference (React, for visual iteration)
+│   └── MIGRATION_PLAN.md        # Phase 4 implementation guide
 ├── docker-compose.yml
 ├── .env.example
 ├── backend/

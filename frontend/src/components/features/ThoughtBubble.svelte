@@ -16,6 +16,7 @@
   import ScheduleDisplay from '$components/ui/ScheduleDisplay.svelte';
   import Checkbox from '$components/ui/Checkbox.svelte';
   import { registerCelebrationElement, unregisterCelebrationElement } from '$lib/celebrate';
+  import { hexToRgb } from '$lib/formatUtils';
 
 
   let {
@@ -171,38 +172,29 @@
 
   // --- Priority as presence ---
   const presenceOpacity = $derived.by(() => {
-    if (expanded) return 1;
     if (data.done) return 0.35;
-    const p = data.priority;
-    if (p >= 4) return 1;
-    if (p === 3) return 0.85;
-    if (p === 2) return 0.65;
-    return 0.55;
+    return 1;
   });
 
   const titleColor = $derived.by(() => {
     if (data.done) return 'var(--text-tertiary)';
-    const p = data.priority;
-    if (p >= 5) return '#fff';
-    if (p >= 3) return 'var(--text-primary)';
-    return 'var(--text-secondary)';
+    return 'var(--text-primary)';
   });
 
   const shadowStyle = $derived.by(() => {
     if (compact || data.done) return 'none';
     if (expanded) return 'var(--shadow-md)';
-    if (hovering) return 'var(--shadow-lift)';
     const p = data.priority;
-    if (p >= 5) return 'var(--shadow-md)';
-    if (p >= 3) return 'var(--shadow-sm)';
-    return 'none';
+    if (hovering) {
+      return p <= 2 ? 'var(--shadow-sm)' : 'var(--shadow-lift)';
+    }
+    if (p <= 2) return 'none';
+    if (p === 3) return 'var(--shadow-sm)';
+    return 'var(--shadow-md)';
   });
 
   // --- Bubble size by priority (spatial gravity) ---
-  const bubbleWidth = $derived.by(() => {
-    const widths: Record<number, number> = { 5: 220, 4: 210, 3: 200, 2: 185, 1: 175 };
-    return widths[data.priority] ?? 200;
-  });
+  const bubbleWidth = $derived(180 + (data.priority - 1) * 10);
   const bubbleMinHeight = $derived.by(() => {
     const heights: Record<number, number> = { 5: 95, 4: 92, 3: 90, 2: 85, 1: 82 };
     return heights[data.priority] ?? 90;
@@ -471,17 +463,29 @@
     onclick?.();
   }
 
-  // Border style
-  const borderStyle = $derived.by(() => {
+  // Priority border
+  const priorityBorderColor = $derived.by(() => {
+    if (isOverdue && !data.done) return 'var(--overdue)';
+    const colors: Record<number, string> = {
+      5: 'var(--priority-urgent)', 4: 'var(--priority-high)',
+      3: 'var(--priority-medium)', 2: 'var(--priority-low)',
+      1: 'var(--priority-none)',
+    };
+    return colors[data.priority] ?? 'var(--priority-none)';
+  });
+
+  const priorityBorderWidth = $derived(data.priority >= 4 ? '3px' : '2px');
+
+  // Border color (not shorthand — avoids flash on left priority border during hover transition)
+  const borderColor = $derived.by(() => {
     if (compact) {
-      if (showGlow) return '1px solid var(--bg-surface); border-left: 2px solid var(--accent)';
-      return '1px solid transparent';
+      if (showGlow) return 'var(--bg-surface)';
+      return 'transparent';
     }
-    const overdueLeft = isOverdue && !data.done ? 'border-left: 2px solid color-mix(in srgb, var(--overdue) 50%, transparent);' : '';
-    if (expanded) return `1px solid var(--border-strong); ${overdueLeft}`;
-    if (showGlow) return `1px solid rgba(232,119,46,0.5); ${overdueLeft}`;
-    if (hovering) return `1px solid var(--border-strong); ${overdueLeft}`;
-    return `1px solid var(--border-default); ${overdueLeft}`;
+    if (expanded) return 'var(--border-strong)';
+    if (showGlow) return 'rgba(232,119,46,0.5)';
+    if (hovering) return 'var(--border-strong)';
+    return 'var(--border-subtle)';
   });
 
   // Compact-mode border-left for AI-tagged
@@ -507,7 +511,7 @@
     onkeydown={handleKeydown}
     data-transition-id="{data.id}"
     data-task-priority="{data.priority}"
-    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; display: flex; align-items: center; width: 100%; border-radius: 8px; padding: 8px 12px; gap: 10px; background: {hovering ? 'var(--bg-surface-hover)' : 'transparent'}; border-bottom: 1px solid var(--border-subtle); border-left: {compactBorderLeft}; box-shadow: {showGlow ? 'inset 3px 0 8px -4px var(--accent-glow)' : 'none'}; cursor: pointer; transition: width 150ms ease-out, background 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out, opacity 150ms ease-out; opacity: {presenceOpacity}; min-height: 44px;"
+    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; display: flex; align-items: center; width: 100%; border-radius: 8px; padding: 8px 12px; gap: 10px; background: {hovering ? 'var(--bg-surface-hover)' : 'transparent'}; border-bottom: 1px solid var(--border-subtle); border-left: {compactBorderLeft}; box-shadow: {showGlow ? 'inset 3px 0 8px -4px var(--accent-glow)' : 'none'}; cursor: pointer; transition: width 150ms ease-out, background 150ms ease-out, border-bottom-color 150ms ease-out, box-shadow 150ms ease-out, opacity 150ms ease-out; opacity: {presenceOpacity}; min-height: 44px;"
   >
     {#if proposalMode}
       <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -552,11 +556,11 @@
     onkeydown={handleKeydown}
     data-transition-id="{data.id}"
     data-task-priority="{data.priority}"
-    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? '360px' : `${bubbleWidth}px`}; min-height: {expanded ? 'auto' : kanbanCompact ? '50px' : `${bubbleMinHeight}px`}; border-radius: 10px; background: {expanded ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border: {borderStyle}; padding: {expanded ? '18px 20px' : kanbanCompact ? '8px 10px' : '14px 16px'}; cursor: pointer; box-shadow: {shadowStyle}{showGlow && !expanded ? ', inset 0 0 12px -4px var(--accent-glow)' : ''}; translate: {hovering && !expanded ? '0 -1px' : 'none'}; transition: background 200ms ease-out, border-color 200ms ease-out, box-shadow 200ms ease-out, opacity 200ms ease-out, translate 200ms ease-out; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden;"
+    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? '360px' : kanban ? '100%' : `${bubbleWidth}px`}; min-height: {expanded ? 'auto' : kanbanCompact ? '50px' : `${bubbleMinHeight}px`}; border-radius: 10px; background: {expanded ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border-top: 1px solid {borderColor}; border-right: 1px solid {borderColor}; border-bottom: 1px solid {borderColor}; border-left: {priorityBorderWidth} solid {priorityBorderColor}; padding: {expanded ? '18px 20px' : kanbanCompact ? '8px 10px' : '14px 14px 11px'}; cursor: pointer; box-shadow: {shadowStyle}{showGlow && !expanded ? ', inset 0 0 12px -4px var(--accent-glow)' : ''}; transition: background 200ms ease-out, border-top-color 200ms ease-out, border-right-color 200ms ease-out, border-bottom-color 200ms ease-out, box-shadow 200ms ease-out, opacity 200ms ease-out; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden;"
   >
     <!-- Project corner triangle -->
     {#if projectColor}
-      <div class="project-triangle" style="position: absolute; top: 0; right: 0; width: 0; height: 0; border-left: 18px solid transparent; border-top: 18px solid {projectColor}; border-top-right-radius: 9px; opacity: {expanded ? 0.6 : 0.3}; transition: opacity 200ms; pointer-events: none;"></div>
+      <div class="project-triangle" style="position: absolute; top: 0; right: 0; width: 0; height: 0; border-left: 18px solid transparent; border-top: 18px solid {projectColor}; border-top-right-radius: 9px; opacity: {expanded ? 0.6 : 0.7}; transition: opacity 200ms; pointer-events: none;"></div>
     {/if}
 
     <!-- Quick-complete circle — top-right, appears on hover -->
@@ -684,7 +688,7 @@
 
           <!-- Labels -->
           {#each data.labels as label (label.title)}
-            <span style="font-size: 11.5px; font-weight: 500; color: var(--text-secondary); background: var(--bg-surface-hover); border-radius: 9999px; padding: 2px 8px;">{label.title}</span>
+            <span style="font-size: 10px; font-weight: 500; color: #{label.hex_color || 'A1A09A'}; background: rgba({hexToRgb(label.hex_color || 'A1A09A')}, 0.15); border-radius: 4px; padding: 2px 7px; font-family: var(--font-mono);">{label.title}</span>
           {/each}
 
           <!-- Attachments -->
@@ -746,25 +750,25 @@
         <!-- Action row -->
         <div style="display: flex; gap: 6px; align-items: center; padding-left: 0;">
           {#if data.isProposal}
-            <button class="bubble-action-btn" style="--hover-color: var(--done);" onclick={(e) => { e.stopPropagation(); onapprove?.(); bubbleStore.collapse(); }}>
+            <button class="bubble-action-btn" style="--hover-color: var(--done); --hover-bg: rgba(91,188,110,0.08);" onclick={(e) => { e.stopPropagation(); onapprove?.(); bubbleStore.collapse(); }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5" /><path d="M5.5 8l2 2 3.5-3.5" /></svg>
               Approve
             </button>
-            <button class="bubble-action-btn" style="--hover-color: var(--overdue);" onclick={(e) => { e.stopPropagation(); onreject?.(); bubbleStore.collapse(); }}>
+            <button class="bubble-action-btn" style="--hover-color: var(--overdue); --hover-bg: rgba(239,87,68,0.08);" onclick={(e) => { e.stopPropagation(); onreject?.(); bubbleStore.collapse(); }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5" /><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" /></svg>
               Reject
             </button>
           {:else}
-            <button bind:this={doneButtonRef} class="bubble-action-btn" style="--hover-color: var(--done);" onclick={(e) => handleDoneToggle(e)}>
+            <button bind:this={doneButtonRef} class="bubble-action-btn" style="--hover-color: var(--done); --hover-bg: rgba(91,188,110,0.08);" onclick={(e) => handleDoneToggle(e)}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5" /><path d="M5.5 8l2 2 3.5-3.5" /></svg>
               {data.done ? 'Undo' : 'Done'}
             </button>
-            <button class="bubble-action-btn" style="--hover-color: var(--overdue);" onclick={(e) => handleDelete(e)}>
+            <button class="bubble-action-btn" style="--hover-color: var(--overdue); --hover-bg: rgba(239,87,68,0.08);" onclick={(e) => handleDelete(e)}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6 4.5V3a1 1 0 011-1h2a1 1 0 011 1v1.5M12 4.5l-.5 8a1.5 1.5 0 01-1.5 1.5H6a1.5 1.5 0 01-1.5-1.5L4 4.5" /></svg>
               Delete
             </button>
           {/if}
-          <button class="bubble-action-btn bubble-open-btn" style="margin-left: auto; --hover-color: var(--accent);" onclick={(e) => handleEdit(e)}>
+          <button class="bubble-action-btn bubble-open-btn" style="margin-left: auto; --hover-color: var(--accent); --hover-bg: rgba(232,119,46,0.1);" onclick={(e) => handleEdit(e)}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="2" /><path d="M6 8h4M8 6v4" /></svg>
             Open
           </button>
@@ -839,7 +843,7 @@
   .bubble-action-btn {
     font-size: 12px;
     font-family: var(--font-sans);
-    font-weight: 500;
+    font-weight: 400;
     color: var(--text-tertiary);
     background: none;
     border: none;
@@ -853,15 +857,11 @@
   }
   .bubble-action-btn:hover {
     color: var(--hover-color, var(--text-secondary));
-    background-color: rgba(0, 0, 0, 0.12);
+    background-color: var(--hover-bg, var(--bg-surface));
   }
 
-  /* Open button — accent tint by default, stronger on card hover */
+  /* Open button — accent by default */
   .bubble-open-btn {
-    color: color-mix(in srgb, var(--accent) 65%, var(--text-tertiary));
-  }
-  :global([role="button"]:hover) .bubble-open-btn {
-    background-color: rgba(232, 119, 46, 0.1);
     color: var(--accent);
   }
 
@@ -876,7 +876,7 @@
     align-items: center;
     min-height: 20px;
     margin-top: auto;
-    padding-top: 6px;
+    padding-top: 10px;
     font-size: 11px;
     color: var(--text-tertiary);
   }
@@ -895,8 +895,8 @@
     right: 8px;
     width: 16px;
     height: 16px;
-    border-radius: 50%;
-    border: 1.5px solid var(--text-tertiary);
+    border-radius: 3px;
+    border: 1.5px solid var(--border-strong);
     background: transparent;
     display: flex;
     align-items: center;
@@ -923,6 +923,7 @@
   /* Project triangle fades out on card hover */
   :global([role="button"]:hover) .project-triangle {
     opacity: 0 !important;
+    pointer-events: none;
   }
 
   /* Persistent metadata row */
@@ -937,9 +938,9 @@
   /* Hover labels — hidden by default, shown on card hover */
   .card-hover-labels {
     position: absolute;
-    top: 50%;
+    top: 10px;
     left: 0;
-    transform: translateY(-50%);
+    bottom: 0;
     display: flex;
     align-items: center;
     opacity: 0;
