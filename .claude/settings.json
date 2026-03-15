@@ -1,6 +1,7 @@
 {
   "enabledPlugins": {
     "svelte@svelte": true,
-    "frontend-design@claude-plugins-official": true
+    "frontend-design@claude-plugins-official": true,
+    "jarvis@jarvis-marketplace": true
   }
 }
