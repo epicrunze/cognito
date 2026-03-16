@@ -114,6 +114,8 @@ Use `/jarvis-reload` to reload context mid-session if needed.
 After completing any meaningful task, run `/jarvis-reflect` to capture what you learned.
 You MUST run `/jarvis-reflect` before ending any session — do not end without reflecting.
 
+
+
 ## Environment
 
 All config in `.env` (see `.env.example`). Key vars: `VIKUNJA_API_TOKEN`, `GEMINI_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_EMAIL`, `JWT_SECRET`.

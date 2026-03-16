@@ -99,7 +99,7 @@
   .empty-state {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     gap: 14px;
     padding: 32px 0;
     animation: fadeIn var(--transition-normal) ease-out;

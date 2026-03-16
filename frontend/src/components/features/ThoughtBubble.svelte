@@ -910,7 +910,8 @@
   }
 
   :global([role="button"]:hover) .quick-complete {
-    opacity: 0.6;
+    opacity: 1;
+    border-color: var(--done);
   }
 
   .quick-complete:hover {
