@@ -7,6 +7,11 @@ function normalizeTask(t: Task): Task {
   return { ...t, labels: t.labels ?? [] };
 }
 
+export function isDoneBucketTitle(title: string): boolean {
+  const lower = title.toLowerCase();
+  return lower === 'done' || lower === 'completed';
+}
+
 function createKanbanStore() {
   let projectId = $state<number>(0);
   let view = $state<ProjectView | null>(null);
@@ -21,6 +26,9 @@ function createKanbanStore() {
 
   // One-shot skip flag for FLIP transitions
   let _skipNextFetch = false;
+
+  // Tracks where a task was before being auto-moved to done (for undo on uncheck)
+  const originalBucketMap = new Map<number, number>();
 
   return {
     get projectId() { return projectId; },
@@ -320,6 +328,33 @@ function createKanbanStore() {
 
     restoreTasksByBucket(snapshot: Map<number, Task[]>) {
       tasksByBucket = snapshot;
+    },
+
+    get doneBucketId(): number | null {
+      if (view?.done_bucket_id) return view.done_bucket_id;
+      const match = buckets.find(b => isDoneBucketTitle(b.title));
+      return match?.id ?? null;
+    },
+
+    findTaskBucket(taskId: number): number | null {
+      for (const [bucketId, tasks] of tasksByBucket) {
+        if (tasks.some(t => t.id === taskId)) return bucketId;
+      }
+      return null;
+    },
+
+    get firstNonDoneBucketId(): number | null {
+      const doneId = this.doneBucketId;
+      const match = buckets.find(b => b.id !== doneId);
+      return match?.id ?? null;
+    },
+
+    setOriginalBucket(taskId: number, bucketId: number) {
+      originalBucketMap.set(taskId, bucketId);
+    },
+
+    getOriginalBucket(taskId: number): number | null {
+      return originalBucketMap.get(taskId) ?? null;
     },
   };
 }

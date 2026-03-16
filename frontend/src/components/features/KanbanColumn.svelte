@@ -2,6 +2,7 @@
   import type { Bucket, Task } from '$lib/types';
   import { dndzone, dragHandle } from 'svelte-dnd-action';
   import { bubbleStore } from '$lib/stores/bubble.svelte';
+  import { kanbanStore } from '$lib/stores/kanban.svelte';
   import { toggleDone } from '$lib/stores/taskMutations';
   import { registerCelebrationElement, unregisterCelebrationElement } from '$lib/celebrate';
   import ThoughtBubble from './ThoughtBubble.svelte';
@@ -66,6 +67,10 @@
     if (isDoneBucket) {
       for (const task of e.detail.items) {
         if (!task.done) {
+          // Track where the task came from so uncheck can move it back
+          if (task.bucket_id && task.bucket_id !== bucket.id) {
+            kanbanStore.setOriginalBucket(task.id, task.bucket_id);
+          }
           toggleDone(task.id);
         }
       }

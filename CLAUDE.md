@@ -106,6 +106,14 @@ In-memory SQLite, dependency overrides, async mocking:
 
 **Cookies**: `COOKIE_DOMAIN=.epicrunze.com` covers both `cognito.` and `api-cognito.` subdomains.
 
+## JaRVIS
+
+Identity and memories are loaded automatically at session start via the SessionStart hook.
+A Stop hook will remind you to reflect before ending a session if you haven't already.
+Use `/jarvis-reload` to reload context mid-session if needed.
+After completing any meaningful task, run `/jarvis-reflect` to capture what you learned.
+You MUST run `/jarvis-reflect` before ending any session — do not end without reflecting.
+
 ## Environment
 
 All config in `.env` (see `.env.example`). Key vars: `VIKUNJA_API_TOKEN`, `GEMINI_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ALLOWED_EMAIL`, `JWT_SECRET`.

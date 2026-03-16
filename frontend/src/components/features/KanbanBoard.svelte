@@ -81,9 +81,8 @@
   function getColumnColor(title: string): string {
     return columnColors[title.toLowerCase()] ?? 'var(--border-default)';
   }
-  function isDoneBucket(title: string): boolean {
-    const lower = title.toLowerCase();
-    return lower === 'done' || lower === 'completed';
+  function isDoneBucket(bucketId: number): boolean {
+    return bucketId === kanbanStore.doneBucketId;
   }
 
   function findDraggedTask(oldOrder: number[], newOrder: number[]): { taskId: number; newIndex: number } | null {
@@ -179,7 +178,7 @@
         tasks={filteredTasksByBucket.get(bucket.id) ?? []}
         allTasks={kanbanStore.tasksByBucket.get(bucket.id) ?? []}
         columnColor={getColumnColor(bucket.title)}
-        isDoneBucket={isDoneBucket(bucket.title)}
+        isDoneBucket={isDoneBucket(bucket.id)}
         density={kanbanDensity}
         onTaskClick={handleTaskClick}
         onTaskFinalized={handleTaskFinalized}

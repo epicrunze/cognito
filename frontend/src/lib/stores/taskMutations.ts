@@ -1,6 +1,7 @@
 import { tasksApi } from '$lib/api';
 import { tasksStore } from '$lib/stores/tasks.svelte';
 import { kanbanStore } from '$lib/stores/kanban.svelte';
+import { viewModeStore } from '$lib/stores/viewMode.svelte';
 import { revisionsStore } from '$lib/stores/revisions.svelte';
 import { optimisticUpdate } from '$lib/optimistic';
 import { celebrateTask } from '$lib/celebrate';
@@ -60,6 +61,26 @@ export async function toggleDone(id: number) {
   }
 
   await updateTask(id, { done: !task.done });
+
+  // Auto-move card to/from Done bucket in kanban view
+  if (viewModeStore.isKanban) {
+    const doneBucketId = kanbanStore.doneBucketId;
+    if (doneBucketId) {
+      const currentBucket = kanbanStore.findTaskBucket(id);
+      if (currentBucket == null) return;
+
+      if (markingDone && currentBucket !== doneBucketId) {
+        kanbanStore.setOriginalBucket(id, currentBucket);
+        const doneTasks = kanbanStore.tasksByBucket.get(doneBucketId) ?? [];
+        kanbanStore.moveTask(id, currentBucket, doneBucketId, doneTasks.length);
+      } else if (!markingDone && currentBucket === doneBucketId) {
+        const targetBucket = kanbanStore.getOriginalBucket(id) ?? kanbanStore.firstNonDoneBucketId;
+        if (targetBucket) {
+          kanbanStore.moveTask(id, doneBucketId, targetBucket, 0);
+        }
+      }
+    }
+  }
 }
 
 export async function deleteTask(id: number) {
