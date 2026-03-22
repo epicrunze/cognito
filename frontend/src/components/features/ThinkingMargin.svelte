@@ -118,6 +118,8 @@
           // Add/update assistant message with proposals so far
           chatStore.setExtractingProposals(streamedProposals);
           scrollToBottom();
+        } else if (event.type === 'done' && event.conversation_id) {
+          chatStore.setConversationId(event.conversation_id);
         } else if (event.type === 'error') {
           addToast(event.detail ?? 'Extraction error', 'error');
         }

@@ -6,30 +6,6 @@
       "Read(~/.claude/plugins/cache/**)"
     ]
   },
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /data/epicrunze/.claude/plugins/cache/jarvis-marketplace/jarvis/0.1.0/skills/jarvis-reload/hooks/jarvis-session-start.sh"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /data/epicrunze/.claude/plugins/cache/jarvis-marketplace/jarvis/0.1.0/skills/jarvis-reflect/hooks/jarvis-stop.sh"
-          }
-        ]
-      }
-    ]
-  },
   "enabledPlugins": {
     "svelte@svelte": true,
     "frontend-design@claude-plugins-official": true,

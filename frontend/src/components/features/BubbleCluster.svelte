@@ -1,33 +1,27 @@
 <script lang="ts">
   import type { Project, Task } from '$lib/types';
-  import { slide, scale } from 'svelte/transition';
-  import { flip } from 'svelte/animate';
+  import { slide } from 'svelte/transition';
   import { DURATION } from '$lib/transitions';
   import { smartSort } from '$lib/smartSort';
+  import { dndzone } from 'svelte-dnd-action';
   import ThoughtBubble from './ThoughtBubble.svelte';
   import SeedBubble from './SeedBubble.svelte';
   import ProjectContextMenu from './ProjectContextMenu.svelte';
-
-  type TransitionFn = (node: Element, params: any) => any;
 
   let {
     project,
     tasks,
     ontaskclick,
-    send,
-    receive,
+    onfinalize,
   }: {
     project: Project;
     tasks: Task[];
     ontaskclick?: (id: number) => void;
-    send?: TransitionFn;
-    receive?: TransitionFn;
+    onfinalize?: (projectId: number, tasks: Task[]) => void;
   } = $props();
 
-  const defaultIn: TransitionFn = (node) => scale(node, { duration: DURATION.normal, start: 0.85, opacity: 0 });
-  const defaultOut: TransitionFn = (node) => scale(node, { duration: DURATION.normal, start: 0.85, opacity: 0 });
-  const inFn = $derived(receive ?? defaultIn);
-  const outFn = $derived(send ?? defaultOut);
+  let localItems = $state<Task[]>([]);
+  let isDragging = $state(false);
 
   let showCompleted = $state(false);
   let menuOpen = $state(false);
@@ -35,6 +29,23 @@
 
   const activeTasks = $derived(smartSort(tasks.filter(t => !t.done)));
   const completedTasks = $derived(tasks.filter(t => t.done));
+
+  $effect(() => {
+    if (!isDragging) {
+      localItems = [...activeTasks];
+    }
+  });
+
+  function handleConsider(e: CustomEvent<{ items: Task[] }>) {
+    isDragging = true;
+    localItems = e.detail.items;
+  }
+
+  function handleFinalize(e: CustomEvent<{ items: Task[] }>) {
+    isDragging = false;
+    localItems = e.detail.items;
+    onfinalize?.(project.id, e.detail.items);
+  }
 </script>
 
 <div style="margin-bottom: 44px;">
@@ -57,20 +68,21 @@
   </div>
 
   <!-- Bubble area -->
-  {#if activeTasks.length === 0}
-    <div class="empty-state">
-      <div class="empty-hint">Your first thought goes here...</div>
-      <SeedBubble projectId={project.id} projectColor={project.hex_color} />
-    </div>
-  {:else}
-    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; align-content: flex-start;">
-      {#each activeTasks as task (task.id)}
-        <div animate:flip={{ duration: DURATION.normal }} in:inFn={{ key: task.id }} out:outFn={{ key: task.id }}>
-          <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
-        </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start;">
+    <div
+      use:dndzone={{ items: localItems, type: 'cross-project-bubble', dropTargetStyle: {} }}
+      onconsider={handleConsider}
+      onfinalize={handleFinalize}
+      style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; align-content: flex-start; min-height: 60px;"
+    >
+      {#each localItems as task (task.id)}
+        <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
       {/each}
-      <SeedBubble projectId={project.id} projectColor={project.hex_color} />
     </div>
+    <SeedBubble projectId={project.id} projectColor={project.hex_color} />
+  </div>
+  {#if localItems.length === 0}
+    <div class="empty-hint">Your first thought goes here...</div>
   {/if}
 
   <!-- Completed section -->
@@ -96,15 +108,6 @@
 </div>
 
 <style>
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 32px 0;
-    animation: fadeIn var(--transition-normal) ease-out;
-  }
-
   .empty-hint {
     font-size: 13px;
     color: var(--text-tertiary);

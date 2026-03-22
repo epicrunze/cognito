@@ -1,17 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { crossfade, fade, slide, scale } from 'svelte/transition';
-  import { flip } from 'svelte/animate';
+  import { slide } from 'svelte/transition';
   import { DURATION } from '$lib/transitions';
-
-  const [send, receive] = crossfade({
-    duration: DURATION.normal,
-    fallback(node) {
-      return scale(node, { duration: DURATION.normal, start: 0.85, opacity: 0 });
-    }
-  });
   import type { Task, Project } from '$lib/types';
   import { tasksStore, projectsStore } from '$lib/stores.svelte';
+  import { updateTask } from '$lib/stores/taskMutations';
   import { kanbanStore } from '$lib/stores/kanban.svelte';
   import { filterStore } from '$lib/stores/filter.svelte';
   import { bubbleStore } from '$lib/stores/bubble.svelte';
@@ -107,6 +100,15 @@
     filterStore.markViewed(taskId);
   }
 
+  function handleClusterFinalize(targetProjectId: number, items: Task[]) {
+    for (const task of items) {
+      if (task.project_id !== targetProjectId) {
+        updateTask(task.id, { project_id: targetProjectId });
+        return;
+      }
+    }
+  }
+
   onMount(() => {
     function handleKeydown(e: KeyboardEvent) {
       if (e.key === 'Escape' && bubbleStore.expandedTaskId != null) {
@@ -137,9 +139,7 @@
     {:else}
       <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; align-content: flex-start;">
         {#each focusActiveTasks as task (task.id)}
-          <div animate:flip={{ duration: DURATION.normal }} in:receive={{ key: task.id }} out:send={{ key: task.id }}>
-            <ThoughtBubble {task} onclick={() => handleTaskClick(task.id)} />
-          </div>
+          <ThoughtBubble {task} onclick={() => handleTaskClick(task.id)} />
         {/each}
       </div>
       {#if focusCompletedTasks.length > 0}
@@ -165,8 +165,8 @@
     </div>
   {:else}
     {#each projectGroups as group (group.projectId)}
-      <div animate:flip={{ duration: DURATION.slow }} transition:fade|local={{ duration: DURATION.normal }}>
-        <BubbleCluster project={group.project} tasks={group.tasks} ontaskclick={handleTaskClick} {send} {receive} />
+      <div>
+        <BubbleCluster project={group.project} tasks={group.tasks} ontaskclick={handleTaskClick} onfinalize={handleClusterFinalize} />
       </div>
     {/each}
   {/if}

@@ -512,6 +512,7 @@ export interface IngestEvent {
   proposal?: TaskProposal;
   count?: number;
   detail?: string;
+  conversation_id?: string;
 }
 
 /**
@@ -585,7 +586,7 @@ export async function* extractTasks(
           if (currentEvent === 'proposal') {
             yield { type: 'proposal', proposal: data as TaskProposal };
           } else if (currentEvent === 'done') {
-            yield { type: 'done', count: data.count };
+            yield { type: 'done', count: data.count, conversation_id: data.conversation_id };
           } else if (currentEvent === 'error') {
             yield { type: 'error', detail: data.detail };
           }

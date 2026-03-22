@@ -4,7 +4,8 @@
   import { slide } from 'svelte/transition';
   import { flip } from 'svelte/animate';
   import { DURATION } from '$lib/transitions';
-  import type { Task } from '$lib/types';
+  import type { Task, Project } from '$lib/types';
+  import { dndzone } from 'svelte-dnd-action';
   import { tasksStore, projectsStore } from '$lib/stores.svelte';
   import { kanbanStore } from '$lib/stores/kanban.svelte';
   import { updateTask, toggleDone } from '$lib/stores/taskMutations';
@@ -117,6 +118,53 @@
     if (filterStore.status === 'active') return [];
     return allTasks.filter(t => t.done);
   });
+
+  // Project grouping for all-tasks view (DnD between projects)
+  const projectGroups = $derived.by(() => {
+    if (projectId != null) return null;
+    const groups = new Map<number, Task[]>();
+    for (const task of activeTasks) {
+      const pid = task.project_id;
+      if (!groups.has(pid)) groups.set(pid, []);
+      groups.get(pid)!.push(task);
+    }
+    const ordered: { projectId: number; project: Project; tasks: Task[] }[] = [];
+    for (const p of projectsStore.projects) {
+      const tasks = groups.get(p.id);
+      if (tasks && tasks.length > 0) {
+        ordered.push({ projectId: p.id, project: p, tasks });
+      }
+    }
+    return ordered;
+  });
+
+  let groupLocalItems = $state<Record<number, Task[]>>({});
+  let groupDragging = $state<Record<number, boolean>>({});
+
+  $effect(() => {
+    if (!projectGroups) return;
+    for (const group of projectGroups) {
+      if (!groupDragging[group.projectId]) {
+        groupLocalItems[group.projectId] = [...group.tasks];
+      }
+    }
+  });
+
+  function handleGroupConsider(pid: number, e: CustomEvent<{ items: Task[] }>) {
+    groupDragging[pid] = true;
+    groupLocalItems[pid] = e.detail.items;
+  }
+
+  function handleGroupFinalize(pid: number, e: CustomEvent<{ items: Task[] }>) {
+    groupDragging[pid] = false;
+    groupLocalItems[pid] = e.detail.items;
+    for (const task of e.detail.items) {
+      if (task.project_id !== pid) {
+        updateTask(task.id, { project_id: pid });
+        return;
+      }
+    }
+  }
 
   const selectedTask = $derived(selectedIndex >= 0 && selectedIndex < activeTasks.length ? activeTasks[selectedIndex] : null);
 
@@ -282,17 +330,50 @@
   </div>
 {:else}
   <!-- Active tasks -->
-  {#each activeTasks as task, i (task.id)}
-    <div use:trackRow={task.id} animate:flip={{ duration: DURATION.normal }} transition:slide|local={{ duration: DURATION.normal }}>
-      <ThoughtBubble
-        {task}
-        compact
-        selected={selectedIndex === i}
-        ontoggle={() => toggleDone(task.id)}
-        onclick={() => { selectedIndex = i; openTask(task.id); }}
-      />
-    </div>
-  {/each}
+  {#if projectGroups}
+    {#each projectGroups as group (group.projectId)}
+      <div style="margin-bottom: 8px;">
+        <!-- Project header -->
+        <div style="display: flex; align-items: center; gap: 8px; padding: 12px 24px 4px;">
+          <div style="width: 8px; height: 8px; border-radius: 50%; background: {group.project.hex_color || 'var(--text-tertiary)'};"></div>
+          <span style="font-size: 12px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.07em;">{group.project.title}</span>
+          <span style="font-size: 12px; color: var(--text-tertiary); opacity: 0.5;">{group.tasks.length}</span>
+        </div>
+        <!-- DnD zone -->
+        <div
+          use:dndzone={{ items: groupLocalItems[group.projectId] ?? [], type: 'cross-project-list', dropTargetStyle: {} }}
+          onconsider={(e) => handleGroupConsider(group.projectId, e)}
+          onfinalize={(e) => handleGroupFinalize(group.projectId, e)}
+          style="min-height: 40px;"
+        >
+          {#each (groupLocalItems[group.projectId] ?? []) as task (task.id)}
+            {@const flatIndex = activeTasks.findIndex(t => t.id === task.id)}
+            <div use:trackRow={task.id}>
+              <ThoughtBubble
+                {task}
+                compact
+                selected={selectedIndex === flatIndex}
+                ontoggle={() => toggleDone(task.id)}
+                onclick={() => { selectedIndex = flatIndex; openTask(task.id); }}
+              />
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/each}
+  {:else}
+    {#each activeTasks as task, i (task.id)}
+      <div use:trackRow={task.id} animate:flip={{ duration: DURATION.normal }} transition:slide|local={{ duration: DURATION.normal }}>
+        <ThoughtBubble
+          {task}
+          compact
+          selected={selectedIndex === i}
+          ontoggle={() => toggleDone(task.id)}
+          onclick={() => { selectedIndex = i; openTask(task.id); }}
+        />
+      </div>
+    {/each}
+  {/if}
 
   <!-- Completed divider -->
   {#if completedTasks.length > 0}

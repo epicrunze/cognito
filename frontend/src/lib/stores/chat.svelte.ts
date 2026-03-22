@@ -135,6 +135,10 @@ function createChatStore() {
       extractingMsgIndex = null;
     },
 
+    setConversationId(id: string) {
+      conversationId = id;
+    },
+
     loadConversation(convId: string, msgs: ChatMessage[]) {
       conversationId = convId;
       messages = msgs;

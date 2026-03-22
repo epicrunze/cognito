@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import uuid
 from typing import AsyncIterator
 
 logger = logging.getLogger(__name__)
@@ -13,10 +14,33 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from app.auth.dependencies import get_current_user
+from app.database import get_db
 from app.models.user import User
 from app.services.extractor import TaskExtractor
 
 router = APIRouter(prefix="/api", tags=["ingest"])
+
+
+def _save_conversation(user_email: str, user_text: str, proposals: list) -> str:
+    """Persist an extract interaction as a conversation with messages."""
+    conversation_id = str(uuid.uuid4())
+    proposals_json = json.dumps([p.model_dump() for p in proposals])
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO conversations (id, user_id) VALUES (?, ?)",
+            [conversation_id, user_email],
+        )
+        conn.execute(
+            "INSERT INTO conversation_messages (conversation_id, role, content) "
+            "VALUES (?, 'user', ?)",
+            [conversation_id, user_text],
+        )
+        conn.execute(
+            "INSERT INTO conversation_messages (conversation_id, role, content, proposals_json) "
+            "VALUES (?, 'assistant', '', ?)",
+            [conversation_id, proposals_json],
+        )
+    return conversation_id
 
 
 class IngestRequest(BaseModel):
@@ -66,7 +90,15 @@ async def ingest(
                 for proposal in proposals:
                     yield {"event": "proposal", "data": proposal.model_dump_json()}
                     await asyncio.sleep(0.05)  # small delay for visual effect
-                yield {"event": "done", "data": json.dumps({"count": len(proposals)})}
+
+                done_data: dict = {"count": len(proposals)}
+                if proposals:
+                    conversation_id = _save_conversation(
+                        current_user.email, body.text, proposals
+                    )
+                    done_data["conversation_id"] = conversation_id
+
+                yield {"event": "done", "data": json.dumps(done_data)}
             except Exception as e:
                 logger.exception("Extraction failed")
                 yield {"event": "error", "data": json.dumps({"detail": str(e)})}
@@ -81,7 +113,12 @@ async def ingest(
         project_hint=body.project_hint,
     )
 
-    return {
+    result: dict = {
         "source_id": proposals[0].source_id if proposals else None,
         "proposals": [p.model_dump() for p in proposals],
     }
+    if proposals:
+        result["conversation_id"] = _save_conversation(
+            current_user.email, body.text, proposals
+        )
+    return result
