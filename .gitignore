@@ -79,4 +79,8 @@ vikunja-files/
 # Claude Code
 .claude/settings.local.json
 .claude/projects/
+.mcp.json
 imgs/image.png
+
+# Frontend review screenshots
+/tmp/cognito-review/
