@@ -10,6 +10,7 @@
   import { bubbleStore } from '$lib/stores/bubble.svelte';
   import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
   import { viewModeStore } from '$lib/stores/viewMode.svelte';
+  import { responsiveStore } from '$lib/stores/responsive.svelte';
   import { applyClientFilters } from '$lib/filterUtils';
   import { smartSort } from '$lib/smartSort';
   import type { FetchParams } from '$lib/stores/tasks.svelte';
@@ -121,7 +122,7 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-<div onclick={handleCanvasClick} style="padding: 24px; min-height: 100%;">
+<div onclick={handleCanvasClick} style="padding: {responsiveStore.isMobile ? '16px 12px' : '24px'}; min-height: 100%;">
   {#if tasksStore.loading}
     <!-- Skeleton placeholders -->
     <div style="display: flex; flex-wrap: wrap; gap: 12px;">
@@ -137,9 +138,15 @@
         <span style="font-size: 15px; color: var(--text-tertiary);">No tasks</span>
       </div>
     {:else}
-      <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; align-content: flex-start;">
+      <div class:masonry-grid={responsiveStore.isMobile} style={responsiveStore.isMobile ? '' : 'display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; align-content: flex-start;'}>
         {#each focusActiveTasks as task (task.id)}
-          <ThoughtBubble {task} onclick={() => handleTaskClick(task.id)} />
+          {#if responsiveStore.isMobile}
+            <div class="masonry-item">
+              <ThoughtBubble {task} onclick={() => handleTaskClick(task.id)} />
+            </div>
+          {:else}
+            <ThoughtBubble {task} onclick={() => handleTaskClick(task.id)} />
+          {/if}
         {/each}
       </div>
       {#if focusCompletedTasks.length > 0}
@@ -150,9 +157,15 @@
           {showFocusCompleted ? '\u25BE' : '\u25B8'} {focusCompletedTasks.length} completed
         </button>
         {#if showFocusCompleted}
-          <div transition:slide={{ duration: DURATION.normal }} style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; opacity: 0.65;">
+          <div transition:slide={{ duration: DURATION.normal }} class:masonry-grid={responsiveStore.isMobile} style={responsiveStore.isMobile ? 'margin-top: 10px; opacity: 0.65;' : 'display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; opacity: 0.65;'}>
             {#each focusCompletedTasks as task (task.id)}
-              <ThoughtBubble {task} onclick={() => handleTaskClick(task.id)} />
+              {#if responsiveStore.isMobile}
+                <div class="masonry-item">
+                  <ThoughtBubble {task} onclick={() => handleTaskClick(task.id)} />
+                </div>
+              {:else}
+                <ThoughtBubble {task} onclick={() => handleTaskClick(task.id)} />
+              {/if}
             {/each}
           </div>
         {/if}
@@ -188,5 +201,15 @@
   .completed-toggle:hover {
     opacity: 0.8;
     background: var(--bg-surface-hover);
+  }
+
+  .masonry-grid {
+    column-count: 2;
+    column-gap: 10px;
+  }
+
+  .masonry-item {
+    break-inside: avoid;
+    margin-bottom: 10px;
   }
 </style>

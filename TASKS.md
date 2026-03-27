@@ -11,32 +11,54 @@ Before each task, read the referenced spec sections in `docs/SPEC.md`.
 - [ ] POST /api/schedule, GET /api/schedule/suggest
 - [ ] Schedule view in frontend
 
-### T-032: Mobile responsive
+### T-032: Mobile responsive (Phase 1 — layout)
 Read: Section 5.14
-- [ ] Sidebar hidden on mobile, hamburger toggle
-- [ ] Detail panel full-screen on mobile
-- [ ] Kanban horizontal scroll, touch-friendly
-- [ ] Test 375px, 768px, 1024px+
+- [x] Sidebar hidden on mobile, hamburger toggle
+- [x] Detail panel full-screen on mobile
+- [x] Kanban horizontal scroll, touch-friendly
+- [x] Test 375px, 768px, 1024px+
+
+### T-032b: Mobile UX redesign (Phase 2 — interactions)
+- [x] BottomSheet.svelte — reusable draggable bottom sheet with snap points
+- [x] 2-column masonry bubble layout on mobile (CSS columns)
+- [x] Tap bubble → bottom sheet preview (not inline expand)
+- [x] Filter chips: [All] [Upcoming] [Overdue] inline below top bar
+- [x] Simplified sidebar: projects-only + settings, 280px, MD3 pill active state
+- [x] Swipe-to-complete gesture on bubbles (direction-locked, 30% threshold)
+- [x] FAB quick-add bottom sheet with AI auto-sort + chat input
+- [ ] Polish: user reported "a few small quirks" — needs testing and fixing
+- [ ] Hide view toggle (Bubbles/List/Focus) on mobile or simplify
+- [ ] Hide empty projects on mobile All Tasks view
 
 ---
 
-## Additional items completed (not in original plan)
+## Phase 6: Frontend Review Fixes
 
-- `ui/DatePicker.svelte` — full calendar picker component
-- `routers/models.py` + `models_registry.py` — GET /api/models endpoint for model selection
-- `/upcoming` and `/overdue` routes with filtered task views
-- `lib/stores/search.svelte.ts` — search store with 300ms debounce
-- TaskPanel supports `proposal` mode (edit proposals before approval inline)
-- Backend tests expanded to 42 passing (up from 38)
-- `ShortcutsModal.svelte` — `?` key opens slide-over with full keyboard shortcuts reference (Navigation, Actions, Global sections)
-- Bottom hint bar in TaskList — dismissible shortcut hints, persists dismiss state in localStorage
-- `lib/stores/filter.svelte.ts` + `FilterBar.svelte` — client-side filtering by status, priority, labels with active count badge
-- `lib/stores/kanban.svelte.ts` — kanbanStore with full board management, bucket CRUD, DnD, bucket name lookup for list view
-- `lib/api.ts` kanbanApi — views, buckets, moveTask, position endpoints
-- `lib/stores/taskMutations.ts` — unified update/toggleDone/delete that syncs both tasksStore and kanbanStore with optimistic updates + rollback
-- Backend kanban endpoints: views, buckets, move task, view tasks, task position (in projects.py + tasks.py)
-- `services/vikunja.py` expanded: create_bucket, update_bucket, delete_bucket, move_task_to_bucket, update_task_position, create_view, list_view_tasks
-- `proposals.py` approve-all returns `task_ids` array for AI glow tracking
+From the 2026-03-24 visual + code review. Screenshots in `/tmp/cognito-review/`.
+
+### T-033: Quick fixes
+- [ ] Reduce overdue left-border opacity (soften the red indicator)
+- [ ] Add `<main>` landmark in `+layout.svelte`
+- [ ] Bump `.card-indicator` opacity from 0.55 to ~0.65 for contrast
+- [ ] Add `sr-only` text to sidebar nav links (fix aria label mismatch)
+
+### T-034: UI improvements
+- [ ] Hide "Focus" toggle button when in Gantt view (it only applies to other views)
+- [ ] Add a subtle animation to ThinkingMargin empty state
+- [ ] Improve empty states (Upcoming page "No tasks" → warmer copy)
+
+### T-035: Design token consolidation
+- [ ] Add missing tokens to `app.css`: `--danger`, `--accent-blue`, accent opacity variants
+- [ ] Replace ~40 hardcoded hex colors across components with `var()` references
+- [ ] Key files: Button, Input, Textarea, DatePicker, ProjectContextMenu, TaskDetailContent, Sidebar, GanttBar, GanttChart, ThoughtBubble, ColorPicker, ConfirmDialog, AIBehaviorTab
+
+### T-036: Organic bubble layout
+- [ ] Redesign bubble layout algorithm: variable card sizes based on content/priority
+- [x] Masonry layout within clusters (mobile — CSS columns, 2-column)
+- [ ] Masonry layout on desktop (wider viewports, 3+ columns)
+- [ ] Priority-driven positioning (urgent top-left, low priority drifts down-right)
+
+---
 
 ---
 

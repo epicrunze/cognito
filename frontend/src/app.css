@@ -257,3 +257,16 @@
     animation-duration: 0.01ms !important;
   }
 }
+
+/* ── Responsive breakpoints ────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  :root {
+    --sidebar-width: 0px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root {
+    --sidebar-width: 64px;
+  }
+}

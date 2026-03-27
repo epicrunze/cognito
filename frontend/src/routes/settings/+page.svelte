@@ -112,4 +112,38 @@
     overflow-y: auto;
     max-width: 640px;
   }
+
+  @media (max-width: 767px) {
+    .settings-layout {
+      flex-direction: column;
+    }
+
+    .settings-nav {
+      width: 100%;
+      flex-direction: row;
+      overflow-x: auto;
+      padding: 16px 16px 0;
+      gap: 0;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .settings-nav::-webkit-scrollbar {
+      display: none;
+    }
+
+    .settings-title {
+      display: none;
+    }
+
+    .nav-item {
+      flex-shrink: 0;
+      padding: 8px 12px;
+      white-space: nowrap;
+    }
+
+    .settings-content {
+      padding: 20px 16px;
+    }
+  }
 </style>

@@ -17,6 +17,7 @@
   import Checkbox from '$components/ui/Checkbox.svelte';
   import { registerCelebrationElement, unregisterCelebrationElement } from '$lib/celebrate';
   import { hexToRgb } from '$lib/formatUtils';
+  import { responsiveStore } from '$lib/stores/responsive.svelte';
 
 
   let {
@@ -151,6 +152,56 @@
   const hasIndicators = $derived(isOverdue || data.attachmentCount > 0 || data.subtaskTotal > 0 || (isScheduledToday && !data.done));
   const expanded = $derived(bubbleStore.expandedTaskId === data.id);
   const supportsVT = $derived(typeof document !== 'undefined' && !!document.startViewTransition);
+
+  // Swipe-to-complete (mobile only)
+  let swipeX = $state(0);
+  let swiping = $state(false);
+  let swipeStartX = 0;
+  let swipeStartY = 0;
+  let swipeLocked = false;
+
+  function handleSwipeStart(e: TouchEvent) {
+    if (!responsiveStore.isMobile || data.done || data.isProposal || expanded) return;
+    const touch = e.touches[0];
+    swipeStartX = touch.clientX;
+    swipeStartY = touch.clientY;
+    swiping = false;
+    swipeLocked = false;
+    swipeX = 0;
+  }
+
+  function handleSwipeMove(e: TouchEvent) {
+    if (!responsiveStore.isMobile || data.done || data.isProposal || expanded) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - swipeStartX;
+    const dy = touch.clientY - swipeStartY;
+
+    // Lock direction after 10px movement
+    if (!swipeLocked && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+      swipeLocked = true;
+      swiping = Math.abs(dx) > Math.abs(dy); // horizontal wins
+    }
+
+    if (swiping) {
+      e.preventDefault();
+      swipeX = Math.max(0, dx); // only swipe right
+    }
+  }
+
+  function handleSwipeEnd() {
+    if (!swiping) { swipeX = 0; return; }
+    const el = document.querySelector(`[data-transition-id="${data.id}"]`) as HTMLElement;
+    const threshold = el ? el.offsetWidth * 0.3 : 100;
+
+    if (swipeX > threshold && typeof data.id === 'number') {
+      // Complete the task
+      if (typeof navigator?.vibrate === 'function') navigator.vibrate(15);
+      toggleDone(data.id);
+    }
+
+    swipeX = 0;
+    swiping = false;
+  }
 
   // Auto-resize textareas to fit content
   function autoResize(el: HTMLTextAreaElement) {
@@ -400,7 +451,7 @@
 
   function handleBubbleClick(e: MouseEvent) {
     e.stopPropagation();
-    if (compact || kanban) {
+    if (compact || kanban || responsiveStore.isMobile) {
       if (typeof data.id === 'number') {
         filterStore.markViewed(data.id);
       }
@@ -546,6 +597,14 @@
 
 {:else}
   <!-- BUBBLE MODE (card) -->
+  <div class="swipe-wrapper" style="position: relative; {responsiveStore.isMobile && !data.done && !data.isProposal ? 'overflow: hidden; border-radius: 10px;' : ''}">
+    {#if swipeX > 0}
+      <div class="swipe-reveal" style="width: {swipeX}px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+    {/if}
   <div
     role="button"
     tabindex="0"
@@ -554,9 +613,12 @@
     onmouseleave={() => hovering = false}
     onclick={handleBubbleClick}
     onkeydown={handleKeydown}
+    ontouchstart={handleSwipeStart}
+    ontouchmove={handleSwipeMove}
+    ontouchend={handleSwipeEnd}
     data-transition-id="{data.id}"
     data-task-priority="{data.priority}"
-    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? '360px' : kanban ? '100%' : `${bubbleWidth}px`}; min-height: {expanded ? 'auto' : kanbanCompact ? '50px' : `${bubbleMinHeight}px`}; border-radius: 10px; background: {expanded ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border-top: 1px solid {borderColor}; border-right: 1px solid {borderColor}; border-bottom: 1px solid {borderColor}; border-left: {priorityBorderWidth} solid {priorityBorderColor}; padding: {expanded ? '18px 20px' : kanbanCompact ? '8px 10px' : '14px 14px 11px'}; cursor: pointer; box-shadow: {shadowStyle}{showGlow && !expanded ? ', inset 0 0 12px -4px var(--accent-glow)' : ''}; transition: background var(--transition-normal) ease-out, border-top-color var(--transition-normal) ease-out, border-right-color var(--transition-normal) ease-out, border-bottom-color var(--transition-normal) ease-out, box-shadow var(--transition-normal) ease-out, opacity var(--transition-normal) ease-out; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden;"
+    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? 'min(360px, 100%)' : kanban || responsiveStore.isMobile ? '100%' : `${bubbleWidth}px`}; min-height: {expanded ? 'auto' : kanbanCompact ? '50px' : `${bubbleMinHeight}px`}; border-radius: 10px; background: {expanded ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border-top: 1px solid {borderColor}; border-right: 1px solid {borderColor}; border-bottom: 1px solid {borderColor}; border-left: {priorityBorderWidth} solid {priorityBorderColor}; padding: {expanded ? '18px 20px' : kanbanCompact ? '8px 10px' : '14px 14px 11px'}; cursor: pointer; box-shadow: {shadowStyle}{showGlow && !expanded ? ', inset 0 0 12px -4px var(--accent-glow)' : ''}; transition: {swiping ? 'none' : 'background var(--transition-normal) ease-out, border-top-color var(--transition-normal) ease-out, border-right-color var(--transition-normal) ease-out, border-bottom-color var(--transition-normal) ease-out, box-shadow var(--transition-normal) ease-out, opacity var(--transition-normal) ease-out, transform 200ms ease-out'}; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden; {swipeX > 0 ? `transform: translateX(${swipeX}px);` : ''}"
   >
     <!-- Project corner triangle -->
     {#if projectColor}
@@ -776,6 +838,7 @@
       </div>
     {/if}
   </div>
+  </div>
 {/if}
 
 <!-- Date picker portal — renders at document level so it's never clipped -->
@@ -955,6 +1018,26 @@
 
   :global([role="button"]:hover) .has-hover-labels .card-hover-labels {
     opacity: 1;
+  }
+
+  .swipe-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 10px;
+  }
+
+  .swipe-reveal {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--done);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    border-radius: 10px 0 0 10px;
+    min-width: 48px;
   }
 
 </style>

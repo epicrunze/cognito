@@ -386,6 +386,13 @@
         New
       </Button>
     {/if}
+
+    <div style="flex: 1;"></div>
+    <button class="close-btn" onclick={onclose} aria-label="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6L6 18"/><path d="M6 6l12 12"/>
+      </svg>
+    </button>
   </div>
 
   <!-- Bulk action bar -->
@@ -580,5 +587,26 @@
   .cloud-local-toggle:hover {
     border-color: var(--accent);
     color: var(--accent);
+  }
+
+  .close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color var(--transition-fast), background var(--transition-fast);
+    padding: 0;
+  }
+
+  .close-btn:hover {
+    color: var(--text-secondary);
+    background: var(--bg-surface-hover);
   }
 </style>

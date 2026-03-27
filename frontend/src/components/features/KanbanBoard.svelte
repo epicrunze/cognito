@@ -165,7 +165,7 @@
         style="height: 28px; padding: 0 10px; font-size: 12px; font-weight: 500; color: var(--text-tertiary); background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 6px; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
       >{kanbanDensity === 'full' ? 'Compact' : 'Full'}</button>
     </div>
-    <div style="display: flex; gap: 16px; padding: 12px 24px 20px; overflow-x: auto; flex: 1; align-items: flex-start;">
+    <div style="display: flex; gap: 16px; padding: 12px 24px 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; flex: 1; align-items: flex-start;">
     <div
       use:dragHandleZone={{ items: localBuckets, type: 'kanban-column', dropTargetStyle: { outline: '2px dashed var(--accent)', outlineOffset: '-2px' } }}
       onconsider={handleColumnConsider}

@@ -12,6 +12,7 @@
   import { dndzone } from 'svelte-dnd-action';
   import type { Project } from '$lib/types';
   import { PRESET_COLORS } from '$lib/constants';
+  import { responsiveStore } from '$lib/stores/responsive.svelte';
 
   const currentPath = $derived($page.url.pathname);
 
@@ -32,6 +33,8 @@
   }
 
   const isSettingsPage = $derived(currentPath.startsWith('/settings'));
+
+  const expanded = $derived(responsiveStore.isMobile);
 
   // Context menu state
   let contextMenu = $state<{ project: typeof projectsStore.projects[0]; x: number; y: number } | null>(null);
@@ -161,43 +164,49 @@
 
 <nav
   class="sidebar"
+  class:sidebar-expanded={expanded}
   aria-label="Main navigation"
 >
   <!-- Brand mark — breathing ambient glow -->
   <div class="brand-mark"></div>
 
-  <!-- Navigation icons -->
-  <div class="nav-icons">
-    {#each nav as item (item.id)}
-      {@const active = currentPath === item.path}
-      <Tip text="{item.label}{item.count > 0 ? ` (${item.count})` : ''}" side="right">
-        <a
-          href={item.path}
-          class="nav-icon"
-          class:nav-icon-active={active}
-          aria-label={item.label}
-          aria-current={active ? 'page' : undefined}
-          use:registerRect={item.path}
-        >
-          {#if active}
-            <span class="nav-glow"></span>
-          {/if}
-          {@html item.icon}
-          {#if item.count > 0}
-            <span class="nav-count" style:color={item.countColor ?? 'var(--text-tertiary)'}>{item.count}</span>
-          {/if}
-          {#if active}
-            <span class="nav-underline"></span>
-          {/if}
-        </a>
-      </Tip>
-    {/each}
-  </div>
+  <!-- Navigation icons (desktop only — mobile uses filter chips in layout) -->
+  {#if !expanded}
+    <div class="nav-icons">
+      {#each nav as item (item.id)}
+        {@const active = currentPath === item.path}
+        <Tip text="{item.label}{item.count > 0 ? ` (${item.count})` : ''}" side="right">
+          <a
+            href={item.path}
+            class="nav-icon"
+            class:nav-icon-active={active}
+            aria-label={item.label}
+            aria-current={active ? 'page' : undefined}
+            use:registerRect={item.path}
+          >
+            {#if active}
+              <span class="nav-glow"></span>
+            {/if}
+            {@html item.icon}
+            {#if item.count > 0}
+              <span class="nav-count" style:color={item.countColor ?? 'var(--text-tertiary)'}>{item.count}</span>
+            {/if}
+            {#if active}
+              <span class="nav-underline"></span>
+            {/if}
+          </a>
+        </Tip>
+      {/each}
+    </div>
 
-  <!-- Gradient separator -->
-  <div class="separator"></div>
+    <!-- Gradient separator -->
+    <div class="separator"></div>
+  {/if}
 
-  <!-- Projects micro-clusters -->
+  <!-- Projects -->
+  {#if expanded}
+    <div class="section-label">Projects</div>
+  {/if}
   <div class="projects-section">
     {#if projectsStore.loading}
       {#each [1, 2, 3] as _ (_)}
@@ -226,13 +235,16 @@
             style="cursor: pointer;"
             use:registerRect={`/project/${project.id}`}
           >
-            <Tip text="{project.title} ({count})" side="right">
+            <Tip text={expanded ? '' : `${project.title} (${count})`} side="right">
               {#if active}
                 <span class="project-bar" style:background={project.hex_color || 'var(--text-tertiary)'}></span>
               {/if}
               <span class="project-monogram-ring" style="border-color: {project.hex_color || 'var(--text-tertiary)'}; opacity: {active ? 1 : 0.5};">
                 {projectIdentifierStore.get(project.id, project.title)}
               </span>
+              {#if expanded}
+                <span class="project-name">{project.title}</span>
+              {/if}
             </Tip>
           </div>
         {/each}
@@ -250,13 +262,18 @@
     </Tip>
   </div>
 
-  <div style="flex: 1;"></div>
+  {#if !expanded}
+    <div style="flex: 1;"></div>
+  {/if}
 
   <!-- Settings -->
   <div class="settings-zone">
-    <Tip text="Settings" side="right">
+    <Tip text={expanded ? '' : 'Settings'} side="right">
       <a href="/settings" class="settings-btn" class:settings-active={isSettingsPage} aria-label="Settings">
         {@html settingsIcon}
+        {#if expanded}
+          <span class="settings-label">Settings</span>
+        {/if}
       </a>
     </Tip>
   </div>
@@ -364,6 +381,10 @@
     animation: breathe 4s ease-in-out infinite;
     margin-top: 16px;
     flex-shrink: 0;
+  }
+
+  .sidebar-expanded .brand-mark {
+    display: none;
   }
 
   /* Nav icons */
@@ -725,5 +746,141 @@
     opacity: 0.8;
     margin: 2px 6px;
     visibility: visible !important;
+  }
+
+  /* Expanded sidebar (mobile overlay) */
+  .sidebar-expanded {
+    width: 280px;
+    padding: 0 16px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+  }
+
+  .sidebar-expanded::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sidebar-expanded .projects-section {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .sidebar-expanded .nav-icons {
+    align-items: stretch;
+  }
+
+  .sidebar-expanded .nav-icon {
+    width: 100%;
+    height: 44px;
+    flex-direction: row;
+    gap: 12px;
+    padding: 0 12px;
+    justify-content: flex-start;
+  }
+
+  .nav-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: inherit;
+    flex: 1;
+  }
+
+  .nav-count-expanded {
+    font-size: 11px;
+    font-weight: 500;
+    opacity: 0.7;
+  }
+
+  .sidebar-expanded .projects-section {
+    align-items: stretch;
+  }
+
+  .sidebar-expanded .project-zone {
+    width: 100%;
+    min-height: 44px;
+    flex-direction: row;
+    gap: 10px;
+    padding: 6px 12px;
+    justify-content: flex-start;
+  }
+
+  .project-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  .sidebar-expanded .create-btn {
+    width: 100%;
+  }
+
+  .sidebar-expanded .dnd-project-list {
+    align-items: stretch;
+  }
+
+  .sidebar-expanded .project-active {
+    background: var(--accent-subtle);
+    border-radius: 10px;
+  }
+
+  .sidebar-expanded .project-bar {
+    display: none;
+  }
+
+  .sidebar-expanded .project-active .project-name {
+    color: var(--accent);
+  }
+
+  .sidebar-expanded .project-active .project-monogram-ring {
+    opacity: 1 !important;
+  }
+
+  .sidebar-expanded .nav-underline {
+    display: none;
+  }
+
+  .sidebar-expanded .nav-glow {
+    display: none;
+  }
+
+  .sidebar-expanded .project-monogram-ring {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+
+  .section-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    letter-spacing: 0.02em;
+    padding: 16px 16px 8px;
+    opacity: 0.6;
+  }
+
+  .settings-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: inherit;
+  }
+
+  .sidebar-expanded .settings-zone {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+    margin-bottom: 16px;
+  }
+
+  .sidebar-expanded .settings-btn {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 8px 12px;
+    gap: 10px;
+    height: 44px;
   }
 </style>

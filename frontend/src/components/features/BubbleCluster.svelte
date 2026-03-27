@@ -7,6 +7,7 @@
   import ThoughtBubble from './ThoughtBubble.svelte';
   import SeedBubble from './SeedBubble.svelte';
   import ProjectContextMenu from './ProjectContextMenu.svelte';
+  import { responsiveStore } from '$lib/stores/responsive.svelte';
 
   let {
     project,
@@ -68,19 +69,32 @@
   </div>
 
   <!-- Bubble area -->
-  <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start;">
-    <div
-      use:dndzone={{ items: localItems, type: 'cross-project-bubble', dropTargetStyle: {} }}
-      onconsider={handleConsider}
-      onfinalize={handleFinalize}
-      style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; align-content: flex-start; min-height: 60px;"
-    >
+  {#if responsiveStore.isMobile}
+    <div class="masonry-grid">
       {#each localItems as task (task.id)}
-        <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
+        <div class="masonry-item">
+          <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
+        </div>
       {/each}
+      <div class="masonry-item">
+        <SeedBubble projectId={project.id} projectColor={project.hex_color} />
+      </div>
     </div>
-    <SeedBubble projectId={project.id} projectColor={project.hex_color} />
-  </div>
+  {:else}
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start;">
+      <div
+        use:dndzone={{ items: localItems, type: 'cross-project-bubble', dropTargetStyle: {} }}
+        onconsider={handleConsider}
+        onfinalize={handleFinalize}
+        style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; align-content: flex-start; min-height: 60px;"
+      >
+        {#each localItems as task (task.id)}
+          <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
+        {/each}
+      </div>
+      <SeedBubble projectId={project.id} projectColor={project.hex_color} />
+    </div>
+  {/if}
   {#if localItems.length === 0}
     <div class="empty-hint">Your first thought goes here...</div>
   {/if}
@@ -94,11 +108,21 @@
       {showCompleted ? '\u25BE' : '\u25B8'} {completedTasks.length} completed
     </button>
     {#if showCompleted}
-      <div transition:slide={{ duration: DURATION.normal }} style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; opacity: 0.65;">
-        {#each completedTasks as task (task.id)}
-          <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
-        {/each}
-      </div>
+      {#if responsiveStore.isMobile}
+        <div transition:slide={{ duration: DURATION.normal }} class="masonry-grid" style="margin-top: 10px; opacity: 0.65;">
+          {#each completedTasks as task (task.id)}
+            <div class="masonry-item">
+              <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <div transition:slide={{ duration: DURATION.normal }} style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; opacity: 0.65;">
+          {#each completedTasks as task (task.id)}
+            <ThoughtBubble {task} onclick={() => ontaskclick?.(task.id)} />
+          {/each}
+        </div>
+      {/if}
     {/if}
   {/if}
 
@@ -135,5 +159,15 @@
   .completed-toggle:hover {
     opacity: 0.8;
     background: var(--bg-surface-hover);
+  }
+
+  .masonry-grid {
+    column-count: 2;
+    column-gap: 10px;
+  }
+
+  .masonry-item {
+    break-inside: avoid;
+    margin-bottom: 10px;
   }
 </style>

@@ -8,6 +8,7 @@
   import { sidebarRectsStore } from '$lib/stores/sidebarRects.svelte';
   import { viewModeStore } from '$lib/stores/viewMode.svelte';
   import { snapshotCards, diffSnapshots, animateFlights } from '$lib/viewTransitionAnimator';
+  import { responsiveStore } from '$lib/stores/responsive.svelte';
   import BubbleCanvas from './BubbleCanvas.svelte';
   import GanttChart from './GanttChart.svelte';
   import KanbanBoard from './KanbanBoard.svelte';
@@ -145,12 +146,21 @@
     const opts: { value: ViewOption; label: string }[] = [
       { value: 'bubbles', label: 'Bubbles' },
       { value: 'list', label: 'List' },
-      { value: 'gantt', label: 'Gantt' },
     ];
+    if (!responsiveStore.isMobile) {
+      opts.push({ value: 'gantt', label: 'Gantt' });
+    }
     if (displayProjectId != null) {
       opts.splice(1, 0, { value: 'kanban', label: 'Kanban' });
     }
     return opts;
+  });
+
+  // Auto-switch away from Gantt when resizing to mobile
+  $effect(() => {
+    if (responsiveStore.isMobile && viewMode === 'gantt') {
+      viewMode = 'bubbles';
+    }
   });
 
   async function switchView(newMode: ViewOption) {
@@ -159,18 +169,18 @@
   }
 </script>
 
-<div style="display: flex; align-items: center; gap: 4px; padding: 10px 24px 0; flex-shrink: 0;">
+<div style="display: flex; align-items: center; gap: {responsiveStore.isMobile ? '3px' : '4px'}; padding: 10px {responsiveStore.isMobile ? '12px' : '24px'} 0; flex-shrink: 0;">
   {#if showViewToggle}
     {#each viewOptions as opt (opt.value)}
       <button
         onclick={() => switchView(opt.value)}
-        style="height: 28px; padding: 0 12px; font-size: 12.5px; font-weight: 500; border-radius: 6px; border: 1px solid {viewMode === opt.value ? 'var(--accent)' : 'var(--border-default)'}; background: {viewMode === opt.value ? 'var(--accent-subtle)' : 'transparent'}; color: {viewMode === opt.value ? 'var(--accent)' : 'var(--text-secondary)'}; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
+        style="height: 28px; padding: 0 {responsiveStore.isMobile ? '8px' : '12px'}; font-size: {responsiveStore.isMobile ? '11.5px' : '12.5px'}; font-weight: 500; border-radius: 6px; border: 1px solid {viewMode === opt.value ? 'var(--accent)' : 'var(--border-default)'}; background: {viewMode === opt.value ? 'var(--accent-subtle)' : 'transparent'}; color: {viewMode === opt.value ? 'var(--accent)' : 'var(--text-secondary)'}; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
       >{opt.label}</button>
     {/each}
   {/if}
   <button
     onclick={() => viewModeStore.toggleFocus()}
-    style="height: 28px; padding: 0 12px; font-size: 12.5px; font-weight: 500; border-radius: 6px; border: 1px solid {viewModeStore.isFocus ? 'var(--accent)' : 'var(--border-default)'}; background: {viewModeStore.isFocus ? 'var(--accent-subtle)' : 'transparent'}; color: {viewModeStore.isFocus ? 'var(--accent)' : 'var(--text-secondary)'}; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
+    style="height: 28px; padding: 0 {responsiveStore.isMobile ? '8px' : '12px'}; font-size: {responsiveStore.isMobile ? '11.5px' : '12.5px'}; font-weight: 500; border-radius: 6px; border: 1px solid {viewModeStore.isFocus ? 'var(--accent)' : 'var(--border-default)'}; background: {viewModeStore.isFocus ? 'var(--accent-subtle)' : 'transparent'}; color: {viewModeStore.isFocus ? 'var(--accent)' : 'var(--text-secondary)'}; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
   >Focus</button>
 </div>
 
