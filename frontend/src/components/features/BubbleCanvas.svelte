@@ -70,10 +70,11 @@
     const ordered: { projectId: number; project: Project; tasks: Task[] }[] = [];
     for (const p of projectsStore.projects) {
       const tasks = groups.get(p.id);
-      if (tasks && tasks.length > 0) {
+      const hasActiveTasks = tasks && tasks.some(t => !t.done);
+      if (tasks && tasks.length > 0 && (!responsiveStore.isMobile || projectId != null || hasActiveTasks)) {
         ordered.push({ projectId: p.id, project: p, tasks });
-      } else if (projectId != null && p.id === projectId) {
-        // Show empty project in single-project view so BubbleCluster renders with empty hint + SeedBubble
+      } else if (projectId != null && p.id === projectId && !responsiveStore.isMobile) {
+        // Show empty project in single-project view on desktop so BubbleCluster renders with empty hint + SeedBubble
         ordered.push({ projectId: p.id, project: p, tasks: [] });
       }
     }

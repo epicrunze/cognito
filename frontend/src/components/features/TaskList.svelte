@@ -13,6 +13,7 @@
   import { filterStore, type SortMode } from '$lib/stores/filter.svelte';
   import { applyClientFilters } from '$lib/filterUtils';
   import { smartSort } from '$lib/smartSort';
+  import { parseDateOnly } from '$lib/dateUtils';
   import type { FetchParams } from '$lib/stores/tasks.svelte';
   import { shortcuts } from '$lib/shortcuts';
   import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
@@ -61,7 +62,7 @@
           if (!a.due_date && !b.due_date) return 0;
           if (!a.due_date) return 1;
           if (!b.due_date) return -1;
-          return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+          return parseDateOnly(a.due_date).getTime() - parseDateOnly(b.due_date).getTime();
         }
         case 'created':
           return new Date(b.created).getTime() - new Date(a.created).getTime();

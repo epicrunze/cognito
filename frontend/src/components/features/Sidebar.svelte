@@ -13,13 +13,14 @@
   import type { Project } from '$lib/types';
   import { PRESET_COLORS } from '$lib/constants';
   import { responsiveStore } from '$lib/stores/responsive.svelte';
+  import { isOverdue as checkOverdue, isUpcoming as checkUpcoming } from '$lib/dateUtils';
 
   const currentPath = $derived($page.url.pathname);
 
   // Nav counts
   const allCount = $derived(tasksStore.tasks.filter(t => !t.done).length);
-  const upcomingCount = $derived(tasksStore.tasks.filter(t => !t.done && t.due_date && new Date(t.due_date) > new Date()).length);
-  const overdueCount = $derived(tasksStore.tasks.filter(t => !t.done && t.due_date && new Date(t.due_date) < new Date()).length);
+  const upcomingCount = $derived(tasksStore.tasks.filter(t => !t.done && t.due_date && checkUpcoming(t.due_date)).length);
+  const overdueCount = $derived(tasksStore.tasks.filter(t => !t.done && t.due_date && checkOverdue(t.due_date)).length);
 
   const nav = $derived([
     { id: '/', label: 'All Tasks', icon: allTasksIcon, path: '/', count: allCount },
@@ -800,6 +801,7 @@
     width: 100%;
     min-height: 44px;
     flex-direction: row;
+    align-items: center;
     gap: 10px;
     padding: 6px 12px;
     justify-content: flex-start;

@@ -1,4 +1,5 @@
 import type { Task } from '$lib/types';
+import { isZeroEpoch, parseDateOnly } from '$lib/dateUtils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -35,10 +36,8 @@ export function getDaysDiff(a: Date, b: Date): number {
 // ─── Null / zero-date guard ───────────────────────────────────────────────────
 
 function isValidDate(value: string | null | undefined): boolean {
-	if (!value) return false;
-	// Vikunja uses 0001-01-01T... as a zero/null date
-	if (value.startsWith('0001-01-01')) return false;
-	const d = new Date(value);
+	if (isZeroEpoch(value)) return false;
+	const d = parseDateOnly(value!);
 	return !isNaN(d.getTime());
 }
 
@@ -51,25 +50,25 @@ export function getTaskDateRange(task: Task): { start: Date; end: Date } | null 
 
 	if (hasStart && hasEnd) {
 		return {
-			start: startOfDay(new Date(task.start_date!)),
-			end: startOfDay(new Date(task.end_date!))
+			start: parseDateOnly(task.start_date!),
+			end: parseDateOnly(task.end_date!)
 		};
 	}
 
 	if (hasStart && hasDue) {
 		return {
-			start: startOfDay(new Date(task.start_date!)),
-			end: startOfDay(new Date(task.due_date!))
+			start: parseDateOnly(task.start_date!),
+			end: parseDateOnly(task.due_date!)
 		};
 	}
 
 	if (hasStart) {
-		const start = startOfDay(new Date(task.start_date!));
+		const start = parseDateOnly(task.start_date!);
 		return { start, end: addDays(start, 1) };
 	}
 
 	if (hasDue) {
-		const due = startOfDay(new Date(task.due_date!));
+		const due = parseDateOnly(task.due_date!);
 		return { start: due, end: due };
 	}
 

@@ -3,6 +3,7 @@ import { filterStore } from '$lib/stores/filter.svelte';
 import { searchStore } from '$lib/stores/search.svelte';
 import { viewModeStore } from '$lib/stores/viewMode.svelte';
 import { computeScore } from '$lib/smartSort';
+import { isZeroEpoch } from '$lib/dateUtils';
 
 /** Max tasks shown in focus mode */
 const FOCUS_LIMIT = 8;
@@ -32,7 +33,7 @@ export function applyClientFilters(tasks: Task[], query?: string): Task[] {
 
   // Due date: "no_date" preset (client-side only since Vikunja null date filtering is unreliable)
   if (filterStore.dueDateFilter === 'no_date') {
-    t = t.filter(task => !task.due_date || task.due_date.startsWith('0001-01-01'));
+    t = t.filter(task => isZeroEpoch(task.due_date));
   }
 
   // Has subtasks

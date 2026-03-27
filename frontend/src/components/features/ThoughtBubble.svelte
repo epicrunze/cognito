@@ -17,6 +17,7 @@
   import Checkbox from '$components/ui/Checkbox.svelte';
   import { registerCelebrationElement, unregisterCelebrationElement } from '$lib/celebrate';
   import { hexToRgb } from '$lib/formatUtils';
+  import { isOverdue as checkOverdue, formatRelativeDate } from '$lib/dateUtils';
   import { responsiveStore } from '$lib/stores/responsive.svelte';
 
 
@@ -137,7 +138,7 @@
 
   const project = $derived(data.projectId ? projectsStore.projects.find(p => p.id === data.projectId) : null);
   const projectColor = $derived(project?.hex_color || '');
-  const isOverdue = $derived(Boolean(!data.done && data.dueDate && new Date(data.dueDate) < new Date()));
+  const isOverdue = $derived(Boolean(!data.done && checkOverdue(data.dueDate)));
   const isAiTagged = $derived(data.isProposal || (typeof data.id === 'number' && filterStore.aiTaggedIds.has(data.id)));
   const viewed = $derived(typeof data.id === 'number' && filterStore.viewedTaskIds.has(data.id));
   const showGlow = $derived(isAiTagged && (!viewed || data.isProposal));
@@ -857,16 +858,7 @@
   }
 
   function formatDate(dateStr: string): string {
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffMs = d.getTime() - now.getTime();
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Tomorrow';
-    if (diffDays === -1) return 'Yesterday';
-    if (diffDays < -1) return `${Math.abs(diffDays)}d overdue`;
-    if (diffDays <= 7) return `In ${diffDays}d`;
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return formatRelativeDate(dateStr);
   }
 </script>
 

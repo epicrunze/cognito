@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { DURATION } from '$lib/transitions';
 
@@ -18,16 +19,38 @@
   } = $props();
 
   let sheetEl = $state<HTMLDivElement | null>(null);
+  let contentEl = $state<HTMLDivElement | null>(null);
   let dragging = $state(false);
   let currentY = $state(0);
   let startY = 0;
   let startSheetY = 0;
   let activeSnapIndex = $state(0);
-  let viewportHeight = $state(typeof window !== 'undefined' ? window.innerHeight : 812);
+  let viewportHeight = $state(typeof window !== 'undefined'
+    ? (window.visualViewport?.height ?? window.innerHeight)
+    : 812);
 
-  // The sheet position from bottom (0 = closed, viewportHeight = full screen)
   const sheetHeight = $derived(snapPoints[activeSnapIndex] * viewportHeight);
   const translateY = $derived(dragging ? currentY : viewportHeight - sheetHeight);
+
+  // Track viewport height changes (handles mobile browser address bar show/hide)
+  onMount(() => {
+    function updateHeight() {
+      viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    }
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateHeight);
+      return () => window.visualViewport?.removeEventListener('resize', updateHeight);
+    }
+  });
+
+  // Lock body scroll when sheet is open
+  $effect(() => {
+    if (open) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  });
 
   $effect(() => {
     if (open) {
@@ -37,6 +60,18 @@
   });
 
   function handleTouchStart(e: TouchEvent) {
+    // Allow drag from anywhere on the sheet, but only intercept if:
+    // 1. Touching the handle area, OR
+    // 2. Content is scrolled to top (scrollTop === 0)
+    const target = e.target as HTMLElement;
+    const isHandle = target.closest('.sheet-handle') !== null;
+    const contentScrollTop = contentEl?.scrollTop ?? 0;
+
+    if (!isHandle && contentScrollTop > 0) {
+      // User is scrolling content, don't intercept
+      return;
+    }
+
     const touch = e.touches[0];
     startY = touch.clientY;
     startSheetY = translateY;
@@ -45,10 +80,20 @@
 
   function handleTouchMove(e: TouchEvent) {
     if (!dragging) return;
-    e.preventDefault();
+
     const touch = e.touches[0];
     const delta = touch.clientY - startY;
-    // Clamp: don't go above full height, allow going below to dismiss
+
+    // If dragging up and content is scrollable, release drag so content scrolls
+    if (delta < -5 && contentEl && contentEl.scrollHeight > contentEl.clientHeight) {
+      const atTopSnap = activeSnapIndex === snapPoints.length - 1;
+      if (atTopSnap) {
+        dragging = false;
+        return;
+      }
+    }
+
+    e.preventDefault();
     const newY = Math.max(0, startSheetY + delta);
     currentY = newY;
   }
@@ -59,13 +104,11 @@
 
     const currentFraction = 1 - (currentY / viewportHeight);
 
-    // If dragged below 15% of viewport, dismiss
     if (currentFraction < 0.15) {
       onclose?.();
       return;
     }
 
-    // Snap to nearest snap point
     let closestIndex = 0;
     let closestDist = Infinity;
     for (let i = 0; i < snapPoints.length; i++) {
@@ -89,13 +132,9 @@
       onclose?.();
     }
   }
-
-  function handleResize() {
-    viewportHeight = window.innerHeight;
-  }
 </script>
 
-<svelte:window onkeydown={handleKeydown} onresize={handleResize} />
+<svelte:window onkeydown={handleKeydown} />
 
 {#if open}
   <!-- Backdrop -->
@@ -107,26 +146,24 @@
     onclick={onclose}
   ></div>
 
-  <!-- Sheet -->
+  <!-- Sheet — touch events on whole sheet for full-surface drag -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="sheet"
     class:sheet-dragging={dragging}
     bind:this={sheetEl}
     style="transform: translateY({translateY}px);"
+    ontouchstart={handleTouchStart}
+    ontouchmove={handleTouchMove}
+    ontouchend={handleTouchEnd}
   >
     <!-- Drag handle -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="sheet-handle"
-      ontouchstart={handleTouchStart}
-      ontouchmove={handleTouchMove}
-      ontouchend={handleTouchEnd}
-    >
+    <div class="sheet-handle">
       <div class="sheet-handle-bar"></div>
     </div>
 
     <!-- Content -->
-    <div class="sheet-content">
+    <div class="sheet-content" bind:this={contentEl}>
       {@render children()}
     </div>
   </div>
@@ -146,6 +183,7 @@
     right: 0;
     top: 0;
     height: 100vh;
+    height: 100dvh;
     z-index: 151;
     background: var(--bg-surface);
     border-radius: 16px 16px 0 0;
@@ -154,6 +192,7 @@
     flex-direction: column;
     transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
     will-change: transform;
+    touch-action: none;
   }
 
   .sheet-dragging {
@@ -167,7 +206,6 @@
     padding: 12px 0 8px;
     cursor: grab;
     flex-shrink: 0;
-    touch-action: none;
   }
 
   .sheet-handle:active {
@@ -188,5 +226,6 @@
     overflow-x: hidden;
     min-height: 0;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 </style>

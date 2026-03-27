@@ -191,6 +191,16 @@ def init_schema(conn: sqlite3.Connection) -> None:
         )
     """)
 
+    # ── Task ↔ Calendar event links ──────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS task_calendar_links (
+            task_id        INTEGER PRIMARY KEY,
+            gcal_event_id  TEXT NOT NULL,
+            calendar_id    TEXT NOT NULL DEFAULT 'primary',
+            created_at     TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S', 'now'))
+        )
+    """)
+
     # Seed the singleton config row if it doesn't exist
     conn.execute("INSERT OR IGNORE INTO agent_config (id) VALUES (1)")
 

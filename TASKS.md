@@ -6,10 +6,13 @@ Before each task, read the referenced spec sections in `docs/SPEC.md`.
 ## Phase 5: Calendar + Mobile
 
 ### T-031: Google Calendar
-- [ ] Add calendar scope to OAuth
-- [ ] `services/gcal.py` — list events, create, delete
-- [ ] POST /api/schedule, GET /api/schedule/suggest
-- [ ] Schedule view in frontend
+- [x] Add calendar scope to OAuth
+- [x] `services/gcal.py` — list events, create, update, delete, free/busy
+- [x] POST /api/schedule, GET /api/schedule, DELETE /api/schedule/{id}, GET /api/schedule/suggest
+- [x] Schedule view in frontend (CalendarView — daily agenda with time grid)
+- [x] Task ↔ Calendar event linking (task_calendar_links table)
+- [x] LLM schedule suggestions (suggest endpoint + accept/dismiss UI)
+- [x] Backend tests (11 tests in test_schedule.py)
 
 ### T-032: Mobile responsive (Phase 1 — layout)
 Read: Section 5.14
@@ -26,9 +29,10 @@ Read: Section 5.14
 - [x] Simplified sidebar: projects-only + settings, 280px, MD3 pill active state
 - [x] Swipe-to-complete gesture on bubbles (direction-locked, 30% threshold)
 - [x] FAB quick-add bottom sheet with AI auto-sort + chat input
-- [ ] Polish: user reported "a few small quirks" — needs testing and fixing
-- [ ] Hide view toggle (Bubbles/List/Focus) on mobile or simplify
-- [ ] Hide empty projects on mobile All Tasks view
+- [x] Polish: filter chips moved to top bar title area, BottomSheet viewport fix (100dvh + visualViewport), full-surface drag, body scroll lock, scrollbar cleanup, sidebar alignment fix, MobileQuickAdd layout fix
+- [x] Simplified view toggle: Bubbles + Focus only on mobile (removed List/Gantt)
+- [x] Hide empty projects on mobile All Tasks view
+- [x] Mobile kanban: stacked accordion layout replacing horizontal scroll
 
 ---
 

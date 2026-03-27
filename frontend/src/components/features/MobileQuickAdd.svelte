@@ -99,6 +99,11 @@
 <style>
   .quick-add {
     padding: 4px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .quick-add-header {
@@ -190,7 +195,9 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    margin: 16px 0;
+    margin-top: auto;
+    padding-top: 16px;
+    margin-bottom: 16px;
     color: var(--text-tertiary);
     font-size: 12px;
   }

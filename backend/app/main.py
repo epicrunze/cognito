@@ -23,6 +23,7 @@ from app.routers.proposals import router as proposals_router
 from app.routers.projects import router as projects_router
 from app.routers.models import router as models_router
 from app.routers.revisions import router as revisions_router
+from app.routers.schedule import router as schedule_router
 from app.routers.tasks import router as tasks_router
 
 
@@ -69,6 +70,7 @@ app.include_router(models_router)
 app.include_router(proposals_router)
 app.include_router(projects_router)
 app.include_router(revisions_router)
+app.include_router(schedule_router)
 app.include_router(tasks_router)
 
 

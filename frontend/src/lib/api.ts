@@ -7,7 +7,7 @@
 
 import { goto } from '$app/navigation';
 import { PUBLIC_API_URL } from '$env/static/public';
-import type { Bucket, ChatAction, ChatMessage, Label, LabelDescription, LabelStats, Project, ProjectView, Revision, Subtask, Task, TaskAttachment, TaskProposal } from '$lib/types';
+import type { Bucket, CalendarEvent, ChatAction, ChatMessage, Label, LabelDescription, LabelStats, Project, ProjectView, Revision, ScheduleSuggestion, Subtask, Task, TaskAttachment, TaskProposal } from '$lib/types';
 
 const BASE = PUBLIC_API_URL ? `${PUBLIC_API_URL}/api` : '/api';
 
@@ -501,6 +501,35 @@ export const revisionsApi = {
   redo(id: number) {
     return request<Record<string, unknown>>(`/revisions/${id}/redo`, {
       method: 'POST',
+    });
+  },
+};
+
+// ── Schedule / Google Calendar ─────────────────────────────────────────────
+
+export const scheduleApi = {
+  listEvents(timeMin: string, timeMax: string) {
+    return request<{ events: CalendarEvent[] }>('/schedule', {
+      params: { time_min: timeMin, time_max: timeMax },
+    });
+  },
+
+  createEvent(data: { summary: string; start: string; end: string; description?: string; task_id?: number }) {
+    return request<CalendarEvent>('/schedule', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteEvent(eventId: string) {
+    return request<{ success: boolean }>(`/schedule/${encodeURIComponent(eventId)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  suggestSchedule(date: string) {
+    return request<{ suggestions: ScheduleSuggestion[]; summary: string }>('/schedule/suggest', {
+      params: { date },
     });
   },
 };

@@ -173,6 +173,26 @@ export interface ChatSession {
   updated_at: string;
 }
 
+// Google Calendar types
+
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  start: string; // ISO datetime
+  end: string; // ISO datetime
+  description?: string | null;
+  html_link?: string | null;
+  task_id?: number | null; // linked Cognito task
+}
+
+export interface ScheduleSuggestion {
+  task_id: number;
+  task_title: string;
+  suggested_start: string;
+  suggested_end: string;
+  reason: string;
+}
+
 export interface Revision {
   id: number;
   task_id: number;

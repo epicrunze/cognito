@@ -34,7 +34,7 @@ def get_google_auth_url(state: str | None = None) -> str:
         "client_id": settings.google_client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
-        "scope": "openid email profile",
+        "scope": "openid email profile https://www.googleapis.com/auth/calendar",
         "access_type": "offline",
         "prompt": "consent",
     }

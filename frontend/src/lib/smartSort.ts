@@ -1,21 +1,15 @@
 import type { Task } from '$lib/types';
+import { isZeroEpoch, parseDateOnly, localToday, diffDays } from '$lib/dateUtils';
 
 const MS_PER_DAY = 86_400_000;
-const ZERO_DATE = '0001-01-01T00:00:00Z';
-
-function isZeroDate(d: string | null): boolean {
-  return !d || d === ZERO_DATE || d.startsWith('0001-01-01');
-}
 
 function daysBetween(a: Date, b: Date): number {
   return (a.getTime() - b.getTime()) / MS_PER_DAY;
 }
 
 function urgencyScore(task: Task): number {
-  if (isZeroDate(task.due_date)) return 0.15;
-  const now = new Date();
-  const due = new Date(task.due_date!);
-  const daysUntil = daysBetween(due, now);
+  if (isZeroEpoch(task.due_date)) return 0.15;
+  const daysUntil = diffDays(task.due_date!);
 
   if (daysUntil < 0) return Math.min(1.0 + 0.02 * Math.abs(daysUntil), 1.5); // overdue
   if (daysUntil < 1) return 0.9;   // due today
@@ -30,7 +24,7 @@ function priorityScore(task: Task): number {
 }
 
 function recencyScore(task: Task): number {
-  if (isZeroDate(task.updated)) return 0;
+  if (isZeroEpoch(task.updated)) return 0;
   const daysSince = daysBetween(new Date(), new Date(task.updated));
   return 1 / (1 + daysSince / 7);
 }

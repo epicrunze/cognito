@@ -1,11 +1,15 @@
 <script lang="ts">
   import type { Bucket, Task } from '$lib/types';
+  import { SvelteSet, SvelteMap } from 'svelte/reactivity';
   import { kanbanStore } from '$lib/stores/kanban.svelte';
   import { filterStore } from '$lib/stores/filter.svelte';
   import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
+  import { responsiveStore } from '$lib/stores/responsive.svelte';
   import { applyClientFilters } from '$lib/filterUtils';
   import { dragHandleZone } from 'svelte-dnd-action';
+  import { slide } from 'svelte/transition';
   import KanbanColumn from './KanbanColumn.svelte';
+  import ThoughtBubble from './ThoughtBubble.svelte';
   import Skeleton from '$components/ui/Skeleton.svelte';
 
   let { projectId }: { projectId: number } = $props();
@@ -59,9 +63,23 @@
     }
   }
 
+  // Mobile accordion state
+  let expandedBuckets = new SvelteSet<number>();
+
+  $effect(() => {
+    if (kanbanStore.buckets.length > 0 && expandedBuckets.size === 0) {
+      expandedBuckets.add(kanbanStore.buckets[0].id);
+    }
+  });
+
+  function toggleBucket(id: number) {
+    if (expandedBuckets.has(id)) expandedBuckets.delete(id);
+    else expandedBuckets.add(id);
+  }
+
   // Filtered tasks per bucket
   const filteredTasksByBucket = $derived.by(() => {
-    const result = new Map<number, Task[]>();
+    const result = new SvelteMap<number, Task[]>();
     for (const bucket of kanbanStore.buckets) {
       const raw = kanbanStore.tasksByBucket.get(bucket.id) ?? [];
       result.set(bucket.id, applyClientFilters(raw));
@@ -157,54 +175,165 @@
     <span style="font-size: 15px; color: var(--overdue);">{kanbanStore.error}</span>
   </div>
 {:else}
-  <div style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
-    <!-- Kanban toolbar -->
-    <div style="display: flex; align-items: center; justify-content: flex-end; padding: 8px 24px 0; flex-shrink: 0;">
-      <button
-        onclick={toggleDensity}
-        style="height: 28px; padding: 0 10px; font-size: 12px; font-weight: 500; color: var(--text-tertiary); background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 6px; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
-      >{kanbanDensity === 'full' ? 'Compact' : 'Full'}</button>
+  {#if responsiveStore.isMobile}
+    <div class="kanban-accordion">
+      {#each kanbanStore.buckets as bucket (bucket.id)}
+        {@const tasks = filteredTasksByBucket.get(bucket.id) ?? []}
+        {@const isExpanded = expandedBuckets.has(bucket.id)}
+        <div class="accordion-section">
+          <button class="accordion-header" onclick={() => toggleBucket(bucket.id)}>
+            <div class="accordion-header-left">
+              <span class="accordion-color" style="background: {getColumnColor(bucket.title)};"></span>
+              {#if isDoneBucket(bucket.id)}
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--done)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5" /><path d="M5.5 8l2 2 3.5-3.5" /></svg>
+              {/if}
+              <span class="accordion-title">{bucket.title}</span>
+              <span class="accordion-count">{tasks.length}</span>
+            </div>
+            <span class="accordion-chevron" class:accordion-chevron-open={isExpanded}>&#9656;</span>
+          </button>
+          {#if isExpanded}
+            <div class="accordion-body" transition:slide={{ duration: 200 }}>
+              {#each tasks as task (task.id)}
+                <ThoughtBubble {task} kanban={true} kanbanCompact={kanbanDensity === 'compact'} onclick={() => handleTaskClick(task.id)} />
+              {/each}
+              {#if tasks.length === 0}
+                <div class="accordion-empty">No tasks</div>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/each}
     </div>
-    <div style="display: flex; gap: 16px; padding: 12px 24px 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; flex: 1; align-items: flex-start;">
-    <div
-      use:dragHandleZone={{ items: localBuckets, type: 'kanban-column', dropTargetStyle: { outline: '2px dashed var(--accent)', outlineOffset: '-2px' } }}
-      onconsider={handleColumnConsider}
-      onfinalize={handleColumnFinalize}
-      style="display: flex; gap: 16px; align-items: flex-start;"
-    >
-    {#each localBuckets as bucket (bucket.id)}
-      <KanbanColumn
-        {bucket}
-        tasks={filteredTasksByBucket.get(bucket.id) ?? []}
-        allTasks={kanbanStore.tasksByBucket.get(bucket.id) ?? []}
-        columnColor={getColumnColor(bucket.title)}
-        isDoneBucket={isDoneBucket(bucket.id)}
-        density={kanbanDensity}
-        onTaskClick={handleTaskClick}
-        onTaskFinalized={handleTaskFinalized}
-        onCreateTask={(title) => kanbanStore.createTaskInBucket(bucket.id, title)}
-      />
-    {/each}
-    </div>
-
-    <!-- Add column button -->
-    {#if addingColumn}
-      <div style="width: 280px; flex-shrink: 0;">
-        <!-- svelte-ignore a11y_autofocus -->
-        <input
-          bind:value={newColumnTitle}
-          onkeydown={handleColumnKeydown}
-          placeholder="Column title..."
-          style="width: 100%; background: var(--bg-surface); border: 1px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: 14px; color: var(--text-primary); font-family: var(--font-sans); outline: none;"
-          autofocus
-        />
+  {:else}
+    <div style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+      <!-- Kanban toolbar -->
+      <div style="display: flex; align-items: center; justify-content: flex-end; padding: 8px 24px 0; flex-shrink: 0;">
+        <button
+          onclick={toggleDensity}
+          style="height: 28px; padding: 0 10px; font-size: 12px; font-weight: 500; color: var(--text-tertiary); background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 6px; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
+        >{kanbanDensity === 'full' ? 'Compact' : 'Full'}</button>
       </div>
-    {:else}
-      <button
-        onclick={() => addingColumn = true}
-        style="width: 280px; flex-shrink: 0; padding: 14px 16px; background: var(--bg-surface); border: 1px dashed var(--border-default); border-radius: 10px; color: var(--text-tertiary); font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
-      >+ Add Column</button>
-    {/if}
+      <div style="display: flex; gap: 16px; padding: 12px 24px 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; flex: 1; align-items: flex-start;">
+      <div
+        use:dragHandleZone={{ items: localBuckets, type: 'kanban-column', dropTargetStyle: { outline: '2px dashed var(--accent)', outlineOffset: '-2px' } }}
+        onconsider={handleColumnConsider}
+        onfinalize={handleColumnFinalize}
+        style="display: flex; gap: 16px; align-items: flex-start;"
+      >
+      {#each localBuckets as bucket (bucket.id)}
+        <KanbanColumn
+          {bucket}
+          tasks={filteredTasksByBucket.get(bucket.id) ?? []}
+          allTasks={kanbanStore.tasksByBucket.get(bucket.id) ?? []}
+          columnColor={getColumnColor(bucket.title)}
+          isDoneBucket={isDoneBucket(bucket.id)}
+          density={kanbanDensity}
+          onTaskClick={handleTaskClick}
+          onTaskFinalized={handleTaskFinalized}
+          onCreateTask={(title) => kanbanStore.createTaskInBucket(bucket.id, title)}
+        />
+      {/each}
+      </div>
+
+      <!-- Add column button -->
+      {#if addingColumn}
+        <div style="width: 280px; flex-shrink: 0;">
+          <!-- svelte-ignore a11y_autofocus -->
+          <input
+            bind:value={newColumnTitle}
+            onkeydown={handleColumnKeydown}
+            placeholder="Column title..."
+            style="width: 100%; background: var(--bg-surface); border: 1px solid var(--accent); border-radius: 8px; padding: 12px 14px; font-size: 14px; color: var(--text-primary); font-family: var(--font-sans); outline: none;"
+            autofocus
+          />
+        </div>
+      {:else}
+        <button
+          onclick={() => addingColumn = true}
+          style="width: 280px; flex-shrink: 0; padding: 14px 16px; background: var(--bg-surface); border: 1px dashed var(--border-default); border-radius: 10px; color: var(--text-tertiary); font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
+        >+ Add Column</button>
+      {/if}
+      </div>
     </div>
-  </div>
+  {/if}
 {/if}
+
+<style>
+  .kanban-accordion {
+    padding: 8px 12px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .accordion-section {
+    border: 1px solid var(--border-default);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-base);
+  }
+
+  .accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 12px 14px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+  }
+
+  .accordion-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .accordion-color {
+    width: 3px;
+    height: 16px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .accordion-title {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .accordion-count {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    background: var(--bg-elevated);
+    padding: 1px 7px;
+    border-radius: 9999px;
+  }
+
+  .accordion-chevron {
+    font-size: 14px;
+    color: var(--text-tertiary);
+    transition: transform 200ms ease;
+  }
+
+  .accordion-chevron-open {
+    transform: rotate(90deg);
+  }
+
+  .accordion-body {
+    padding: 0 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .accordion-empty {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    text-align: center;
+    padding: 16px 0;
+  }
+</style>

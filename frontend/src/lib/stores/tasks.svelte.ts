@@ -1,6 +1,7 @@
 import { tasksApi } from '$lib/api';
 import { optimisticUpdate } from '$lib/optimistic';
 import type { Task } from '$lib/types';
+import { isZeroEpoch } from '$lib/dateUtils';
 
 export interface FetchParams {
   sort_by?: string;
@@ -12,9 +13,9 @@ function normalizeTask(t: Task): Task {
   return {
     ...t,
     labels: t.labels ?? [],
-    due_date: t.due_date && !t.due_date.startsWith('0001-01-01') ? t.due_date : null,
-    start_date: t.start_date && !t.start_date.startsWith('0001-01-01') ? t.start_date : null,
-    end_date: t.end_date && !t.end_date.startsWith('0001-01-01') ? t.end_date : null,
+    due_date: isZeroEpoch(t.due_date) ? null : t.due_date,
+    start_date: isZeroEpoch(t.start_date) ? null : t.start_date,
+    end_date: isZeroEpoch(t.end_date) ? null : t.end_date,
   };
 }
 

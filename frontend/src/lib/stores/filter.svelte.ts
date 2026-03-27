@@ -1,3 +1,5 @@
+import { dateBoundaryUTC, localToday } from '$lib/dateUtils';
+
 export type SortMode = 'smart' | 'priority' | 'due_date' | 'created' | 'title';
 export type DueDatePreset = 'any' | 'overdue' | 'today' | 'this_week' | 'this_month' | 'no_date';
 
@@ -95,9 +97,10 @@ export const filterStore = {
     }
     // Due date server-side filters (no_date handled client-side)
     if (_dueDateFilter !== 'any' && _dueDateFilter !== 'no_date') {
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+      const today = localToday();
+      const todayStart = dateBoundaryUTC(today);
+      const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      const tomorrowStart = dateBoundaryUTC(tomorrow);
 
       switch (_dueDateFilter) {
         case 'overdue':
@@ -107,13 +110,13 @@ export const filterStore = {
           parts.push(`due_date >= "${todayStart}" && due_date < "${tomorrowStart}"`);
           break;
         case 'this_week': {
-          const weekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).toISOString();
-          parts.push(`due_date >= "${todayStart}" && due_date < "${weekEnd}"`);
+          const weekEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
+          parts.push(`due_date >= "${todayStart}" && due_date < "${dateBoundaryUTC(weekEnd)}"`);
           break;
         }
         case 'this_month': {
-          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
-          parts.push(`due_date >= "${todayStart}" && due_date < "${monthEnd}"`);
+          const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+          parts.push(`due_date >= "${todayStart}" && due_date < "${dateBoundaryUTC(monthEnd)}"`);
           break;
         }
       }

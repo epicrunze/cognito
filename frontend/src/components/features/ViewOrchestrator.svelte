@@ -9,7 +9,9 @@
   import { viewModeStore } from '$lib/stores/viewMode.svelte';
   import { snapshotCards, diffSnapshots, animateFlights } from '$lib/viewTransitionAnimator';
   import { responsiveStore } from '$lib/stores/responsive.svelte';
+  import { isOverdue as checkOverdue, isUpcoming as checkUpcoming } from '$lib/dateUtils';
   import BubbleCanvas from './BubbleCanvas.svelte';
+  import CalendarView from './CalendarView.svelte';
   import GanttChart from './GanttChart.svelte';
   import KanbanBoard from './KanbanBoard.svelte';
   import TaskList from './TaskList.svelte';
@@ -22,7 +24,7 @@
     pathname === '/overdue' ? 'overdue' : null
   );
 
-  let viewMode = $state<'bubbles' | 'kanban' | 'list' | 'gantt'>('bubbles');
+  let viewMode = $state<'bubbles' | 'kanban' | 'list' | 'gantt' | 'calendar'>('bubbles');
   $effect(() => { viewModeStore.set(viewMode); });
   let prevPathname = $state('');
 
@@ -37,7 +39,7 @@
     const oldPath = prevPathname;
     prevPathname = pathname;
 
-    const newMode: 'bubbles' | 'kanban' | 'list' | 'gantt' = projectId != null ? 'kanban' : 'bubbles';
+    const newMode: 'bubbles' | 'kanban' | 'list' | 'gantt' | 'calendar' = projectId != null ? 'kanban' : 'bubbles';
 
     if (!oldPath) {
       viewMode = newMode;
@@ -72,7 +74,7 @@
   }
 
   async function updateView(
-    newMode: 'bubbles' | 'kanban' | 'list' | 'gantt',
+    newMode: 'bubbles' | 'kanban' | 'list' | 'gantt' | 'calendar',
     newProjectId: number | null = projectId,
     newFilterMode: string | null = filterMode,
     oldPath: string = '',
@@ -119,18 +121,14 @@
   }
 
   // Filter functions for upcoming/overdue
-  const sevenDays = 7 * 24 * 60 * 60 * 1000;
-
   function upcomingFilter(t: Task): boolean {
     if (!t.due_date || t.done) return false;
-    const due = new Date(t.due_date).getTime();
-    const now = Date.now();
-    return due >= now && due <= now + sevenDays;
+    return checkUpcoming(t.due_date);
   }
 
   function overdueFilter(t: Task): boolean {
     if (!t.due_date || t.done) return false;
-    return new Date(t.due_date) < new Date();
+    return checkOverdue(t.due_date);
   }
 
   const activeFilter = $derived(
@@ -141,14 +139,15 @@
   // Whether to show the view toggle (project pages always, home page shows gantt option too)
   const showViewToggle = $derived(true);
 
-  type ViewOption = 'bubbles' | 'kanban' | 'list' | 'gantt';
+  type ViewOption = 'bubbles' | 'kanban' | 'list' | 'gantt' | 'calendar';
   const viewOptions = $derived.by(() => {
     const opts: { value: ViewOption; label: string }[] = [
       { value: 'bubbles', label: 'Bubbles' },
-      { value: 'list', label: 'List' },
     ];
     if (!responsiveStore.isMobile) {
+      opts.push({ value: 'list', label: 'List' });
       opts.push({ value: 'gantt', label: 'Gantt' });
+      opts.push({ value: 'calendar', label: 'Calendar' });
     }
     if (displayProjectId != null) {
       opts.splice(1, 0, { value: 'kanban', label: 'Kanban' });
@@ -156,9 +155,9 @@
     return opts;
   });
 
-  // Auto-switch away from Gantt when resizing to mobile
+  // Auto-switch away from Gantt/List when resizing to mobile
   $effect(() => {
-    if (responsiveStore.isMobile && viewMode === 'gantt') {
+    if (responsiveStore.isMobile && (viewMode === 'gantt' || viewMode === 'list' || viewMode === 'calendar')) {
       viewMode = 'bubbles';
     }
   });
@@ -190,6 +189,8 @@
   <TaskList projectId={displayProjectId ?? undefined} filter={activeFilter} />
 {:else if viewMode === 'gantt'}
   <GanttChart projectId={displayProjectId ?? undefined} />
+{:else if viewMode === 'calendar'}
+  <CalendarView projectId={displayProjectId ?? undefined} />
 {:else}
   <BubbleCanvas projectId={displayProjectId ?? undefined} filter={activeFilter} />
 {/if}

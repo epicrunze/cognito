@@ -1,12 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project
 
-Cognito is a task-agent app: users input freeform text, an LLM extracts structured tasks, and approved tasks sync to Vikunja (self-hosted task manager). FastAPI backend + SvelteKit frontend + SQLite.
+Cognito is a task-agent app: freeform text → LLM extraction → structured tasks in Vikunja. FastAPI backend + SvelteKit frontend + SQLite.
 
-Full spec: `docs/SPEC.md`. Task queue: `TASKS.md`. **Before any UI/UX work, read `docs/DESIGN_PHILOSOPHY.md` — it shapes how you approach design decisions and requires proposing changes before implementing.**
+Full spec: `docs/SPEC.md` (index) → `docs/spec/*.md`. Before UI/UX work, read `docs/DESIGN_PHILOSOPHY.md`.
 
 ## Commands
 
@@ -15,7 +13,6 @@ Full spec: `docs/SPEC.md`. Task queue: `TASKS.md`. **Before any UI/UX work, read
 uv sync
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 uv run pytest tests/ -v
-uv run pytest tests/test_proposals.py -v
 ```
 
 ### Frontend (from `frontend/`)
@@ -30,91 +27,54 @@ npm run check                # svelte-check + TypeScript
 ```bash
 docker-compose up --build    # vikunja:3456, backend:8000, frontend:80
 ```
+
 ## MCP Servers
 
-**Svelte** (`sveltejs/mcp`): Provides Svelte 5 docs lookup and code analysis.
-- Run `svelte-autofixer` after writing or editing any `.svelte` file
-- Use `get-documentation` before implementing SvelteKit patterns (load functions, form actions, routing)
-- Use `list-sections` to find relevant docs when unsure about Svelte 5 syntax
+**Svelte** (`sveltejs/mcp`): Run `svelte-autofixer` after editing any `.svelte` file. Use `get-documentation` before implementing SvelteKit patterns.
 
 ## Architecture
 
-**Backend** (`backend/app/`): Layered FastAPI — routers → services → models → database.
-- `main.py` — app entry, lifespan inits SQLite schema
-- `database.py` — SQLite via `get_db()` context manager (FastAPI Depends)
-- `config.py` — Pydantic Settings, all env vars have defaults
-- `services/extractor.py` — LLM tool-calling loop (lookup_projects, resolve_project, check_existing_tasks, get_label_descriptions)
-- `services/llm.py` — LLMClient ABC with GeminiClient + OllamaClient; model selection per request
-- `services/vikunja.py` — httpx REST client for Vikunja API
-- `services/tagger.py` — auto-tagging via label descriptions + LLM
-- `routers/ingest.py` — text → proposals (JSON or SSE), includes model + raw_response
-- `routers/proposals.py` — CRUD + approve/reject; approve creates Vikunja task
-- `auth/` — Google OAuth2 → JWT HttpOnly cookie, `get_current_user` dependency
+**Backend** (`backend/app/`): Layered — routers → services → models → database.
+- 11 routers: auth, chat, config, ingest, labels, models, proposals, projects, revisions, schedule, tasks
+- 7 services: agent (ChatAgent), extractor, llm (Gemini/Ollama), vikunja (httpx proxy), tagger, revisions, gcal
+- Key patterns: Vikunja proxy injects API token server-side; ChatAgent has extraction + modification tools with revision tracking; all AI mutations create before/after snapshots for undo
 
-**Frontend** (`frontend/src/`): SvelteKit (Svelte 5), static adapter, Tailwind CSS, TypeScript strict.
-- `app.css` — dark theme design tokens as CSS custom properties
-- `components/ui/` — primitives: Button, Input, Checkbox, Dropdown, Badge, Toast, SlideOver, Skeleton, Tip, etc.
-- `lib/api.ts` — fetch wrapper with silent 401 refresh, SSE streaming
-- `lib/stores.svelte.ts` — Svelte 5 runes ($state, $derived)
+**Frontend** (`frontend/src/`): SvelteKit (Svelte 5 runes), static adapter, Tailwind CSS, TypeScript strict.
+- 20 stores in `lib/stores/` — task state, view modes, responsive breakpoints, chat, kanban, gantt, etc.
+- 4 view modes: Bubbles (primary), Kanban (project), List, Gantt
+- Mobile: bottom sheets, accordion kanban, masonry layout, swipe-to-complete, FAB quick-add
 
-**Database**: SQLite (`./data/agent.db`). Tables: users, task_proposals, label_descriptions, vikunja_projects, agent_config.
+**Database**: SQLite (`./data/agent.db`). Tables: users, task_proposals, vikunja_projects, agent_config, label_descriptions, conversations, conversation_messages, task_revisions, task_calendar_links.
 
 ## Vikunja API — Key Gotchas
 
-The frontend NEVER calls Vikunja directly — the backend proxy injects the API token. Full reference in `docs/SPEC.md` Section 6.
+The frontend NEVER calls Vikunja directly — the backend proxy injects the API token.
 
-- **PUT creates, POST updates** (opposite of REST) — applies to ALL resources (tasks, projects, labels).
-- **`hex_color` has no `#` prefix.** Vikunja stores `A1A09A`, not `#A1A09A`. Strip `#` before sending.
-- **Buckets belong to views, not projects.** Kanban: GET views → find view_kind=3 → GET buckets → tasks per bucket.
-- **Filter syntax:** single `filter` param with expressions: `done = false && priority >= 3`.
-- **Search:** `s` param, not `search`. **Pagination:** in response headers. **Dates:** ISO 8601.
+- **PUT creates, POST updates** (opposite of REST) — applies to ALL resources.
+- **`hex_color` has no `#` prefix.** Strip `#` before sending.
+- **Buckets belong to views, not projects.** GET views → find view_kind=3 → GET buckets.
+- **Filter syntax:** `done = false && priority >= 3`. **Search:** `s` param. **Dates:** ISO 8601.
 - **Position:** float, view-dependent. Reorder via midpoint between neighbours.
-
-## Design System
-
-Dark theme. Tangerine accent (#E8772E) on warm dark neutrals. IBM Plex Sans. Full tokens in `docs/SPEC.md` Section 5.2.
-
-**Key patterns:**
-- Optimistic updates on all mutations (update store → API → rollback on failure + toast)
-- AI-tagged tasks: tangerine left border + inward glow, fades after viewing
-- Collapsed sidebar: z-index 50, overflow visible, tooltips to the right outside the bar
-- Top bar buttons: flexShrink 0, whiteSpace nowrap (never wrap to second line)
-- Completed tasks: below "Completed (N)" divider, 0.65 opacity, collapsible
-- Transitions: 150ms hover, 200ms panels, 300ms slide-overs (Svelte fly/fade/slide)
-- Auto-save: 500ms debounce text, immediate toggles/selects
 
 ## Testing
 
-In-memory SQLite, dependency overrides, async mocking:
-- Patch `get_db` with `make_mock_db(conn)`
+157 tests across 11 files. In-memory SQLite, dependency overrides, async mocking:
+- Patch `get_db` with `make_mock_db(conn)` — `respx.mock` for httpx
 - Override `get_current_user` with lambda returning mock user
-- `respx.mock` for httpx (Vikunja client)
 - `asyncio_mode = "auto"` in pyproject.toml
 
 ## Deployment
 
-3 Docker containers behind Cloudflare tunnels (no ports exposed):
-- `tasks.epicrunze.com` → vikunja (:3456) — admin only, frontend never calls directly
+3 Docker containers behind Cloudflare tunnels:
+- `tasks.epicrunze.com` → vikunja — admin only
 - `cognito.epicrunze.com` → frontend (nginx :80)
 - `api-cognito.epicrunze.com` → backend (:8000)
 
-**Backend → Vikunja**: Internal Docker network only (`http://vikunja:3456`). Set via `VIKUNJA_URL`.
-
-**Frontend API URL**: `PUBLIC_API_URL` is a SvelteKit build-time env var (baked in by static adapter). Pass as Docker build arg: `args: PUBLIC_API_URL: ${BACKEND_URL}`. In dev, leave unset — falls back to `/api` (Vite proxy).
-
-**CORS**: `FRONTEND_URL` origin allowed with credentials in `main.py`.
-
-**Cookies**: `COOKIE_DOMAIN=.epicrunze.com` covers both `cognito.` and `api-cognito.` subdomains.
+Backend → Vikunja: internal Docker network (`http://vikunja:3456`). Frontend `PUBLIC_API_URL` is a build-time env var. CORS: `FRONTEND_URL` origin. Cookies: `COOKIE_DOMAIN=.epicrunze.com`.
 
 ## JaRVIS
 
-Identity and memories are loaded automatically at session start via the SessionStart hook.
-A Stop hook will remind you to reflect before ending a session if you haven't already.
-Use `/jarvis-reload` to reload context mid-session if needed.
-After completing any meaningful task, run `/jarvis-reflect` to capture what you learned.
-You MUST run `/jarvis-reflect` before ending any session — do not end without reflecting.
-
-
+Identity/memories loaded at session start via SessionStart hook. Run `/jarvis-reflect` after completing meaningful tasks. You MUST reflect before ending any session.
 
 ## Environment
 

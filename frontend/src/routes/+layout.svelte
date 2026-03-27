@@ -7,6 +7,7 @@
   import { fly, fade } from 'svelte/transition';
   import { authStore, tasksStore, projectsStore, labelsStore, bubbleStore, toggleDone } from '$lib/stores.svelte';
   import { shortcuts } from '$lib/shortcuts';
+  import { isOverdue as checkOverdue, isUpcoming as checkUpcoming, parseDateOnly, formatRelativeDate } from '$lib/dateUtils';
   import { extractIcon } from '$lib/icons';
   import Sidebar from '$components/features/Sidebar.svelte';
   import ThinkingMargin from '$components/features/ThinkingMargin.svelte';
@@ -39,8 +40,8 @@
   let quickAddOpen = $state(false);
 
   // Filter counts for mobile chips
-  const upcomingCount = $derived(tasksStore.tasks.filter(t => !t.done && t.due_date && new Date(t.due_date) > new Date() && new Date(t.due_date).getTime() <= Date.now() + 7 * 24 * 60 * 60 * 1000).length);
-  const overdueCount = $derived(tasksStore.tasks.filter(t => !t.done && t.due_date && new Date(t.due_date) < new Date()).length);
+  const upcomingCount = $derived(tasksStore.tasks.filter(t => !t.done && t.due_date && checkUpcoming(t.due_date)).length);
+  const overdueCount = $derived(tasksStore.tasks.filter(t => !t.done && t.due_date && checkOverdue(t.due_date)).length);
 
   const isLoginPage = $derived($page.url.pathname === '/login');
   const isTaskViewRoute = $derived.by(() => {
@@ -232,6 +233,24 @@
               }}
             >&#8942;</button>
           </div>
+        {:else if responsiveStore.isMobile && isTaskViewRoute}
+          <div class="mobile-topbar-chips" style="margin-right: auto;">
+            <button
+              class="topbar-chip"
+              class:topbar-chip-active={$page.url.pathname === '/'}
+              onclick={() => goto('/')}
+            >All</button>
+            <button
+              class="topbar-chip"
+              class:topbar-chip-active={$page.url.pathname === '/upcoming'}
+              onclick={() => goto('/upcoming')}
+            >Upcoming{upcomingCount > 0 ? ` ${upcomingCount}` : ''}</button>
+            <button
+              class="topbar-chip"
+              class:topbar-chip-active={$page.url.pathname === '/overdue'}
+              onclick={() => goto('/overdue')}
+            >Overdue{overdueCount > 0 ? ` ${overdueCount}` : ''}</button>
+          </div>
         {:else}
           <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; flex-shrink: 0; margin-right: auto;">{pageTitle}</span>
         {/if}
@@ -266,26 +285,6 @@
           />
         {/if}
       </div>
-
-      {#if responsiveStore.isMobile && isTaskViewRoute && !currentProject}
-        <div class="mobile-filter-chips">
-          <button
-            class="filter-chip"
-            class:filter-chip-active={$page.url.pathname === '/'}
-            onclick={() => goto('/')}
-          >All</button>
-          <button
-            class="filter-chip"
-            class:filter-chip-active={$page.url.pathname === '/upcoming'}
-            onclick={() => goto('/upcoming')}
-          >Upcoming{upcomingCount > 0 ? ` ${upcomingCount}` : ''}</button>
-          <button
-            class="filter-chip"
-            class:filter-chip-active={$page.url.pathname === '/overdue'}
-            onclick={() => goto('/overdue')}
-          >Overdue{overdueCount > 0 ? ` ${overdueCount}` : ''}</button>
-        </div>
-      {/if}
 
       {#if isTaskViewRoute}
         <FilterBar open={filterOpen} />
@@ -334,10 +333,9 @@
               </span>
             {/if}
             {#if selectedTask.due_date}
-              {@const due = new Date(selectedTask.due_date)}
-              {@const isOverdue = due < new Date() && !selectedTask.done}
-              <span style="color: {isOverdue ? 'var(--overdue)' : 'var(--text-tertiary)'}; font-size: 13px;">
-                {due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {@const isOverdueDate = checkOverdue(selectedTask.due_date) && !selectedTask.done}
+              <span style="color: {isOverdueDate ? 'var(--overdue)' : 'var(--text-tertiary)'}; font-size: 13px;">
+                {formatRelativeDate(selectedTask.due_date)}
               </span>
             {/if}
             {#if selectedTask.project_id}
@@ -637,31 +635,29 @@
     color: var(--done);
   }
 
-  .mobile-filter-chips {
+  .mobile-topbar-chips {
     display: flex;
-    gap: 6px;
-    padding: 8px 16px 0;
-    flex-shrink: 0;
+    gap: 4px;
+    align-items: center;
   }
 
-  .filter-chip {
-    height: 32px;
-    padding: 0 14px;
+  .topbar-chip {
+    height: 28px;
+    padding: 0 10px;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     font-family: var(--font-sans);
-    border-radius: 16px;
-    border: 1px solid var(--border-default);
+    border-radius: 14px;
+    border: none;
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
     cursor: pointer;
     transition: all var(--transition-fast);
     white-space: nowrap;
   }
 
-  .filter-chip-active {
-    background: var(--accent-subtle);
-    border-color: var(--accent);
-    color: var(--accent);
+  .topbar-chip-active {
+    color: var(--text-primary);
+    background: var(--bg-surface-hover);
   }
 </style>
