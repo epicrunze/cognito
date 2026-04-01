@@ -96,12 +96,14 @@ class VikunjaClient:
         filter: str | None = None,
         sort_by: str | None = None,
         order_by: str | None = None,
-        page: int = 1,
         per_page: int = 50,
         s: str | None = None,
     ) -> list[dict]:
-        """List tasks. Uses /projects/{id}/views/{view}/tasks for a project, or /tasks for all."""
-        params: dict = {"page": page, "per_page": per_page}
+        """List tasks. Uses /projects/{id}/views/{view}/tasks for a project, or /tasks for all.
+
+        Auto-paginates through all pages to return the complete task list.
+        """
+        params: dict = {"per_page": per_page}
         if filter:
             params["filter"] = filter
         if sort_by:
@@ -116,8 +118,17 @@ class VikunjaClient:
         else:
             path = "/tasks"
 
-        data = await self._request("GET", path, params=params)
-        return data if isinstance(data, list) else []
+        all_tasks: list[dict] = []
+        page = 1
+        while True:
+            params["page"] = page
+            data = await self._request("GET", path, params=params)
+            batch = data if isinstance(data, list) else []
+            all_tasks.extend(batch)
+            if len(batch) < per_page:
+                break
+            page += 1
+        return all_tasks
 
     async def get_task(self, task_id: int) -> dict:
         """Fetch a single task by ID."""

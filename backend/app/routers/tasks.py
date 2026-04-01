@@ -78,8 +78,6 @@ async def list_tasks(
     filter: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
     order_by: Optional[str] = Query(None),
-    page: int = Query(1, ge=1),
-    per_page: int = Query(50, ge=1, le=500),
     current_user: User = Depends(get_current_user),
 ):
     """List tasks across all projects or for a specific project view."""
@@ -90,8 +88,6 @@ async def list_tasks(
             filter=filter,
             sort_by=sort_by,
             order_by=order_by,
-            page=page,
-            per_page=per_page,
             s=s,
         )
         tasks = [_enrich_subtask_counts(t) for t in tasks]
