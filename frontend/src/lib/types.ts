@@ -175,6 +175,14 @@ export interface ChatSession {
 
 // Google Calendar types
 
+export interface GoogleCalendar {
+  id: string;
+  summary: string;
+  background_color: string;
+  primary: boolean;
+  enabled: boolean;
+}
+
 export interface CalendarEvent {
   id: string;
   summary: string;
@@ -183,6 +191,9 @@ export interface CalendarEvent {
   description?: string | null;
   html_link?: string | null;
   task_id?: number | null; // linked Cognito task
+  calendar_id?: string | null;
+  calendar_color?: string | null;
+  calendar_name?: string | null;
 }
 
 export interface ScheduleSuggestion {

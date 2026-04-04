@@ -50,6 +50,12 @@ class GoogleCalendarClient:
                             detail = err.get("message", detail) if isinstance(err, dict) else str(err)
                     except Exception:
                         pass
+                    if response.status_code == 403:
+                        raise GoogleCalendarError(
+                            "Google Calendar API access denied. "
+                            "Please enable the Google Calendar API in your Google Cloud Console "
+                            "and ensure the OAuth consent screen includes the calendar scope."
+                        )
                     raise GoogleCalendarError(
                         f"{method} {path} failed ({response.status_code}): {detail}"
                     )
@@ -136,6 +142,20 @@ class GoogleCalendarClient:
         await self._request(
             "DELETE", f"/calendars/{self.calendar_id}/events/{event_id}"
         )
+
+    async def list_calendars(self) -> list[dict]:
+        """Fetch all calendars the user has access to."""
+        data = await self._request("GET", "/users/me/calendarList")
+        items = data.get("items", [])
+        return [
+            {
+                "id": c["id"],
+                "summary": c.get("summary", ""),
+                "background_color": c.get("backgroundColor", "#4285f4"),
+                "primary": c.get("primary", False),
+            }
+            for c in items
+        ]
 
     async def get_free_busy(self, time_min: str, time_max: str) -> list[dict]:
         """Get busy time ranges. Returns list of {start, end} dicts."""

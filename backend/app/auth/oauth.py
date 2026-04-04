@@ -86,7 +86,7 @@ async def get_user_info(access_token: str) -> dict:
 
 async def refresh_access_token(refresh_token: str) -> dict:
     """Use Google refresh token to get new access token."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=10.0) as client:
         try:
             response = await client.post(
                 GOOGLE_TOKEN_URL,

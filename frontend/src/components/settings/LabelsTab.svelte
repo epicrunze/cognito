@@ -95,8 +95,9 @@
       const desc = await labelsStore.generateDescription(labelId);
       editedDescriptions.set(labelId, desc);
       addToast('Description generated', 'success');
-    } catch {
-      addToast('Failed to generate description', 'error');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to generate description';
+      addToast(msg, 'error');
     } finally {
       generatingFor = null;
     }

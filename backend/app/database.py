@@ -201,6 +201,17 @@ def init_schema(conn: sqlite3.Connection) -> None:
         )
     """)
 
+    # ── Selected Google Calendars ─────────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS gcal_selected_calendars (
+            calendar_id    TEXT PRIMARY KEY,
+            summary        TEXT NOT NULL,
+            color          TEXT NOT NULL DEFAULT '#4285f4',
+            enabled        INTEGER NOT NULL DEFAULT 1,
+            created_at     TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S', 'now'))
+        )
+    """)
+
     # Seed the singleton config row if it doesn't exist
     conn.execute("INSERT OR IGNORE INTO agent_config (id) VALUES (1)")
 

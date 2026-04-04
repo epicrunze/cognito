@@ -59,6 +59,17 @@
     return (h - START_HOUR) * HOUR_HEIGHT + (m / 60) * HOUR_HEIGHT;
   });
 
+  // Unique calendars for legend
+  const calendarLegend = $derived.by(() => {
+    const seen = new Map<string, { name: string; color: string }>();
+    for (const e of calendarStore.events) {
+      if (e.calendar_id && e.calendar_name && e.calendar_color && !seen.has(e.calendar_id)) {
+        seen.set(e.calendar_id, { name: e.calendar_name, color: e.calendar_color });
+      }
+    }
+    return [...seen.values()];
+  });
+
   // Filter tasks scheduled for the selected date
   const scheduledTasks = $derived.by(() => {
     const dateKey = calendarStore.dateKey;
@@ -227,6 +238,21 @@
       </div>
     {/if}
 
+    <!-- Calendar legend -->
+    {#if calendarLegend.length > 1}
+      <div style="
+        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        padding: 6px 16px; font-size: 11px; color: var(--text-tertiary);
+      ">
+        {#each calendarLegend as cal}
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div style="width: 8px; height: 8px; border-radius: 50%; background: {cal.color}; flex-shrink: 0;"></div>
+            {cal.name}
+          </div>
+        {/each}
+      </div>
+    {/if}
+
     <!-- Time grid -->
     <div style="position: relative; min-height: {TOTAL_HOURS * HOUR_HEIGHT}px;">
       <!-- Hour rows and labels -->
@@ -283,13 +309,14 @@
         {#each calendarStore.events as event (event.id)}
           {@const top = timeToTop(event.start)}
           {@const height = blockHeight(event.start, event.end)}
+          {@const color = event.calendar_color ?? 'var(--accent)'}
           {#if event.task_id}
             <div
               style="
                 position: absolute; top: {top}px; left: 4px; right: 4px;
                 height: {height}px;
                 background: var(--bg-elevated);
-                border-left: 3px solid var(--accent);
+                border-left: 3px solid {color};
                 border-radius: 6px; padding: 6px 10px;
                 overflow: hidden; cursor: pointer;
                 transition: background var(--transition-fast);
@@ -311,7 +338,7 @@
                 <div style="
                   font-size: 10px; color: var(--text-tertiary);
                   margin-top: 2px;
-                ">{formatTime(event.start)} - {formatTime(event.end)}</div>
+                ">{formatTime(event.start)}{event.calendar_name ? ` · ${event.calendar_name}` : ''}</div>
               {/if}
             </div>
           {:else}
@@ -320,7 +347,7 @@
                 position: absolute; top: {top}px; left: 4px; right: 4px;
                 height: {height}px;
                 background: var(--bg-elevated);
-                border-left: 3px solid var(--accent);
+                border-left: 3px solid {color};
                 border-radius: 6px; padding: 6px 10px;
                 overflow: hidden;
                 transition: background var(--transition-fast);
@@ -336,7 +363,7 @@
                 <div style="
                   font-size: 10px; color: var(--text-tertiary);
                   margin-top: 2px;
-                ">{formatTime(event.start)} - {formatTime(event.end)}</div>
+                ">{formatTime(event.start)}{event.calendar_name ? ` · ${event.calendar_name}` : ''}</div>
               {/if}
             </div>
           {/if}

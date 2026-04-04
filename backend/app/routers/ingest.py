@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api", tags=["ingest"])
 def _save_conversation(user_email: str, user_text: str, proposals: list) -> str:
     """Persist an extract interaction as a conversation with messages."""
     conversation_id = str(uuid.uuid4())
-    proposals_json = json.dumps([p.model_dump() for p in proposals])
+    proposals_json = json.dumps([p.model_dump(mode='json') for p in proposals])
     with get_db() as conn:
         conn.execute(
             "INSERT INTO conversations (id, user_id) VALUES (?, ?)",

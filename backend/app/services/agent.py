@@ -69,7 +69,7 @@ MODIFICATION_TOOLS = [
             "description": {"type": "string", "description": "Task description (optional)"},
             "priority": {"type": "integer", "description": "Priority 1-5, default 3 (optional)"},
             "due_date": {"type": "string", "description": "Due date YYYY-MM-DD (optional)"},
-            "labels": {"type": "array", "description": "Label names to apply (optional)"},
+            "labels": {"type": "array", "items": {"type": "string"}, "description": "Label names to apply (optional)"},
         },
     },
 ]

@@ -1,4 +1,5 @@
 import { scheduleApi } from '$lib/api';
+import { addToast } from '$lib/stores/toast.svelte';
 import type { CalendarEvent, ScheduleSuggestion } from '$lib/types';
 
 let _selectedDate = $state(new Date());
@@ -81,6 +82,8 @@ export const calendarStore = {
 			_suggestions = data.suggestions;
 		} catch (e: unknown) {
 			_suggestions = [];
+			const msg = e instanceof Error ? e.message : 'Failed to get suggestions';
+			addToast(msg, 'error');
 		} finally {
 			_suggestLoading = false;
 		}

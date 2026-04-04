@@ -252,7 +252,7 @@ async def generate_description(
         "Based on these tasks, describe when this label should be applied (1-2 sentences)."
     )
 
-    llm = get_llm_client("gemini-flash")
+    llm = get_llm_client()
     generated = await llm.generate(
         messages=[{"role": "user", "content": prompt}],
         system_prompt="You are a helpful assistant that writes concise label descriptions.",

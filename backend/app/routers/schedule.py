@@ -3,8 +3,10 @@ Router: /api/schedule
 
 Google Calendar integration — list, create, delete events.
 Also provides LLM-powered schedule suggestions.
+Supports multiple calendars selected via /api/schedule/calendars.
 """
 
+import asyncio
 import json
 import logging
 import sqlite3
@@ -17,9 +19,12 @@ from app.auth.oauth import OAuthRefreshError, refresh_access_token
 from app.database import get_db
 from app.models.schedule import (
     CalendarEvent,
+    CalendarsResponse,
     CreateEventRequest,
     EventsResponse,
+    GoogleCalendar,
     ScheduleSuggestion,
+    SelectedCalendarsUpdate,
     SuggestResponse,
 )
 from app.models.user import User
@@ -31,10 +36,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/schedule", tags=["schedule"])
 
 
-async def _get_gcal_client(
-    user: User, conn: sqlite3.Connection
-) -> GoogleCalendarClient:
-    """Build a GoogleCalendarClient using the user's stored refresh token."""
+async def _get_access_token(user: User, conn: sqlite3.Connection) -> str:
+    """Get a fresh Google access token for the user."""
     row = conn.execute(
         "SELECT refresh_token FROM users WHERE email = ?", (user.email,)
     ).fetchone()
@@ -55,6 +58,23 @@ async def _get_gcal_client(
     access_token = token_data.get("access_token")
     if not access_token:
         raise HTTPException(status_code=401, detail="No access token in refresh response.")
+
+    return access_token
+
+
+def _get_selected_calendars(conn: sqlite3.Connection) -> list[dict]:
+    """Get enabled calendars from DB. Returns list of {id, summary, color}."""
+    rows = conn.execute(
+        "SELECT calendar_id, summary, color FROM gcal_selected_calendars WHERE enabled = 1"
+    ).fetchall()
+    return [{"id": r[0], "summary": r[1], "color": r[2]} for r in rows]
+
+
+async def _get_gcal_client(
+    user: User, conn: sqlite3.Connection
+) -> GoogleCalendarClient:
+    """Build a GoogleCalendarClient using the user's stored refresh token."""
+    access_token = await _get_access_token(user, conn)
 
     config_row = conn.execute(
         "SELECT gcal_calendar_id FROM agent_config WHERE id = 1"
@@ -82,9 +102,116 @@ def _enrich_events_with_task_links(
                 description=e.get("description"),
                 html_link=e.get("html_link"),
                 task_id=link_map.get(e["id"]),
+                calendar_id=e.get("calendar_id"),
+                calendar_color=e.get("calendar_color"),
+                calendar_name=e.get("calendar_name"),
             )
         )
     return result
+
+
+async def _fetch_all_events(
+    access_token: str,
+    conn: sqlite3.Connection,
+    time_min: str,
+    time_max: str,
+) -> list[dict]:
+    """Fetch events from all selected calendars in parallel."""
+    selected = _get_selected_calendars(conn)
+    if not selected:
+        selected = [{"id": "primary", "summary": "Primary", "color": "#4285f4"}]
+
+    async def fetch_one(cal: dict) -> list[dict]:
+        client = GoogleCalendarClient(access_token=access_token, calendar_id=cal["id"])
+        try:
+            events = await client.list_events(time_min, time_max)
+            for e in events:
+                e["calendar_id"] = cal["id"]
+                e["calendar_color"] = cal["color"]
+                e["calendar_name"] = cal["summary"]
+            return events
+        except GoogleCalendarError as exc:
+            logger.warning("Failed to fetch calendar %s: %s", cal["id"], exc)
+            return []
+
+    results = await asyncio.gather(*[fetch_one(cal) for cal in selected])
+    all_events = [e for batch in results for e in batch]
+    all_events.sort(key=lambda e: e.get("start", ""))
+    return all_events
+
+
+# ── Calendar selection ──────────────────────────────────────────────────────
+
+
+@router.get("/calendars", response_model=CalendarsResponse)
+async def list_calendars(
+    current_user: User = Depends(get_current_user),
+):
+    """List all Google Calendars the user has access to, with enabled state."""
+    with get_db() as conn:
+        access_token = await _get_access_token(current_user, conn)
+        client = GoogleCalendarClient(access_token=access_token)
+
+        try:
+            raw_calendars = await client.list_calendars()
+        except GoogleCalendarError as exc:
+            logger.error("Failed to list calendars: %s", exc)
+            raise HTTPException(status_code=422, detail=str(exc))
+
+        enabled_ids = {
+            r[0]
+            for r in conn.execute(
+                "SELECT calendar_id FROM gcal_selected_calendars WHERE enabled = 1"
+            ).fetchall()
+        }
+
+        calendars = [
+            GoogleCalendar(
+                id=c["id"],
+                summary=c["summary"],
+                background_color=c["background_color"],
+                primary=c["primary"],
+                enabled=c["id"] in enabled_ids,
+            )
+            for c in raw_calendars
+        ]
+        return CalendarsResponse(calendars=calendars)
+
+
+@router.put("/calendars")
+async def update_calendars(
+    body: SelectedCalendarsUpdate,
+    current_user: User = Depends(get_current_user),
+):
+    """Save which calendars are selected for display."""
+    with get_db() as conn:
+        # Fetch calendar metadata from Google to store names/colors
+        access_token = await _get_access_token(current_user, conn)
+        client = GoogleCalendarClient(access_token=access_token)
+
+        try:
+            raw_calendars = await client.list_calendars()
+        except GoogleCalendarError as exc:
+            logger.error("Failed to list calendars: %s", exc)
+            raise HTTPException(status_code=422, detail=str(exc))
+
+        cal_map = {c["id"]: c for c in raw_calendars}
+        selected_ids = set(body.calendar_ids)
+
+        # Replace all rows
+        conn.execute("DELETE FROM gcal_selected_calendars")
+        for cal_id in selected_ids:
+            cal = cal_map.get(cal_id)
+            if cal:
+                conn.execute(
+                    "INSERT INTO gcal_selected_calendars (calendar_id, summary, color, enabled) VALUES (?, ?, ?, 1)",
+                    (cal_id, cal["summary"], cal["background_color"]),
+                )
+
+        return {"success": True}
+
+
+# ── Events ──────────────────────────────────────────────────────────────────
 
 
 @router.get("", response_model=EventsResponse)
@@ -93,13 +220,14 @@ async def list_events(
     time_max: str = Query(..., description="RFC3339 end datetime"),
     current_user: User = Depends(get_current_user),
 ):
-    """List Google Calendar events in a date range."""
+    """List Google Calendar events from all selected calendars."""
     with get_db() as conn:
-        gcal = await _get_gcal_client(current_user, conn)
+        access_token = await _get_access_token(current_user, conn)
         try:
-            raw_events = await gcal.list_events(time_min, time_max)
+            raw_events = await _fetch_all_events(access_token, conn, time_min, time_max)
         except GoogleCalendarError as exc:
-            raise HTTPException(status_code=502, detail=str(exc))
+            logger.error("Google Calendar API error: %s", exc)
+            raise HTTPException(status_code=422, detail=str(exc))
 
         events = _enrich_events_with_task_links(raw_events, conn)
         return EventsResponse(events=events)
@@ -121,7 +249,8 @@ async def create_event(
                 description=body.description,
             )
         except GoogleCalendarError as exc:
-            raise HTTPException(status_code=502, detail=str(exc))
+            logger.error("Google Calendar API error: %s", exc)
+            raise HTTPException(status_code=422, detail=str(exc))
 
         # Link to task if requested
         if body.task_id and event.get("id"):
@@ -152,7 +281,8 @@ async def delete_event(
         try:
             await gcal.delete_event(event_id)
         except GoogleCalendarError as exc:
-            raise HTTPException(status_code=502, detail=str(exc))
+            logger.error("Google Calendar API error: %s", exc)
+            raise HTTPException(status_code=422, detail=str(exc))
 
         conn.execute(
             "DELETE FROM task_calendar_links WHERE gcal_event_id = ?", (event_id,)
@@ -175,12 +305,12 @@ async def suggest_schedule(
     day_end = day.replace(hour=22, minute=0, second=0).isoformat()
 
     with get_db() as conn:
-        # 1. Fetch calendar events
-        gcal = await _get_gcal_client(current_user, conn)
+        access_token = await _get_access_token(current_user, conn)
         try:
-            cal_events = await gcal.list_events(day_start, day_end)
+            cal_events = await _fetch_all_events(access_token, conn, day_start, day_end)
         except GoogleCalendarError as exc:
-            raise HTTPException(status_code=502, detail=f"Calendar error: {exc}")
+            logger.error("Google Calendar API error: %s", exc)
+            raise HTTPException(status_code=422, detail=str(exc))
 
     # 2. Fetch open tasks from Vikunja (unscheduled, not done)
     vikunja = VikunjaClient()

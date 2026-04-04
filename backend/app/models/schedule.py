@@ -13,6 +13,9 @@ class CalendarEvent(BaseModel):
     description: str | None = None
     html_link: str | None = None
     task_id: int | None = None  # linked Cognito task
+    calendar_id: str | None = None
+    calendar_color: str | None = None
+    calendar_name: str | None = None
 
 
 class CreateEventRequest(BaseModel):
@@ -25,6 +28,22 @@ class CreateEventRequest(BaseModel):
 
 class EventsResponse(BaseModel):
     events: list[CalendarEvent]
+
+
+class GoogleCalendar(BaseModel):
+    id: str
+    summary: str
+    background_color: str
+    primary: bool
+    enabled: bool = False
+
+
+class CalendarsResponse(BaseModel):
+    calendars: list[GoogleCalendar]
+
+
+class SelectedCalendarsUpdate(BaseModel):
+    calendar_ids: list[str]
 
 
 class ScheduleSuggestion(BaseModel):

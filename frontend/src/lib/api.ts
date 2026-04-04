@@ -7,7 +7,7 @@
 
 import { goto } from '$app/navigation';
 import { PUBLIC_API_URL } from '$env/static/public';
-import type { Bucket, CalendarEvent, ChatAction, ChatMessage, Label, LabelDescription, LabelStats, Project, ProjectView, Revision, ScheduleSuggestion, Subtask, Task, TaskAttachment, TaskProposal } from '$lib/types';
+import type { Bucket, CalendarEvent, ChatAction, ChatMessage, GoogleCalendar, Label, LabelDescription, LabelStats, Project, ProjectView, Revision, ScheduleSuggestion, Subtask, Task, TaskAttachment, TaskProposal } from '$lib/types';
 
 const BASE = PUBLIC_API_URL ? `${PUBLIC_API_URL}/api` : '/api';
 
@@ -530,6 +530,17 @@ export const scheduleApi = {
   suggestSchedule(date: string) {
     return request<{ suggestions: ScheduleSuggestion[]; summary: string }>('/schedule/suggest', {
       params: { date },
+    });
+  },
+
+  listCalendars() {
+    return request<{ calendars: GoogleCalendar[] }>('/schedule/calendars');
+  },
+
+  updateCalendars(calendarIds: string[]) {
+    return request<{ success: boolean }>('/schedule/calendars', {
+      method: 'PUT',
+      body: JSON.stringify({ calendar_ids: calendarIds }),
     });
   },
 };

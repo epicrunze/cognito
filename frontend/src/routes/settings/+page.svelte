@@ -5,11 +5,13 @@
   import AIBehaviorTab from '$components/settings/AIBehaviorTab.svelte';
   import LabelsTab from '$components/settings/LabelsTab.svelte';
   import HistoryTab from '$components/settings/HistoryTab.svelte';
+  import CalendarsTab from '$components/settings/CalendarsTab.svelte';
 
   const tabs = [
     { id: 'account', label: 'Account', icon: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2|M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8' },
     { id: 'ai', label: 'AI & Agent', icon: 'm12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z' },
     { id: 'labels', label: 'Labels', icon: 'M12 2H2v10l9.29 9.29a1.58 1.58 0 0 0 2.24 0l6.18-6.18a1.58 1.58 0 0 0 0-2.24L12 2Z|M7 7h.01' },
+    { id: 'calendars', label: 'Calendars', icon: 'M8 2v4|M16 2v4|M3 10h18|M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2' },
     { id: 'history', label: 'History', icon: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8|M3 3v5h5|M12 7v5l4 2' },
   ] as const;
 
@@ -48,6 +50,8 @@
       <AIBehaviorTab />
     {:else if activeTab === 'labels'}
       <LabelsTab />
+    {:else if activeTab === 'calendars'}
+      <CalendarsTab />
     {:else if activeTab === 'history'}
       <HistoryTab />
     {/if}

@@ -99,7 +99,8 @@ def test_list_events_no_refresh_token(client, schedule_db):
     assert "refresh token" in resp.json()["detail"].lower()
 
 
-def test_list_events_calendar_error(client):
+def test_list_events_calendar_error_graceful(client):
+    """When a calendar fails, we return 200 with empty events (graceful degradation)."""
     from app.services.gcal import GoogleCalendarError
 
     mock_refresh = AsyncMock(return_value={"access_token": "fake-access"})
@@ -111,7 +112,8 @@ def test_list_events_calendar_error(client):
             "/api/schedule",
             params={"time_min": "2026-03-27T00:00:00Z", "time_max": "2026-03-28T00:00:00Z"},
         )
-    assert resp.status_code == 502
+    assert resp.status_code == 200
+    assert resp.json()["events"] == []
 
 
 # ── create event ─────────────────────────────────────────────────────────────
@@ -335,6 +337,111 @@ def test_suggest_schedule_llm_bad_json(client):
     data = resp.json()
     assert len(data["suggestions"]) == 0
     assert "failed" in data["summary"].lower()
+
+
+# ── calendar selection ───────────────────────────────────────────────────────
+
+
+def test_list_calendars(client):
+    mock_refresh = AsyncMock(return_value={"access_token": "fake-access"})
+
+    from app.services.gcal import GoogleCalendarClient
+
+    mock_list_cals = AsyncMock(
+        return_value=[
+            {"id": "primary", "summary": "Personal", "background_color": "#4285f4", "primary": True},
+            {"id": "work@group.calendar.google.com", "summary": "Work", "background_color": "#e67c73", "primary": False},
+        ]
+    )
+
+    with (
+        patch("app.routers.schedule.refresh_access_token", mock_refresh),
+        patch.object(GoogleCalendarClient, "list_calendars", mock_list_cals),
+    ):
+        resp = client.get("/api/schedule/calendars")
+
+    assert resp.status_code == 200
+    cals = resp.json()["calendars"]
+    assert len(cals) == 2
+    assert cals[0]["id"] == "primary"
+    assert cals[0]["primary"] is True
+    assert cals[0]["enabled"] is False  # nothing selected yet
+
+
+def test_update_and_list_calendars(client, schedule_db):
+    mock_refresh = AsyncMock(return_value={"access_token": "fake-access"})
+
+    from app.services.gcal import GoogleCalendarClient
+
+    mock_list_cals = AsyncMock(
+        return_value=[
+            {"id": "primary", "summary": "Personal", "background_color": "#4285f4", "primary": True},
+            {"id": "work@group.calendar.google.com", "summary": "Work", "background_color": "#e67c73", "primary": False},
+        ]
+    )
+
+    with (
+        patch("app.routers.schedule.refresh_access_token", mock_refresh),
+        patch.object(GoogleCalendarClient, "list_calendars", mock_list_cals),
+    ):
+        # Select both calendars
+        resp = client.put(
+            "/api/schedule/calendars",
+            json={"calendar_ids": ["primary", "work@group.calendar.google.com"]},
+        )
+        assert resp.status_code == 200
+
+        # Verify they show as enabled
+        resp = client.get("/api/schedule/calendars")
+        cals = resp.json()["calendars"]
+        assert all(c["enabled"] for c in cals)
+
+
+def test_multi_calendar_list_events(client, schedule_db):
+    """Events from multiple selected calendars are merged and sorted."""
+    # Select two calendars
+    schedule_db.execute(
+        "INSERT INTO gcal_selected_calendars (calendar_id, summary, color) VALUES (?, ?, ?)",
+        ("primary", "Personal", "#4285f4"),
+    )
+    schedule_db.execute(
+        "INSERT INTO gcal_selected_calendars (calendar_id, summary, color) VALUES (?, ?, ?)",
+        ("work@group.calendar.google.com", "Work", "#e67c73"),
+    )
+
+    mock_refresh = AsyncMock(return_value={"access_token": "fake-access"})
+
+    from app.services.gcal import GoogleCalendarClient
+
+    call_count = 0
+    original_calendar_ids = []
+
+    async def mock_list(self, time_min, time_max, max_results=100):
+        nonlocal call_count
+        original_calendar_ids.append(self.calendar_id)
+        call_count += 1
+        if self.calendar_id == "primary":
+            return [{"id": "evt_1", "summary": "Personal event", "start": "2026-03-27T10:00:00Z", "end": "2026-03-27T11:00:00Z"}]
+        return [{"id": "evt_2", "summary": "Work meeting", "start": "2026-03-27T09:00:00Z", "end": "2026-03-27T09:30:00Z"}]
+
+    with (
+        patch("app.routers.schedule.refresh_access_token", mock_refresh),
+        patch.object(GoogleCalendarClient, "list_events", mock_list),
+    ):
+        resp = client.get(
+            "/api/schedule",
+            params={"time_min": "2026-03-27T00:00:00Z", "time_max": "2026-03-28T00:00:00Z"},
+        )
+
+    assert resp.status_code == 200
+    events = resp.json()["events"]
+    assert len(events) == 2
+    assert call_count == 2
+    # Should be sorted by start time — work meeting first
+    assert events[0]["summary"] == "Work meeting"
+    assert events[0]["calendar_color"] == "#e67c73"
+    assert events[1]["summary"] == "Personal event"
+    assert events[1]["calendar_color"] == "#4285f4"
 
 
 # ── task-event links in list ─────────────────────────────────────────────────

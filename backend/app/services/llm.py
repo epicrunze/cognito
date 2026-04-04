@@ -84,10 +84,13 @@ class GeminiClient(LLMClient):
                 properties = {}
                 required = []
                 for param_name, param_info in params.items():
-                    properties[param_name] = {
+                    prop: dict = {
                         "type": param_info.get("type", "string").upper(),
                         "description": param_info.get("description", ""),
                     }
+                    if "items" in param_info:
+                        prop["items"] = {"type": param_info["items"].get("type", "string").upper()}
+                    properties[param_name] = prop
                     if param_info.get("required", False):
                         required.append(param_name)
                 decl["parameters"] = {
