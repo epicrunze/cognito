@@ -445,8 +445,8 @@
     try {
       const updated = await proposalsApi.update(proposal.id, fields);
       onproposalupdate?.(updated);
-    } catch {
-      addToast('Failed to update proposal', 'error');
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'Failed to update proposal', 'error');
     }
   }
 
@@ -710,7 +710,7 @@
           placeholder="Add description..."
           rows="1"
           class="bubble-editable"
-          style="width: 100%; padding: 5px 4px; margin-bottom: 10px; font-size: 13.5px; color: var(--text-secondary); resize: none; overflow: hidden; line-height: 1.55;"
+          style="width: 100%; padding: 5px 4px; margin-bottom: 10px; font-size: 13.5px; color: var(--text-secondary); resize: none; overflow-y: auto; max-height: 200px; line-height: 1.55;"
         ></textarea>
 
         <!-- Metadata row -->

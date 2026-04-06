@@ -11,6 +11,8 @@
   let saveTimeouts = new SvelteMap<number, ReturnType<typeof setTimeout>>();
   let cleaningUp = $state(false);
   let generatingFor = $state<number | null>(null);
+  let savedFor = $state<number | null>(null);
+  let savedTimer: ReturnType<typeof setTimeout>;
 
   onMount(() => {
     labelsStore.fetchAll();
@@ -72,6 +74,9 @@
         await labelsStore.deleteDescription(labelId);
       }
       saveTimeouts.delete(labelId);
+      clearTimeout(savedTimer);
+      savedFor = labelId;
+      savedTimer = setTimeout(() => { savedFor = null; }, 2000);
     }, 500));
   }
 
@@ -192,13 +197,18 @@
 
           <!-- Description textarea + generate button -->
           <div style="display: flex; gap: 8px; align-items: flex-start;">
-            <textarea
-              value={getDescription(label.id)}
-              oninput={(e) => handleInput(label.id, label.title, (e.target as HTMLTextAreaElement).value)}
-              placeholder="Describe when this label should be applied..."
-              rows="2"
-              style="flex: 1; padding: 8px 12px; background: var(--bg-base); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text-secondary); font-size: 13px; font-family: var(--font-sans); resize: vertical; line-height: 1.5; outline: none; min-height: 48px;"
-            ></textarea>
+            <div style="flex: 1; position: relative;">
+              <textarea
+                value={getDescription(label.id)}
+                oninput={(e) => handleInput(label.id, label.title, (e.target as HTMLTextAreaElement).value)}
+                placeholder="Describe when this label should be applied..."
+                rows="2"
+                style="width: 100%; padding: 8px 12px; background: var(--bg-base); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text-secondary); font-size: 13px; font-family: var(--font-sans); resize: vertical; line-height: 1.5; outline: none; min-height: 48px; box-sizing: border-box;"
+              ></textarea>
+              {#if savedFor === label.id}
+                <span style="position: absolute; bottom: 6px; right: 8px; font-size: 11px; color: var(--accent); opacity: 0.8; font-family: var(--font-sans); pointer-events: none;">✓ Saved</span>
+              {/if}
+            </div>
             <button
               onclick={() => handleGenerate(label.id)}
               disabled={generatingFor === label.id}

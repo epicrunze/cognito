@@ -28,7 +28,7 @@
   --accent: #E8772E;
   --accent-hover: #D4691F;
   --accent-subtle: rgba(232, 119, 46, 0.1);
-  --accent-glow: rgba(232, 119, 46, 0.25);
+  --accent-glow: rgba(232, 119, 46, 0.4);
 
   /* Semantic */
   --priority-urgent: #EF5744;

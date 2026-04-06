@@ -64,6 +64,34 @@ From the 2026-03-24 visual + code review. Screenshots in `/tmp/cognito-review/`.
 
 ---
 
+## Phase 7: AI Suggestion UX Polish
+
+From the 2026-04-04 systematic AI feature testing session.
+
+### T-037: AI suggestion UX improvements
+- [ ] Hide ThinkingMargin empty state when conversation has content or input has text
+- [ ] Fix card description textarea: auto-resize and scrollable
+- [ ] Consolidate ThinkingMargin messaging (subtle "no tasks found" → styled empty-state card)
+- [ ] Strengthen "done" signal after Approve All (make orange glow more visible, add summary toast)
+- [ ] Add save feedback indicator for label description textarea edits
+- [ ] Surface raw error messages in all catch blocks (user is sole user, wants debuggable errors)
+
+### T-038: Schedule preferences settings tab
+- [ ] New "Schedule" tab in settings (or extend Calendars tab)
+- [ ] Configurable work hours (start/end time, per weekday/weekend)
+- [ ] Weekend toggle (different hours or "no suggestions")
+- [ ] Feed preferences into LLM schedule suggest prompt
+
+### T-039: Async extraction with cancel (architectural)
+- [ ] Background extraction jobs (not blocking SSE connection)
+- [ ] Progress indicator for multi-step tool-calling
+- [ ] Cancel button to abort extraction mid-flight
+- [ ] Handle disconnection gracefully (resume or discard)
+
+### T-040: Auto-tag button redesign
+- [ ] Make "Tag" button more discoverable (tooltip, fuller label, or surface elsewhere)
+- [ ] Consider auto-tag onboarding for first-time use
+
 ---
 
 ## Notes

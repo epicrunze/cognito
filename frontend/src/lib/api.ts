@@ -457,6 +457,11 @@ export interface AgentConfigResponse {
   gcal_calendar_id: string | null;
   system_prompt_override: string | null;
   base_prompt_override: string | null;
+  schedule_weekday_start: number;
+  schedule_weekday_end: number;
+  schedule_weekend_start: number;
+  schedule_weekend_end: number;
+  schedule_weekend_enabled: boolean;
 }
 
 export const configApi = {

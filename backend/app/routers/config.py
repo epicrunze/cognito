@@ -23,7 +23,10 @@ async def get_config(current_user: User = Depends(get_current_user)):
     """Return the singleton agent_config row."""
     with get_db() as conn:
         row = conn.execute(
-            "SELECT default_project_id, ollama_model, gemini_model, gcal_calendar_id, system_prompt_override, base_prompt_override "
+            "SELECT default_project_id, ollama_model, gemini_model, gcal_calendar_id, "
+            "system_prompt_override, base_prompt_override, "
+            "schedule_weekday_start, schedule_weekday_end, "
+            "schedule_weekend_start, schedule_weekend_end, schedule_weekend_enabled "
             "FROM agent_config WHERE id = 1"
         ).fetchone()
     if not row:
@@ -35,6 +38,11 @@ async def get_config(current_user: User = Depends(get_current_user)):
         gcal_calendar_id=row[3],
         system_prompt_override=row[4],
         base_prompt_override=row[5],
+        schedule_weekday_start=row[6] or 8,
+        schedule_weekday_end=row[7] or 18,
+        schedule_weekend_start=row[8] or 10,
+        schedule_weekend_end=row[9] or 16,
+        schedule_weekend_enabled=bool(row[10]) if row[10] is not None else True,
     )
 
 

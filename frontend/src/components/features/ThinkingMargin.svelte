@@ -130,7 +130,7 @@
       } else {
         chatStore.addMessage({
           role: 'assistant',
-          content: 'No tasks found in the text.',
+          content: '◆ No actionable tasks found in this text. Try pasting meeting notes, emails, or a list of things to do.',
           created_at: new Date().toISOString(),
         });
       }
@@ -173,8 +173,8 @@
       await tasksStore.fetchAll();
       ontaskschanged?.();
       addToast(`Auto-tagged ${result.tagged} task${result.tagged !== 1 ? 's' : ''}`, 'success');
-    } catch {
-      addToast('Auto-tag failed', 'error');
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'Auto-tag failed', 'error');
     }
   }
 
@@ -195,8 +195,8 @@
       } else {
         addToast('Task created', 'success');
       }
-    } catch {
-      addToast('Failed to approve proposal', 'error');
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'Failed to approve proposal', 'error');
     }
   }
 
@@ -205,8 +205,8 @@
       await proposalsStore.reject(proposalId);
       chatStore.removeProposal(proposalId);
       selectedProposals.delete(proposalId);
-    } catch {
-      addToast('Failed to reject proposal', 'error');
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'Failed to reject proposal', 'error');
     }
   }
 
@@ -220,8 +220,14 @@
       await tasksStore.fetchAll();
       ontaskschanged?.();
       addToast(`Approved ${pendingIds.length} task${pendingIds.length !== 1 ? 's' : ''}`, 'success');
-    } catch {
-      addToast('Failed to approve all', 'error');
+      chatStore.addMessage({
+        role: 'assistant',
+        content: `✓ ${pendingIds.length} task${pendingIds.length !== 1 ? 's' : ''} created and added to your thinking space.`,
+        created_at: new Date().toISOString(),
+      });
+      scrollToBottom();
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'Failed to approve all', 'error');
     }
   }
 
@@ -418,7 +424,7 @@
     bind:this={messagesEl}
     style="flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; min-height: 0;"
   >
-    {#if chatStore.messages.length === 0}
+    {#if chatStore.messages.length === 0 && !inputText.trim() && !extracting}
       <div
         style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; color: var(--text-tertiary); font-size: 14px; font-family: var(--font-sans); text-align: center; padding: 40px 20px;"
       >

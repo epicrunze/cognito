@@ -14,6 +14,11 @@ class AgentConfigResponse(BaseModel):
     gcal_calendar_id: str | None = None
     system_prompt_override: str | None = None
     base_prompt_override: str | None = None
+    schedule_weekday_start: int = 8
+    schedule_weekday_end: int = 18
+    schedule_weekend_start: int = 10
+    schedule_weekend_end: int = 16
+    schedule_weekend_enabled: bool = True
 
 
 class AgentConfigUpdate(BaseModel):
@@ -23,3 +28,8 @@ class AgentConfigUpdate(BaseModel):
     gcal_calendar_id: str | None = None
     system_prompt_override: str | None = None
     base_prompt_override: str | None = None
+    schedule_weekday_start: int | None = None
+    schedule_weekday_end: int | None = None
+    schedule_weekend_start: int | None = None
+    schedule_weekend_end: int | None = None
+    schedule_weekend_enabled: bool | None = None

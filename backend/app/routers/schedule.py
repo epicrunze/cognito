@@ -301,8 +301,27 @@ async def suggest_schedule(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
-    day_start = day.replace(hour=6, minute=0, second=0).isoformat()
-    day_end = day.replace(hour=22, minute=0, second=0).isoformat()
+    # Read schedule preferences from config
+    with get_db() as conn:
+        sched_row = conn.execute(
+            "SELECT schedule_weekday_start, schedule_weekday_end, "
+            "schedule_weekend_start, schedule_weekend_end, schedule_weekend_enabled "
+            "FROM agent_config WHERE id = 1"
+        ).fetchone()
+
+    is_weekend = day.weekday() >= 5
+    if sched_row:
+        weekend_enabled = bool(sched_row[4]) if sched_row[4] is not None else True
+        if is_weekend and not weekend_enabled:
+            return SuggestResponse(suggestions=[], summary="Scheduling disabled on weekends.")
+        start_hour = (sched_row[2] if is_weekend else sched_row[0]) or 8
+        end_hour = (sched_row[3] if is_weekend else sched_row[1]) or 18
+    else:
+        start_hour = 8
+        end_hour = 18
+
+    day_start = day.replace(hour=start_hour, minute=0, second=0).isoformat()
+    day_end = day.replace(hour=end_hour, minute=0, second=0).isoformat()
 
     with get_db() as conn:
         access_token = await _get_access_token(current_user, conn)
@@ -357,7 +376,7 @@ async def suggest_schedule(
 ## Existing calendar events (busy times):
 {busy_blocks}
 
-## Available hours: 6:00 AM to 10:00 PM
+## Available hours: {start_hour}:00 to {end_hour}:00{' (weekend)' if is_weekend else ''}
 
 ## Unscheduled tasks (sorted by priority, highest first):
 {task_list}

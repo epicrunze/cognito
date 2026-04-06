@@ -122,6 +122,19 @@ def init_schema(conn: sqlite3.Connection) -> None:
     except Exception:
         pass  # Column already exists
 
+    # Migration: add schedule preferences to existing DBs
+    for col, default in [
+        ("schedule_weekday_start", 8),
+        ("schedule_weekday_end", 18),
+        ("schedule_weekend_start", 10),
+        ("schedule_weekend_end", 16),
+        ("schedule_weekend_enabled", 1),
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE agent_config ADD COLUMN {col} INTEGER DEFAULT {default}")
+        except Exception:
+            pass  # Column already exists
+
     # ── Label descriptions ────────────────────────────────────────────────────
     conn.execute("""
         CREATE TABLE IF NOT EXISTS label_descriptions (
