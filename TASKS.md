@@ -42,12 +42,12 @@ From the 2026-03-24 visual + code review. Screenshots in `/tmp/cognito-review/`.
 
 ### T-033: Quick fixes
 - [ ] Reduce overdue left-border opacity (soften the red indicator)
-- [ ] Add `<main>` landmark in `+layout.svelte`
+- [x] Add `<main>` landmark in `+layout.svelte`
 - [ ] Bump `.card-indicator` opacity from 0.55 to ~0.65 for contrast
-- [ ] Add `sr-only` text to sidebar nav links (fix aria label mismatch)
+- [x] Add `sr-only` text to sidebar nav links (fix aria label mismatch)
 
 ### T-034: UI improvements
-- [ ] Hide "Focus" toggle button when in Gantt view (it only applies to other views)
+- [x] Hide "Focus" toggle button when in Gantt view (it only applies to other views)
 - [ ] Add a subtle animation to ThinkingMargin empty state
 - [ ] Improve empty states (Upcoming page "No tasks" → warmer copy)
 
@@ -77,10 +77,10 @@ From the 2026-04-04 systematic AI feature testing session.
 - [ ] Surface raw error messages in all catch blocks (user is sole user, wants debuggable errors)
 
 ### T-038: Schedule preferences settings tab
-- [ ] New "Schedule" tab in settings (or extend Calendars tab)
-- [ ] Configurable work hours (start/end time, per weekday/weekend)
-- [ ] Weekend toggle (different hours or "no suggestions")
-- [ ] Feed preferences into LLM schedule suggest prompt
+- [x] New "Schedule" tab in settings (or extend Calendars tab)
+- [x] Configurable work hours (start/end time, per weekday/weekend)
+- [x] Weekend toggle (different hours or "no suggestions")
+- [x] Feed preferences into LLM schedule suggest prompt
 
 ### T-039: Async extraction with cancel (architectural)
 - [ ] Background extraction jobs (not blocking SSE connection)
@@ -91,6 +91,39 @@ From the 2026-04-04 systematic AI feature testing session.
 ### T-040: Auto-tag button redesign
 - [ ] Make "Tag" button more discoverable (tooltip, fuller label, or surface elsewhere)
 - [ ] Consider auto-tag onboarding for first-time use
+
+---
+
+## Phase 8: Frontend Review 2026-04-18
+
+From the 2026-04-18 review session. Full findings catalogued during the session.
+
+### T-041: Quick correctness fixes
+- [x] **F-2**: Calendar toggle on All Tasks "did nothing" — root cause was not view-transition but the schedule API returning 401, which the api wrapper interpreted as session expiry and bounced through `/login` → `/`. Fixed by changing `routers/schedule.py` to return 403 (semantically correct: user *is* authenticated, just lacks Google Calendar grant) so the api wrapper leaves it alone and `CalendarView` renders its existing error banner. See T-046 for the deeper refresh_token fix this exposed.
+- [x] **F-3**: Sidebar showed "(0 tasks)" on `/settings` because tasksStore was only fetched lazily by view components. Added `tasksStore.fetchAll()` to the layout `onMount` so counts are correct on every route.
+- [x] **F-5**: Main FAB aria-label was "AI Extract" but opens ThinkingMargin. Now toggles between "Open thinking margin" / "Close thinking margin" based on state.
+- [x] **F-6**: BubbleCanvas `handleTaskClick` now calls `bubbleStore.collapseImmediate()` before opening TaskDetail, so the inline expansion no longer lingers behind the side panel.
+
+### T-042: Desktop bubble masonry
+- [ ] **F-1 / T-036 restated**: Desktop BubbleCanvas is a uniform row-grid — flagged anti-pattern in DESIGN_PHILOSOPHY.md. Mobile already uses CSS columns; port to desktop with 3+ columns for a real organic layout.
+
+### T-043: Orphan cleanup
+- [ ] **F-4**: Decide fate of `frontend/src/routes/extract/+page.svelte` — currently orphaned (AI Extract FAB opens ThinkingMargin, not this route). Delete or rewire.
+
+### T-044: Empty-state polish
+- [ ] **F-7**: Upcoming/Overdue empty states — context-aware warmer copy ("Nothing coming up this week — nice").
+- [ ] **F-9**: Hide `new thought…` placeholder on filtered views (Upcoming/Overdue) where a new task wouldn't match the filter.
+
+### T-045: Smaller UX items
+- [ ] **F-8**: Single-letter sidebar projects at narrow widths — add hover-expand rail or persistent labels.
+- [ ] **F-11**: List-view keyboard legend is cryptic. Move to a `?` cheat-sheet overlay.
+- [ ] **F-12**: TaskDetail side-panel IA — reorder so notes/subtasks come before the large attachment drop zone.
+
+### T-046: OAuth refresh_token loss across logout/login (uncovered while debugging F-2)
+- [x] `/api/auth/logout` no longer wipes the Google refresh_token — was the source of a permanent dead state where users couldn't reach Calendar after any logout cycle (Google won't re-issue a refresh_token without `prompt=consent`). Logout is now a cookie-only operation.
+- [x] `/api/auth/login` self-heals: if the configured user has no refresh_token in DB (or no row yet), it auto-appends `prompt=consent` so Google issues a fresh one on the next consent.
+- [x] `/api/auth/login?reconnect=true` query param + "Reconnect Google" button in the calendar error banner — fallback for the one edge case auto-fix can't detect (user revokes the grant at myaccount.google.com).
+- [x] 6 new tests in `backend/tests/test_auth.py` covering force-consent variants, the reconnect override, and the logout-doesn't-clear invariant. Total 27/27 auth+schedule tests pass.
 
 ---
 

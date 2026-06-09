@@ -60,9 +60,21 @@ def _delete_auth_cookie(response) -> None:
 
 
 @router.get("/login")
-async def login() -> RedirectResponse:
-    """Redirect to Google OAuth consent screen."""
-    return RedirectResponse(url=get_google_auth_url())
+async def login(reconnect: bool = False) -> RedirectResponse:
+    """Redirect to Google OAuth consent screen.
+
+    Forces ``prompt=consent`` when explicitly requested via ``?reconnect=true``,
+    or automatically when the configured user has no Google refresh_token in
+    the DB (so Google will re-issue one — by default Google only returns a
+    refresh_token on first consent or under forced consent).
+    """
+    force = reconnect
+    if not force and settings.allowed_email:
+        with get_db() as conn:
+            existing = user_repo.get_user_by_email(conn, settings.allowed_email)
+            if existing is None or not existing.refresh_token:
+                force = True
+    return RedirectResponse(url=get_google_auth_url(force_consent=force))
 
 
 @router.get("/callback")
@@ -121,19 +133,14 @@ async def get_me(current_user: User = Depends(get_current_user)) -> User:
 
 
 @router.post("/logout")
-async def logout(request: Request) -> JSONResponse:
-    """Clear JWT cookie and remove refresh token from DB."""
-    token = request.cookies.get(AUTH_COOKIE_NAME)
-    if token:
-        try:
-            token_data = decode_token(token)
-            with get_db() as conn:
-                db_user = user_repo.get_user_by_email(conn, token_data.email)
-                if db_user:
-                    user_repo.clear_refresh_token(conn, db_user.id)
-        except (TokenExpiredError, TokenInvalidError):
-            pass
+async def logout() -> JSONResponse:
+    """End JWT session — leaves the Google OAuth grant intact.
 
+    Wiping the stored Google refresh_token here forced the next login to fall
+    into a Google-OAuth dead zone (already-consented users don't get a new
+    refresh_token without ``prompt=consent``). Logout is purely a cookie
+    operation; explicit revocation belongs to a separate flow.
+    """
     response = JSONResponse(content={"success": True})
     _delete_auth_cookie(response)
     return response

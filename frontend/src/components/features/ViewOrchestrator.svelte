@@ -177,10 +177,12 @@
       >{opt.label}</button>
     {/each}
   {/if}
-  <button
-    onclick={() => viewModeStore.toggleFocus()}
-    style="height: 28px; padding: 0 {responsiveStore.isMobile ? '8px' : '12px'}; font-size: {responsiveStore.isMobile ? '11.5px' : '12.5px'}; font-weight: 500; border-radius: 6px; border: 1px solid {viewModeStore.isFocus ? 'var(--accent)' : 'var(--border-default)'}; background: {viewModeStore.isFocus ? 'var(--accent-subtle)' : 'transparent'}; color: {viewModeStore.isFocus ? 'var(--accent)' : 'var(--text-secondary)'}; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
-  >Focus</button>
+  {#if viewMode !== 'gantt'}
+    <button
+      onclick={() => viewModeStore.toggleFocus()}
+      style="height: 28px; padding: 0 {responsiveStore.isMobile ? '8px' : '12px'}; font-size: {responsiveStore.isMobile ? '11.5px' : '12.5px'}; font-weight: 500; border-radius: 6px; border: 1px solid {viewModeStore.isFocus ? 'var(--accent)' : 'var(--border-default)'}; background: {viewModeStore.isFocus ? 'var(--accent-subtle)' : 'transparent'}; color: {viewModeStore.isFocus ? 'var(--accent)' : 'var(--text-secondary)'}; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
+    >Focus</button>
+  {/if}
 </div>
 
 {#if viewMode === 'kanban'}

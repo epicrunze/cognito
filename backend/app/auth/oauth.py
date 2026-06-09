@@ -27,8 +27,13 @@ class OAuthRefreshError(OAuthError):
     """Failed to refresh access token."""
 
 
-def get_google_auth_url(state: str | None = None) -> str:
-    """Generate Google OAuth consent screen URL."""
+def get_google_auth_url(state: str | None = None, force_consent: bool = False) -> str:
+    """Generate Google OAuth consent screen URL.
+
+    Set ``force_consent=True`` to add ``prompt=consent``, which forces Google
+    to re-issue a refresh token. Used when a previous sign-in did not yield
+    one (e.g. user revoked access, or scope was added later).
+    """
     redirect_uri = f"{settings.backend_url}/api/auth/callback"
     params = {
         "client_id": settings.google_client_id,
@@ -36,8 +41,11 @@ def get_google_auth_url(state: str | None = None) -> str:
         "response_type": "code",
         "scope": "openid email profile https://www.googleapis.com/auth/calendar",
         "access_type": "offline",
-        "prompt": "consent",
     }
+    if force_consent:
+        params["prompt"] = "consent"
+    if settings.allowed_email:
+        params["login_hint"] = settings.allowed_email
     if state:
         params["state"] = state
     return f"{GOOGLE_AUTH_URL}?{urlencode(params)}"

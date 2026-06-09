@@ -489,11 +489,11 @@
   }
 
   .menu-item.destructive {
-    color: #E85D5D;
+    color: var(--danger);
   }
 
   .menu-item.destructive:hover {
-    background: rgba(232, 93, 93, 0.1);
+    background: color-mix(in srgb, var(--danger) 10%, transparent);
   }
 
   .divider {
@@ -705,7 +705,7 @@
   }
 
   .confirm-input:focus {
-    border-color: #E85D5D;
+    border-color: var(--danger);
   }
 
   .delete-actions {
@@ -737,12 +737,12 @@
   }
 
   .confirm-delete-btn {
-    background: #E85D5D;
+    background: var(--danger);
     color: #fff;
   }
 
   .confirm-delete-btn:hover:not(:disabled) {
-    background: #d14a4a;
+    background: var(--danger-hover);
   }
 
   .confirm-delete-btn:disabled {
@@ -861,6 +861,6 @@
   }
 
   .hex-input.invalid {
-    border-color: #E85D5D;
+    border-color: var(--danger);
   }
 </style>

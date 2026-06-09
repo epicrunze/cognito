@@ -43,7 +43,7 @@ async def _get_access_token(user: User, conn: sqlite3.Connection) -> str:
     ).fetchone()
     if not row or not row[0]:
         raise HTTPException(
-            status_code=401,
+            status_code=403,
             detail="No Google refresh token found. Please re-login to grant calendar access.",
         )
 
@@ -51,13 +51,13 @@ async def _get_access_token(user: User, conn: sqlite3.Connection) -> str:
         token_data = await refresh_access_token(row[0])
     except OAuthRefreshError as exc:
         raise HTTPException(
-            status_code=401,
+            status_code=403,
             detail=f"Failed to refresh Google token: {exc}. Please re-login.",
         )
 
     access_token = token_data.get("access_token")
     if not access_token:
-        raise HTTPException(status_code=401, detail="No access token in refresh response.")
+        raise HTTPException(status_code=403, detail="No access token in refresh response.")
 
     return access_token
 

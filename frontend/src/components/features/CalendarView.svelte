@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { authApi } from '$lib/api';
   import { calendarStore } from '$lib/stores/calendar.svelte';
   import { tasksStore } from '$lib/stores.svelte';
   import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
@@ -215,6 +216,7 @@
   {:else}
     <!-- Error banner (non-blocking — grid still renders below) -->
     {#if calendarStore.error}
+      {@const needsReconnect = /refresh token|re-login|reconnect/i.test(calendarStore.error)}
       <div style="
         display: flex; align-items: center; gap: 8px;
         padding: 8px 16px; margin: 8px 16px 0;
@@ -225,16 +227,30 @@
         <span style="font-size: var(--text-xs); color: var(--overdue); flex: 1;">
           {calendarStore.error}
         </span>
-        <button
-          onclick={() => calendarStore.fetchEvents()}
-          style="
-            height: 24px; padding: 0 10px; font-size: 10px; font-weight: 500;
-            border-radius: 4px; border: 1px solid var(--border-default);
-            background: var(--bg-surface); color: var(--text-secondary);
-            cursor: pointer; font-family: var(--font-sans);
-            transition: all var(--transition-fast); flex-shrink: 0;
-          "
-        >Retry</button>
+        {#if needsReconnect}
+          <a
+            href={authApi.loginUrl({ reconnect: true })}
+            style="
+              height: 24px; padding: 0 10px; font-size: 10px; font-weight: 500;
+              border-radius: 4px; border: 1px solid var(--accent);
+              background: var(--accent-subtle); color: var(--accent);
+              cursor: pointer; font-family: var(--font-sans);
+              transition: all var(--transition-fast); flex-shrink: 0;
+              display: inline-flex; align-items: center; text-decoration: none;
+            "
+          >Reconnect Google</a>
+        {:else}
+          <button
+            onclick={() => calendarStore.fetchEvents()}
+            style="
+              height: 24px; padding: 0 10px; font-size: 10px; font-weight: 500;
+              border-radius: 4px; border: 1px solid var(--border-default);
+              background: var(--bg-surface); color: var(--text-secondary);
+              cursor: pointer; font-family: var(--font-sans);
+              transition: all var(--transition-fast); flex-shrink: 0;
+            "
+          >Retry</button>
+        {/if}
       </div>
     {/if}
 

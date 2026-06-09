@@ -428,7 +428,7 @@
       <div
         style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 8px; color: var(--text-tertiary); font-size: 14px; font-family: var(--font-sans); text-align: center; padding: 40px 20px;"
       >
-        <span style="font-size: 28px; opacity: 0.4;">&#9670;</span>
+        <span class="empty-diamond">&#9670;</span>
         <span>Describe tasks, changes, or paste notes.</span>
         <span style="font-size: 12px; opacity: 0.7;">Paste multi-line text to extract tasks. Short messages start a chat.</span>
       </div>
@@ -614,5 +614,16 @@
   .close-btn:hover {
     color: var(--text-secondary);
     background: var(--bg-surface-hover);
+  }
+
+  .empty-diamond {
+    font-size: 28px;
+    opacity: 0.35;
+    animation: breathe 3s ease-in-out infinite;
+  }
+
+  @keyframes breathe {
+    0%, 100% { opacity: 0.25; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.05); }
   }
 </style>

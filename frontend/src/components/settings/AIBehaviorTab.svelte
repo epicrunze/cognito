@@ -643,8 +643,8 @@
   }
 
   .conv-delete-btn:hover {
-    color: var(--danger, #e55);
-    background: rgba(255, 80, 80, 0.1);
+    color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 10%, transparent);
   }
 
   .resume-btn {

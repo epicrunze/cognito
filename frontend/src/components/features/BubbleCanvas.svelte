@@ -98,6 +98,7 @@
   }
 
   function handleTaskClick(taskId: number) {
+    bubbleStore.collapseImmediate();
     taskDetailStore.open(taskId);
     filterStore.markViewed(taskId);
   }
@@ -135,8 +136,8 @@
     <!-- Focus mode: single unified cluster, no project headers -->
     {#if focusActiveTasks.length === 0 && focusCompletedTasks.length === 0}
       <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; gap: 12px;">
-        <span style="font-size: 40px; opacity: 0.3;">&#9744;</span>
-        <span style="font-size: 15px; color: var(--text-tertiary);">No tasks</span>
+        <span style="font-size: 36px; opacity: 0.25;">&#9670;</span>
+        <span style="font-size: 15px; color: var(--text-tertiary);">Your mind is clear</span>
       </div>
     {:else}
       <div class:masonry-grid={responsiveStore.isMobile} style={responsiveStore.isMobile ? '' : 'display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; align-content: flex-start;'}>
@@ -174,8 +175,9 @@
     {/if}
   {:else if projectGroups.length === 0}
     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; gap: 12px;">
-      <span style="font-size: 40px; opacity: 0.3;">&#9744;</span>
-      <span style="font-size: 15px; color: var(--text-tertiary);">No tasks</span>
+      <span style="font-size: 36px; opacity: 0.25;">&#9670;</span>
+      <span style="font-size: 15px; color: var(--text-tertiary);">Nothing here yet</span>
+      <span style="font-size: 13px; color: var(--text-tertiary); opacity: 0.7;">Thoughts will appear as you add them</span>
     </div>
   {:else}
     {#each projectGroups as group (group.projectId)}

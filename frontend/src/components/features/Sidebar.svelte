@@ -189,6 +189,7 @@
               <span class="nav-glow"></span>
             {/if}
             {@html item.icon}
+            <span class="sr-only">{item.label}</span>
             {#if item.count > 0}
               <span class="nav-count" style:color={item.countColor ?? 'var(--text-tertiary)'}>{item.count}</span>
             {/if}

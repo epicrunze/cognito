@@ -38,6 +38,10 @@
   --priority-none: #4A4A46;
   --done: #5BBC6E;
   --overdue: #EF5744;
+  --overdue-border: color-mix(in srgb, #EF5744 60%, transparent);
+  --danger: #E85D5D;
+  --danger-hover: #d14a4a;
+  --accent-blue: #4AADCC;
 
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);

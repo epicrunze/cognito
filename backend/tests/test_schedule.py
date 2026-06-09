@@ -95,7 +95,7 @@ def test_list_events_no_refresh_token(client, schedule_db):
         "/api/schedule",
         params={"time_min": "2026-03-27T00:00:00Z", "time_max": "2026-03-28T00:00:00Z"},
     )
-    assert resp.status_code == 401
+    assert resp.status_code == 403
     assert "refresh token" in resp.json()["detail"].lower()
 
 

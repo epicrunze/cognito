@@ -325,9 +325,9 @@
 {:else if activeTasks.length === 0 && completedTasks.length === 0}
   <!-- Empty state -->
   <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; gap: 12px;">
-    <span style="font-size: 40px; opacity: 0.3;">&#9744;</span>
-    <span style="font-size: 15px; color: var(--text-tertiary);">No tasks yet</span>
-    <span style="font-size: 13px; color: var(--text-tertiary);">Press <kbd style="padding: 2px 6px; background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 4px; font-size: 12px;">N</kbd> or use the field above to add one</span>
+    <span style="font-size: 36px; opacity: 0.25;">&#9670;</span>
+    <span style="font-size: 15px; color: var(--text-tertiary);">Nothing here yet</span>
+    <span style="font-size: 13px; color: var(--text-tertiary); opacity: 0.7;">Press <kbd style="padding: 2px 6px; background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 4px; font-size: 12px;">N</kbd> or use the field above to add one</span>
   </div>
 {:else}
   <!-- Active tasks -->

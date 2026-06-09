@@ -84,8 +84,9 @@ export const authApi = {
   me() {
     return request<{ email: string; name: string; picture?: string }>('/auth/me');
   },
-  loginUrl() {
-    return `${BASE}/auth/login`;
+  loginUrl(opts?: { reconnect?: boolean }) {
+    const url = `${BASE}/auth/login`;
+    return opts?.reconnect ? `${url}?reconnect=true` : url;
   },
   logout() {
     return request<{ success: boolean }>('/auth/logout', { method: 'POST' });

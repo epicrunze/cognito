@@ -1,4 +1,6 @@
 imgs/
+docs/superpowers/
+.superpowers/
 # Python
 __pycache__/
 *.py[codz]

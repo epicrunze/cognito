@@ -83,7 +83,7 @@
       return;
     }
     if (authStore.authenticated) {
-      // tasksStore.fetchAll() is handled reactively by TaskList's $effect
+      tasksStore.fetchAll();
       projectsStore.fetchAll();
       labelsStore.fetchAll();
       labelsStore.fetchStats();
@@ -197,7 +197,7 @@
         <Sidebar />
       </div>
     {/if}
-    <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;">
+    <main style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;">
       <!-- Top bar -->
       <div style="display: flex; align-items: center; padding: 10px {responsiveStore.isMobile ? '16px' : '24px'}; border-bottom: 1px solid var(--border-subtle); gap: 10px; flex-shrink: 0;">
         {#if responsiveStore.isMobile}
@@ -303,7 +303,7 @@
           <TaskDetail />
         {/if}
       </div>
-    </div>
+    </main>
   </div>
   {#if responsiveStore.isMobile && taskDetailStore.isOpen && mobileTaskFullscreen}
     <div class="mobile-overlay">
@@ -387,7 +387,7 @@
     </button>
     <MobileQuickAdd open={quickAddOpen} onclose={() => quickAddOpen = false} />
   {:else}
-    <button class="fab-extract" class:fab-active={thinkingOpen} aria-label="AI Extract" onclick={openThinking}>
+    <button class="fab-extract" class:fab-active={thinkingOpen} aria-label={thinkingOpen ? 'Close thinking margin' : 'Open thinking margin'} onclick={openThinking}>
       <span class="diamond-icon">{@html extractIcon}</span>
     </button>
   {/if}

@@ -432,6 +432,6 @@
   }
 
   .hex-input.invalid {
-    border-color: #E85D5D;
+    border-color: var(--danger);
   }
 </style>

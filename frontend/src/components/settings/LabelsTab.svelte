@@ -161,7 +161,7 @@
               onclick={() => handleDeleteLabel(label.id, label.title)}
               title="Delete label"
               style="padding: 6px; background: none; border: none; border-radius: 6px; cursor: pointer; color: var(--text-tertiary); transition: color var(--transition-fast), background var(--transition-fast); flex-shrink: 0;"
-              onmouseenter={(e) => { (e.currentTarget as HTMLElement).style.color = '#E85D5D'; (e.currentTarget as HTMLElement).style.background = 'rgba(232, 93, 93, 0.1)'; }}
+              onmouseenter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--danger)'; (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--danger) 10%, transparent)'; }}
               onmouseleave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

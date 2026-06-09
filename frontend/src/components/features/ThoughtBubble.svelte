@@ -517,7 +517,7 @@
 
   // Priority border
   const priorityBorderColor = $derived.by(() => {
-    if (isOverdue && !data.done) return 'var(--overdue)';
+    if (isOverdue && !data.done) return 'var(--overdue-border)';
     const colors: Record<number, string> = {
       5: 'var(--priority-urgent)', 4: 'var(--priority-high)',
       3: 'var(--priority-medium)', 2: 'var(--priority-low)',
@@ -940,7 +940,7 @@
     display: flex;
     align-items: center;
     gap: 2px;
-    opacity: 0.55;
+    opacity: 0.65;
   }
 
   /* Quick-complete: absolutely positioned top-right, shown on card hover */

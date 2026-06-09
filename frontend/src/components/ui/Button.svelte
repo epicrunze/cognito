@@ -30,7 +30,7 @@
     accent: { bg: 'var(--accent)', bgH: 'var(--accent-hover)', c: 'var(--text-on-accent)', cH: 'var(--text-on-accent)', b: 'none', bH: 'none' },
     outline: { bg: 'transparent', bgH: 'var(--bg-surface-hover)', c: 'var(--text-secondary)', cH: 'var(--text-primary)', b: '1px solid var(--border-default)', bH: '1px solid var(--border-strong)' },
     ghost: { bg: 'transparent', bgH: 'var(--bg-surface-hover)', c: 'var(--text-secondary)', cH: 'var(--text-primary)', b: '1px solid transparent', bH: '1px solid transparent' },
-    danger: { bg: 'transparent', bgH: '#DC2626', c: 'var(--overdue)', cH: '#fff', b: '1px solid var(--border-strong)', bH: '1px solid #DC2626' },
+    danger: { bg: 'transparent', bgH: 'var(--danger-hover)', c: 'var(--overdue)', cH: '#fff', b: '1px solid var(--border-strong)', bH: '1px solid var(--danger-hover)' },
     toggle: { bg: 'var(--bg-elevated)', bgH: 'var(--bg-surface-hover)', c: 'var(--text-secondary)', cH: 'var(--text-secondary)', b: '1px solid var(--border-default)', bH: '1px solid var(--border-default)' },
   };
 
