@@ -22,27 +22,59 @@ router = APIRouter(prefix="/api/config", tags=["config"])
 async def get_config(current_user: User = Depends(get_current_user)):
     """Return the singleton agent_config row."""
     with get_db() as conn:
-        row = conn.execute(
-            "SELECT default_project_id, ollama_model, gemini_model, gcal_calendar_id, "
-            "system_prompt_override, base_prompt_override, "
-            "schedule_weekday_start, schedule_weekday_end, "
-            "schedule_weekend_start, schedule_weekend_end, schedule_weekend_enabled "
-            "FROM agent_config WHERE id = 1"
-        ).fetchone()
-    if not row:
-        return AgentConfigResponse()
+        cur = conn.execute("SELECT * FROM agent_config WHERE id = 1")
+        row = cur.fetchone()
+        if not row:
+            return AgentConfigResponse()
+        data = dict(zip([c[0] for c in cur.description], row))
+
     return AgentConfigResponse(
-        default_project_id=row[0],
-        ollama_model=row[1],
-        gemini_model=row[2],
-        gcal_calendar_id=row[3],
-        system_prompt_override=row[4],
-        base_prompt_override=row[5],
-        schedule_weekday_start=row[6] or 8,
-        schedule_weekday_end=row[7] or 18,
-        schedule_weekend_start=row[8] or 10,
-        schedule_weekend_end=row[9] or 16,
-        schedule_weekend_enabled=bool(row[10]) if row[10] is not None else True,
+        default_project_id=data.get("default_project_id"),
+        ollama_model=data.get("ollama_model"),
+        gemini_model=data.get("gemini_model"),
+        gcal_calendar_id=data.get("gcal_calendar_id"),
+        system_prompt_override=data.get("system_prompt_override"),
+        base_prompt_override=data.get("base_prompt_override"),
+        schedule_weekday_start=data.get("schedule_weekday_start") or 8,
+        schedule_weekday_end=data.get("schedule_weekday_end") or 18,
+        schedule_weekend_start=data.get("schedule_weekend_start") or 10,
+        schedule_weekend_end=data.get("schedule_weekend_end") or 16,
+        schedule_weekend_enabled=bool(data.get("schedule_weekend_enabled"))
+        if data.get("schedule_weekend_enabled") is not None
+        else True,
+        notif_digest_enabled=bool(data.get("notif_digest_enabled"))
+        if data.get("notif_digest_enabled") is not None
+        else True,
+        notif_reminders_enabled=bool(data.get("notif_reminders_enabled"))
+        if data.get("notif_reminders_enabled") is not None
+        else True,
+        notif_nudges_enabled=bool(data.get("notif_nudges_enabled"))
+        if data.get("notif_nudges_enabled") is not None
+        else True,
+        notif_review_enabled=bool(data.get("notif_review_enabled"))
+        if data.get("notif_review_enabled") is not None
+        else True,
+        notif_digest_time=data.get("notif_digest_time") or "08:00",
+        notif_review_time=data.get("notif_review_time") or "21:00",
+        notif_max_per_day=data.get("notif_max_per_day")
+        if data.get("notif_max_per_day") is not None
+        else 5,
+        notif_max_nudges_per_day=data.get("notif_max_nudges_per_day")
+        if data.get("notif_max_nudges_per_day") is not None
+        else 2,
+        notif_reminder_lead_hours=data.get("notif_reminder_lead_hours")
+        if data.get("notif_reminder_lead_hours") is not None
+        else 2,
+        notif_quiet_start=data.get("notif_quiet_start")
+        if data.get("notif_quiet_start") is not None
+        else 22,
+        notif_quiet_end=data.get("notif_quiet_end")
+        if data.get("notif_quiet_end") is not None
+        else 7,
+        notif_nudge_runs_per_day=data.get("notif_nudge_runs_per_day")
+        if data.get("notif_nudge_runs_per_day") is not None
+        else 3,
+        notif_timezone=data.get("notif_timezone") or "UTC",
     )
 
 

@@ -463,6 +463,19 @@ export interface AgentConfigResponse {
   schedule_weekend_start: number;
   schedule_weekend_end: number;
   schedule_weekend_enabled: boolean;
+  notif_digest_enabled: boolean;
+  notif_reminders_enabled: boolean;
+  notif_nudges_enabled: boolean;
+  notif_review_enabled: boolean;
+  notif_digest_time: string;
+  notif_review_time: string;
+  notif_max_per_day: number;
+  notif_max_nudges_per_day: number;
+  notif_reminder_lead_hours: number;
+  notif_quiet_start: number;
+  notif_quiet_end: number;
+  notif_nudge_runs_per_day: number;
+  notif_timezone: string;
 }
 
 export const configApi = {
@@ -548,6 +561,32 @@ export const scheduleApi = {
       method: 'PUT',
       body: JSON.stringify({ calendar_ids: calendarIds }),
     });
+  },
+};
+
+// ── Notifications (Web Push) ────────────────────────────────────────────────
+
+export const notificationsApi = {
+  getVapidPublicKey() {
+    return request<{ public_key: string }>('/notifications/vapid-public-key');
+  },
+
+  subscribe(subscription: { endpoint: string; keys: { p256dh: string; auth: string } }) {
+    return request<{ success: boolean }>('/notifications/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(subscription),
+    });
+  },
+
+  unsubscribe(endpoint: string) {
+    return request<{ success: boolean }>('/notifications/subscribe', {
+      method: 'DELETE',
+      body: JSON.stringify({ endpoint }),
+    });
+  },
+
+  sendTest() {
+    return request<{ success: boolean }>('/notifications/test', { method: 'POST' });
   },
 };
 

@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     # ── Google Calendar — Phase 3 ─────────────────────────────────────────────
     gcal_calendar_id: str = "primary"
 
+    # ── Web Push notifications ────────────────────────────────────────────────
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_subject: str = "mailto:admin@example.com"
+    scheduler_enabled: bool = True
+
     def get_database_path(self) -> str:
         """Extract the file path from the database URL."""
         if self.database_url.startswith("sqlite:///"):

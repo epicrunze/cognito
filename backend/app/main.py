@@ -2,8 +2,9 @@
 Cognito Task Agent — FastAPI application entry point.
 """
 
+import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import AsyncIterator
 
 from fastapi import FastAPI
@@ -22,6 +23,7 @@ from app.routers.labels import router as labels_router
 from app.routers.proposals import router as proposals_router
 from app.routers.projects import router as projects_router
 from app.routers.models import router as models_router
+from app.routers.notifications import router as notifications_router
 from app.routers.revisions import router as revisions_router
 from app.routers.schedule import router as schedule_router
 from app.routers.tasks import router as tasks_router
@@ -29,7 +31,7 @@ from app.routers.tasks import router as tasks_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Initialise SQLite schema on startup."""
+    """Initialise SQLite schema on startup; run the notification scheduler."""
     conn = get_connection()
     try:
         init_schema(conn)
@@ -37,7 +39,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         conn.close()
     logger.info("Backend started — FRONTEND_URL=%r VIKUNJA_URL=%r GEMINI_MODEL=%r",
         settings.frontend_url, settings.vikunja_url, settings.gemini_model)
+
+    scheduler_task = None
+    if settings.scheduler_enabled and settings.vapid_private_key:
+        from app.services.nudge_engine import scheduler_loop
+
+        scheduler_task = asyncio.create_task(scheduler_loop())
+    elif settings.scheduler_enabled:
+        logger.info("Notification scheduler idle — no VAPID keys configured")
+    else:
+        logger.info("Notification scheduler disabled")
+
     yield
+
+    if scheduler_task:
+        scheduler_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await scheduler_task
 
 
 app = FastAPI(
@@ -67,6 +85,7 @@ app.include_router(config_router)
 app.include_router(ingest_router)
 app.include_router(labels_router)
 app.include_router(models_router)
+app.include_router(notifications_router)
 app.include_router(proposals_router)
 app.include_router(projects_router)
 app.include_router(revisions_router)

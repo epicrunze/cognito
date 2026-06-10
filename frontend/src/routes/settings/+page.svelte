@@ -7,6 +7,7 @@
   import HistoryTab from '$components/settings/HistoryTab.svelte';
   import CalendarsTab from '$components/settings/CalendarsTab.svelte';
   import ScheduleTab from '$components/settings/ScheduleTab.svelte';
+  import NotificationsTab from '$components/settings/NotificationsTab.svelte';
 
   const tabs = [
     { id: 'account', label: 'Account', icon: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2|M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8' },
@@ -14,6 +15,7 @@
     { id: 'labels', label: 'Labels', icon: 'M12 2H2v10l9.29 9.29a1.58 1.58 0 0 0 2.24 0l6.18-6.18a1.58 1.58 0 0 0 0-2.24L12 2Z|M7 7h.01' },
     { id: 'calendars', label: 'Calendars', icon: 'M8 2v4|M16 2v4|M3 10h18|M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2' },
     { id: 'schedule', label: 'Schedule', icon: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20|M12 6v6l4 2' },
+    { id: 'notifications', label: 'Notifications', icon: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9|M13.73 21a2 2 0 0 1-3.46 0' },
     { id: 'history', label: 'History', icon: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8|M3 3v5h5|M12 7v5l4 2' },
   ] as const;
 
@@ -56,6 +58,8 @@
       <CalendarsTab />
     {:else if activeTab === 'schedule'}
       <ScheduleTab />
+    {:else if activeTab === 'notifications'}
+      <NotificationsTab />
     {:else if activeTab === 'history'}
       <HistoryTab />
     {/if}

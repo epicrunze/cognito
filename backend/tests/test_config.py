@@ -107,3 +107,56 @@ def test_get_system_prompt_with_base_override(client):
     data = res.json()
     expected = f"You are a custom assistant. Today is {date.today().isoformat()}."
     assert data["prompt"] == expected
+
+
+def test_get_config_includes_notification_fields(client):
+    resp = client.get("/api/config")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["notif_digest_enabled"] is True
+    assert data["notif_digest_time"] == "08:00"
+    assert data["notif_review_time"] == "21:00"
+    assert data["notif_max_per_day"] == 5
+    assert data["notif_max_nudges_per_day"] == 2
+    assert data["notif_reminder_lead_hours"] == 2
+    assert data["notif_quiet_start"] == 22
+    assert data["notif_quiet_end"] == 7
+    assert data["notif_nudge_runs_per_day"] == 3
+    assert data["notif_timezone"] == "UTC"
+
+
+def test_update_notification_fields(client):
+    resp = client.put(
+        "/api/config",
+        json={"notif_digest_time": "07:30", "notif_nudges_enabled": False},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["notif_digest_time"] == "07:30"
+    assert data["notif_nudges_enabled"] is False
+    # untouched field keeps default
+    assert data["notif_review_enabled"] is True
+
+
+def test_update_rejects_invalid_notification_values(client):
+    for payload in (
+        {"notif_digest_time": "banana"},
+        {"notif_digest_time": "25:00"},
+        {"notif_quiet_start": 99},
+        {"notif_reminder_lead_hours": -1},
+        {"notif_timezone": "Mars/Olympus_Mons"},
+    ):
+        resp = client.put("/api/config", json=payload)
+        assert resp.status_code == 422, payload
+
+
+def test_zero_values_round_trip(client):
+    resp = client.put(
+        "/api/config",
+        json={"notif_max_per_day": 0, "notif_max_nudges_per_day": 0, "notif_reminder_lead_hours": 0},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["notif_max_per_day"] == 0
+    assert data["notif_max_nudges_per_day"] == 0
+    assert data["notif_reminder_lead_hours"] == 0

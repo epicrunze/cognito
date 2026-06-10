@@ -2,10 +2,19 @@
 SQLite database connection and schema management.
 
 Single SQLite file holds all tables:
-  - users              (auth)
-  - task_proposals     (proposal queue)
-  - vikunja_projects   (project cache)
-  - agent_config       (singleton config row)
+  - users                    (auth)
+  - task_proposals           (proposal queue)
+  - vikunja_projects         (project cache)
+  - agent_config             (singleton config row)
+  - label_descriptions       (label metadata)
+  - conversations            (chat history)
+  - conversation_messages    (chat messages)
+  - task_revisions           (AI action undo/redo)
+  - task_calendar_links      (task ↔ GCal event)
+  - gcal_selected_calendars  (selected Google Calendars)
+  - push_subscriptions       (Web Push device subscriptions)
+  - notification_log         (sent notification history)
+  - scheduler_state          (background scheduler last-run state)
 """
 
 import sqlite3
@@ -224,6 +233,61 @@ def init_schema(conn: sqlite3.Connection) -> None:
             created_at     TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S', 'now'))
         )
     """)
+
+    # ── Push notification subscriptions (one row per browser/device) ─────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_email TEXT NOT NULL,
+            endpoint   TEXT NOT NULL UNIQUE,
+            p256dh     TEXT NOT NULL,
+            auth       TEXT NOT NULL,
+            created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S', 'now'))
+        )
+    """)
+
+    # ── Notification log (drives dedup, daily caps, history) ─────────────────
+    # sent_at is always a UTC ISO-8601 string with offset (datetime.isoformat()
+    # of an aware UTC datetime) — cap/dedup window queries compare against it.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS notification_log (
+            id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            type    TEXT NOT NULL,
+            task_id INTEGER,
+            title   TEXT NOT NULL,
+            body    TEXT NOT NULL,
+            sent_at TEXT NOT NULL
+        )
+    """)
+
+    # ── Scheduler last-run state (survives restarts) ──────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS scheduler_state (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    """)
+
+    # Migration: add notification preferences to agent_config
+    for col, defn in [
+        ("notif_digest_enabled", "INTEGER DEFAULT 1"),
+        ("notif_reminders_enabled", "INTEGER DEFAULT 1"),
+        ("notif_nudges_enabled", "INTEGER DEFAULT 1"),
+        ("notif_review_enabled", "INTEGER DEFAULT 1"),
+        ("notif_digest_time", "TEXT DEFAULT '08:00'"),
+        ("notif_review_time", "TEXT DEFAULT '21:00'"),
+        ("notif_max_per_day", "INTEGER DEFAULT 5"),
+        ("notif_max_nudges_per_day", "INTEGER DEFAULT 2"),
+        ("notif_reminder_lead_hours", "INTEGER DEFAULT 2"),
+        ("notif_quiet_start", "INTEGER DEFAULT 22"),
+        ("notif_quiet_end", "INTEGER DEFAULT 7"),
+        ("notif_nudge_runs_per_day", "INTEGER DEFAULT 3"),
+        ("notif_timezone", "TEXT DEFAULT 'UTC'"),
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE agent_config ADD COLUMN {col} {defn}")
+        except Exception:
+            pass  # Column already exists
 
     # Seed the singleton config row if it doesn't exist
     conn.execute("INSERT OR IGNORE INTO agent_config (id) VALUES (1)")
