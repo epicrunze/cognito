@@ -182,3 +182,78 @@ def test_sync_preserves_all_fields(in_memory_db, mock_user):
     rows = in_memory_db.execute("SELECT id, hex_color, is_archived, position FROM vikunja_projects ORDER BY id").fetchall()
     assert rows[0] == (1, "#E8772E", 0, 1.5)
     assert rows[1] == (2, "#5B8DEF", 1, 3.0)
+
+
+# ── Project workspace: notes + AI status briefing ──────────────────────────
+
+
+def test_notes_round_trip(in_memory_db, mock_user):
+    client = _setup(in_memory_db, mock_user)
+    # Default empty before any save
+    res = client.get("/api/projects/1/notes")
+    assert res.status_code == 200
+    assert res.json()["content"] == ""
+
+    res = client.put("/api/projects/1/notes", json={"content": "## links\n- [docs](http://x)"})
+    assert res.status_code == 200
+    assert res.json()["content"].startswith("## links")
+
+    res = client.get("/api/projects/1/notes")
+    assert res.json()["content"] == "## links\n- [docs](http://x)"
+    assert res.json()["updated_at"]
+
+
+def test_briefing_generates_from_open_tasks(in_memory_db, mock_user):
+    client = _setup(in_memory_db, mock_user)
+    in_memory_db.execute(
+        "INSERT INTO vikunja_projects (id, title, last_synced_at) VALUES (1, 'API migration', datetime('now'))"
+    )
+    tasks = [
+        {"id": 10, "title": "swap auth", "priority": 4, "done": False, "project_id": 1},
+        {"id": 11, "title": "done thing", "priority": 2, "done": True, "project_id": 1},
+        {"id": 12, "title": "other project", "priority": 5, "done": False, "project_id": 2},
+    ]
+    fake_llm = AsyncMock()
+    fake_llm.generate = AsyncMock(return_value="You're mid-migration; the auth swap is the blocker.")
+    with patch("app.routers.projects.vikunja") as mock_v, \
+         patch("app.services.llm.get_llm_client", return_value=fake_llm):
+        mock_v.list_tasks = AsyncMock(return_value=tasks)
+        res = client.post("/api/projects/1/briefing")
+    assert res.status_code == 200
+    body = res.json()
+    assert "auth swap" in body["text"]
+    assert body["stale"] is False
+    assert body["generated_at"]
+    # Only the open task in project 1 should be in the prompt
+    prompt = fake_llm.generate.call_args.kwargs["messages"][0]["content"]
+    assert "swap auth" in prompt
+    assert "done thing" not in prompt
+    assert "other project" not in prompt
+
+
+def test_briefing_empty_when_no_open_tasks(in_memory_db, mock_user):
+    client = _setup(in_memory_db, mock_user)
+    in_memory_db.execute(
+        "INSERT INTO vikunja_projects (id, title, last_synced_at) VALUES (1, 'Clear', datetime('now'))"
+    )
+    with patch("app.routers.projects.vikunja") as mock_v:
+        mock_v.list_tasks = AsyncMock(return_value=[])
+        res = client.post("/api/projects/1/briefing")
+    assert res.status_code == 200
+    assert "clear" in res.json()["text"].lower()
+
+
+def test_briefing_stale_flag(in_memory_db, mock_user):
+    client = _setup(in_memory_db, mock_user)
+    import app.routers.projects as projects_mod
+    # Seed a fresh briefing, then mark stale
+    in_memory_db.execute(
+        "INSERT INTO project_workspace (project_id, briefing, briefing_generated_at, briefing_stale) VALUES (1, 'old', datetime('now'), 0)"
+    )
+    res = client.get("/api/projects/1/briefing")
+    assert res.json()["stale"] is False
+
+    projects_mod.mark_briefing_stale(1)
+    res = client.get("/api/projects/1/briefing")
+    assert res.json()["stale"] is True
+    assert res.json()["text"] == "old"

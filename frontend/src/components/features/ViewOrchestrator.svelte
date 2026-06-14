@@ -15,6 +15,8 @@
   import GanttChart from './GanttChart.svelte';
   import KanbanBoard from './KanbanBoard.svelte';
   import TaskList from './TaskList.svelte';
+  import ProjectWorkspace from './project/ProjectWorkspace.svelte';
+  import ViewSwitcher from '$components/ui/ViewSwitcher.svelte';
 
   const pathname = $derived($page.url.pathname);
   const projectMatch = $derived(pathname.match(/^\/project\/(\d+)/));
@@ -39,7 +41,9 @@
     const oldPath = prevPathname;
     prevPathname = pathname;
 
-    const newMode: 'bubbles' | 'kanban' | 'list' | 'gantt' | 'calendar' = projectId != null ? 'kanban' : 'bubbles';
+    // Project routes land on the Bubbles lens — the project workspace (briefing
+    // + open bubbles + notes/history rail). Other lenses stay reachable.
+    const newMode: 'bubbles' | 'kanban' | 'list' | 'gantt' | 'calendar' = 'bubbles';
 
     if (!oldPath) {
       viewMode = newMode;
@@ -168,19 +172,15 @@
   }
 </script>
 
-<div style="display: flex; align-items: center; gap: {responsiveStore.isMobile ? '3px' : '4px'}; padding: 10px {responsiveStore.isMobile ? '12px' : '24px'} 0; flex-shrink: 0;">
+<div style="display: flex; align-items: center; gap: 8px; padding: 10px {responsiveStore.isMobile ? '12px' : '24px'} 0; flex-shrink: 0;">
   {#if showViewToggle}
-    {#each viewOptions as opt (opt.value)}
-      <button
-        onclick={() => switchView(opt.value)}
-        style="height: 28px; padding: 0 {responsiveStore.isMobile ? '8px' : '12px'}; font-size: {responsiveStore.isMobile ? '11.5px' : '12.5px'}; font-weight: 500; border-radius: 6px; border: 1px solid {viewMode === opt.value ? 'var(--accent)' : 'var(--border-default)'}; background: {viewMode === opt.value ? 'var(--accent-subtle)' : 'transparent'}; color: {viewMode === opt.value ? 'var(--accent)' : 'var(--text-secondary)'}; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
-      >{opt.label}</button>
-    {/each}
+    <ViewSwitcher views={viewOptions} value={viewMode} onchange={(v) => switchView(v as ViewOption)} />
   {/if}
   {#if viewMode !== 'gantt'}
     <button
+      class="focus-chip"
+      class:active={viewModeStore.isFocus}
       onclick={() => viewModeStore.toggleFocus()}
-      style="height: 28px; padding: 0 {responsiveStore.isMobile ? '8px' : '12px'}; font-size: {responsiveStore.isMobile ? '11.5px' : '12.5px'}; font-weight: 500; border-radius: 6px; border: 1px solid {viewModeStore.isFocus ? 'var(--accent)' : 'var(--border-default)'}; background: {viewModeStore.isFocus ? 'var(--accent-subtle)' : 'transparent'}; color: {viewModeStore.isFocus ? 'var(--accent)' : 'var(--text-secondary)'}; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
     >Focus</button>
   {/if}
 </div>
@@ -193,6 +193,30 @@
   <GanttChart projectId={displayProjectId ?? undefined} />
 {:else if viewMode === 'calendar'}
   <CalendarView projectId={displayProjectId ?? undefined} />
+{:else if displayProjectId != null}
+  <ProjectWorkspace projectId={displayProjectId} />
 {:else}
   <BubbleCanvas projectId={displayProjectId ?? undefined} filter={activeFilter} />
 {/if}
+
+<style>
+  /* Focus is a stackable modifier (FilterChip vocabulary) — outlined pill. */
+  .focus-chip {
+    height: 28px;
+    padding: 0 12px;
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-default);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: var(--font-sans);
+    transition: all var(--t-fast) var(--ease-out);
+  }
+  .focus-chip.active {
+    border-color: var(--accent);
+    background: var(--accent-subtle);
+    color: var(--accent);
+  }
+</style>

@@ -5,74 +5,163 @@
 @tailwind utilities;
 
 :root {
-  /* Backgrounds */
+  /* ── Ground & surfaces (the elevation ladder) ──────────────────────────
+     Dark ground = the surface of thought; lighter surfaces float on it. */
   --bg-base: #111110;
   --bg-surface: #1A1A19;
   --bg-surface-hover: #222221;
-  --bg-sidebar: #161615;
+  --bg-sidebar: #161614;
   --bg-overlay: rgba(0, 0, 0, 0.6);
   --bg-elevated: #212120;
 
+  /* DS surface ladder + semantic aliases (new bubble/card code uses these) */
+  --surface-1: #1C1B19;          /* resting bubble / card */
+  --surface-2: #232220;          /* hover / raised */
+  --surface-3: #2A2825;          /* popover / menu / elevated */
+  --surface-card: var(--surface-1);
+  --surface-card-hover: var(--surface-2);
+  --surface-popover: var(--surface-3);
+  --surface-sunken: var(--bg-base);
+
   /* Borders */
-  --border-default: #2A2A28;
-  --border-strong: #3A3A37;
-  --border-subtle: #1F1F1E;
+  --border-default: #2A2A27;
+  --border-strong: #3A3A36;
+  --border-subtle: #1F1F1D;
 
   /* Text */
   --text-primary: #EDEDEC;
   --text-secondary: #A1A09A;
   --text-tertiary: #6B6A65;
   --text-on-accent: #111110;
+  --ink-1: var(--text-primary);
+  --ink-2: var(--text-secondary);
+  --ink-3: var(--text-tertiary);
+  --text-faded: var(--ink-3);     /* old / low-priority thoughts fade to this */
+  --text-link: var(--accent);
 
-  /* Accent */
+  /* Accent · ACTIONS + AI ONLY (tangerine is never decoration) */
   --accent: #E8772E;
   --accent-hover: #D4691F;
   --accent-subtle: rgba(232, 119, 46, 0.1);
   --accent-glow: rgba(232, 119, 46, 0.4);
+  --tangerine: var(--accent);
+  --tangerine-hover: var(--accent-hover);
+  --tangerine-subtle: var(--accent-subtle);
+  --tangerine-glow: var(--accent-glow);
+  --action-bg: var(--accent);
+  --action-bg-hover: var(--accent-hover);
+  --action-tint: var(--accent-subtle);
+  --selected-tint: var(--accent-subtle);
 
-  /* Semantic */
+  /* AI presence */
+  --ai: var(--accent);
+  --ai-glow: var(--accent-glow);
+
+  /* Semantic / priority — one vocabulary. high diverges to amber so
+     tangerine stays exclusive to actions + AI. */
   --priority-urgent: #EF5744;
-  --priority-high: #E8772E;
+  --priority-high: #F0A04B;
   --priority-medium: #E2C541;
   --priority-low: #5BBC6E;
   --priority-none: #4A4A46;
+  --urgent: var(--priority-urgent);
+  --high: var(--priority-high);
+  --medium: var(--priority-medium);
+  --low: var(--priority-low);
   --done: #5BBC6E;
   --overdue: #EF5744;
   --overdue-border: color-mix(in srgb, #EF5744 60%, transparent);
+  --overdue-hint: color-mix(in srgb, var(--urgent) 55%, transparent);
   --danger: #E85D5D;
   --danger-hover: #d14a4a;
   --accent-blue: #4AADCC;
+  --info: var(--accent-blue);
 
-  /* Shadows */
+  /* Shadows — legacy ladder (kept for back-compat) */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lift: 0 6px 20px rgba(0, 0, 0, 0.4);
+  --shadow-lift: 0 8px 28px rgba(0, 0, 0, 0.50);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
   --shadow-slide-over: -8px 0 32px rgba(0, 0, 0, 0.5);
+  /* DS elevation ladder — perceivable on dark ground */
+  --shadow-rest: 0 1px 2px rgba(0,0,0,0.40), 0 2px 6px rgba(0,0,0,0.30);
+  --shadow-hover: 0 4px 10px rgba(0,0,0,0.45), 0 8px 24px rgba(0,0,0,0.35);
+  --shadow-popover: 0 8px 24px rgba(0,0,0,0.55);
+  --shadow-modal: 0 16px 48px rgba(0,0,0,0.60);
 
-  /* Sidebar */
+  /* Spacing scale (4px base) */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --gap-bubble: 12px;
+  --gap-cluster: 40px;
+  --pad-bubble: 14px;
+  --pad-card: 20px;
+  --pad-panel: 24px;
+  --pad-view: 24px;
+
+  /* Radius */
+  --radius-inner: 6px;
+  --radius-card: 10px;
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+
+  /* Layout */
   --sidebar-width: 64px;
+  --detail-panel-width: 480px;
+  --view-max-width: 1280px;
 
   /* Typography */
-  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'IBM Plex Mono', 'Menlo', monospace;
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Menlo', 'Consolas', monospace;
+  --text-2xs: 0.625rem;   /* 10px — mono micro-labels */
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
   --text-base: 0.9375rem;
   --text-md: 1rem;
   --text-lg: 1.125rem;
   --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;     /* 24px — page title display */
+  --text-3xl: 2rem;       /* 32px — hero / empty-state display */
   --font-normal: 400;
   --font-medium: 500;
   --font-semibold: 600;
   --leading-tight: 1.25;
   --leading-normal: 1.5;
   --leading-relaxed: 1.625;
+  --tracking-display: -0.03em;
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+  --tracking-mono: 0.02em;
+  /* Semantic type shorthands (font: shorthand) */
+  --type-page-title: var(--font-semibold) var(--text-2xl)/var(--leading-tight) var(--font-sans);
+  --type-section: var(--font-semibold) var(--text-xl)/var(--leading-tight) var(--font-sans);
+  --type-bubble-title: var(--font-normal) var(--text-base)/var(--leading-tight) var(--font-sans);
+  --type-body: var(--font-normal) var(--text-base)/var(--leading-normal) var(--font-sans);
+  --type-ui: var(--font-medium) var(--text-sm)/var(--leading-normal) var(--font-sans);
+  --type-caption: var(--font-normal) var(--text-xs)/var(--leading-normal) var(--font-sans);
+  --type-data: var(--font-normal) var(--text-xs)/var(--leading-normal) var(--font-mono);
+  --type-pill: var(--font-medium) var(--text-2xs)/1.4 var(--font-mono);
 
-  /* Transitions */
-  --transition-fast: 150ms;
-  --transition-normal: 200ms;
-  --transition-slow: 300ms;
+  /* Motion — fast & physical; house easing is snappy-out */
+  --t-fast: 150ms;
+  --t-normal: 200ms;
+  --t-slow: 300ms;
+  --t-view: 380ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* Legacy transition aliases */
+  --transition-fast: var(--t-fast);
+  --transition-normal: var(--t-normal);
+  --transition-slow: var(--t-slow);
 }
 
 @layer base {
@@ -238,6 +327,19 @@
   border-color: var(--done) !important;
 }
 
+/* DS-named aliases so ported components can reference celebrateGlow / celebratePulse */
+@keyframes celebrateGlow {
+  0% { box-shadow: 0 0 0 0 rgba(91, 188, 110, 0), inset 0 0 0 0 rgba(91, 188, 110, 0); }
+  30% { box-shadow: 0 0 16px 4px rgba(91, 188, 110, 0.35), inset 0 0 30px 8px rgba(91, 188, 110, 0.15); }
+  100% { box-shadow: 0 0 0 0 rgba(91, 188, 110, 0), inset 0 0 0 0 rgba(91, 188, 110, 0); }
+}
+
+@keyframes celebratePulse {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
 .task-check-animated {
   stroke-dasharray: 24;
   animation: celebrate-check 300ms ease-out forwards;
@@ -259,6 +361,14 @@
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation-duration: 0.01ms !important;
+  }
+
+  /* Mandatory: kill motion by collapsing the timing tokens. */
+  :root {
+    --t-fast: 0.01ms;
+    --t-normal: 0.01ms;
+    --t-slow: 0.01ms;
+    --t-view: 0.01ms;
   }
 }
 

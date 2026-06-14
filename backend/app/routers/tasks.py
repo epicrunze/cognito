@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from app.auth.dependencies import get_current_user
 from app.database import get_db
 from app.models.user import User
+from app.routers.projects import mark_briefing_stale
 from app.services.revisions import RevisionService
 from app.services.tagger import AutoTagger
 from app.services.vikunja import VikunjaError, vikunja
@@ -230,6 +231,8 @@ async def create_task(
                 source="manual",
                 after_state=result,
             )
+        if body.project_id:
+            mark_briefing_stale(body.project_id)
         return result
     except VikunjaError as e:
         logger.error("Task creation failed: %s", e)
@@ -282,6 +285,9 @@ async def update_task(
                 before_state=before_state,
                 after_state=result,
             )
+        for pid in {before_state.get("project_id"), result.get("project_id")}:
+            if pid:
+                mark_briefing_stale(pid)
         return result
     except VikunjaError as e:
         logger.error("Failed to update task %s: %s", task_id, e)

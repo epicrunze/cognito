@@ -173,10 +173,12 @@
   .sheet-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.32);
+    background: rgba(0, 0, 0, 0.55);
     z-index: 150;
   }
 
+  /* {#if open} guarantees the sheet unmounts on close, so a stuck CSS
+     transition can never leave a ghost over the screen (the DS lesson). */
   .sheet {
     position: fixed;
     left: 0;
@@ -185,9 +187,9 @@
     height: 100vh;
     height: 100dvh;
     z-index: 151;
-    background: var(--bg-surface);
-    border-radius: 16px 16px 0 0;
-    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+    background: var(--surface-3);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
     transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);

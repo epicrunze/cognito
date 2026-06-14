@@ -195,6 +195,21 @@ def init_schema(conn: sqlite3.Connection) -> None:
         except Exception:
             pass  # Column already exists
 
+    # ── Project workspace (jun 2026) ──────────────────────────────────────────
+    # Per-project markdown notes + AI status briefing. Kept in its own table so
+    # the vikunja_projects cache can be rebuilt (DELETE+INSERT) without losing
+    # this user/AI-authored data.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS project_workspace (
+            project_id            INTEGER PRIMARY KEY,
+            notes                 TEXT DEFAULT '',
+            notes_updated_at      TEXT,
+            briefing              TEXT DEFAULT '',
+            briefing_generated_at TEXT,
+            briefing_stale        INTEGER DEFAULT 0
+        )
+    """)
+
     # ── Task revisions (AI action undo/redo) ─────────────────────────────────
     conn.execute("""
         CREATE TABLE IF NOT EXISTS task_revisions (

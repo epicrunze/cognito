@@ -93,6 +93,10 @@
   const focusCompletedTasks = $derived(filteredTasks.filter(t => t.done));
   let showFocusCompleted = $state(false);
 
+  // Mobile home (V3): one presence-sorted stream across projects, each bubble
+  // carrying a project pip. Focus mode and project routes keep their own layout.
+  const isStream = $derived(responsiveStore.isMobile && projectId == null && !viewModeStore.isFocus);
+
   function handleCanvasClick() {
     bubbleStore.collapse();
   }
@@ -132,6 +136,36 @@
         <Skeleton width={200} height={90} radius={10} />
       {/each}
     </div>
+  {:else if isStream}
+    <!-- Mobile home: cross-project presence stream with project pips -->
+    {#if focusActiveTasks.length === 0 && focusCompletedTasks.length === 0}
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; gap: 12px;">
+        <span style="font-size: 36px; opacity: 0.25;">&#9670;</span>
+        <span style="font-size: 15px; color: var(--text-tertiary);">Your mind is clear</span>
+      </div>
+    {:else}
+      <div class="masonry-grid">
+        {#each focusActiveTasks as task (task.id)}
+          <div class="masonry-item">
+            <ThoughtBubble {task} showPip onclick={() => handleTaskClick(task.id)} />
+          </div>
+        {/each}
+      </div>
+      {#if focusCompletedTasks.length > 0}
+        <button class="completed-toggle" onclick={() => showFocusCompleted = !showFocusCompleted}>
+          {showFocusCompleted ? '▾' : '▸'} {focusCompletedTasks.length} completed
+        </button>
+        {#if showFocusCompleted}
+          <div transition:slide={{ duration: DURATION.normal }} class="masonry-grid" style="margin-top: 10px; opacity: 0.65;">
+            {#each focusCompletedTasks as task (task.id)}
+              <div class="masonry-item">
+                <ThoughtBubble {task} showPip onclick={() => handleTaskClick(task.id)} />
+              </div>
+            {/each}
+          </div>
+        {/if}
+      {/if}
+    {/if}
   {:else if viewModeStore.isFocus}
     <!-- Focus mode: single unified cluster, no project headers -->
     {#if focusActiveTasks.length === 0 && focusCompletedTasks.length === 0}

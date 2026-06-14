@@ -62,6 +62,11 @@ export async function toggleDone(id: number) {
 
   await updateTask(id, { done: !task.done });
 
+  if (markingDone) {
+    const { addToast } = await import('$lib/stores/toast.svelte');
+    addToast('completed', 'success', 5000, { action: { label: 'undo', onClick: () => toggleDone(id) } });
+  }
+
   // Auto-move card to/from Done bucket in kanban view
   if (viewModeStore.isKanban) {
     const doneBucketId = kanbanStore.doneBucketId;

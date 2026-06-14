@@ -170,6 +170,28 @@ export const projectsApi = {
   sync() {
     return request<{ synced: number }>('/projects/sync', { method: 'POST' });
   },
+
+  // ── Project workspace: notes + AI status briefing ──
+  getNotes(id: number) {
+    return request<{ content: string; updated_at: string | null }>(`/projects/${id}/notes`);
+  },
+
+  putNotes(id: number, content: string) {
+    return request<{ content: string; updated_at: string | null }>(`/projects/${id}/notes`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  getBriefing(id: number) {
+    return request<{ text: string; generated_at: string | null; stale: boolean; generating: boolean }>(`/projects/${id}/briefing`);
+  },
+
+  regenerateBriefing(id: number) {
+    return request<{ text: string; generated_at: string | null; stale: boolean; generating: boolean }>(`/projects/${id}/briefing`, {
+      method: 'POST',
+    });
+  },
 };
 
 // ── Kanban ─────────────────────────────────────────────────────────────

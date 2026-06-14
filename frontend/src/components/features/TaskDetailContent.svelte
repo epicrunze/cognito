@@ -19,6 +19,7 @@
   import DatePicker from '$components/ui/DatePicker.svelte';
   import SchedulePicker from '$components/ui/SchedulePicker.svelte';
   import Checkbox from '$components/ui/Checkbox.svelte';
+  import PriorityMeter from '$components/ui/PriorityMeter.svelte';
   import { showConfirmDialog } from '$lib/stores/confirmDialog.svelte';
   import { registerCelebrationElement, unregisterCelebrationElement } from '$lib/celebrate';
 
@@ -670,14 +671,6 @@
     '#4AADCC', '#7B6FE8', '#D46AB3', '#A1A09A',
   ];
 
-  const priorityColors = [
-    'var(--priority-none)',
-    'var(--priority-low)',
-    'var(--priority-low)',
-    'var(--priority-medium)',
-    'var(--priority-high)',
-    'var(--priority-urgent)',
-  ];
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -726,15 +719,8 @@
         />
       {/if}
     </div>
-    <div style="display: flex; align-items: center; gap: 5px; height: 34px; flex-shrink: 0;">
-      {#each [1, 2, 3, 4, 5] as level (level)}
-        <button
-          type="button"
-          aria-label="Priority {level}"
-          onclick={() => handlePriorityChange(level)}
-          style="width: 16px; height: 16px; border-radius: 50%; border: none; cursor: pointer; background: {level <= priority ? priorityColors[priority] : 'var(--border-default)'}; transition: all var(--transition-fast); transform: {level <= priority ? 'scale(1)' : 'scale(0.85)'};"
-        ></button>
-      {/each}
+    <div style="display: flex; align-items: center; height: 34px; flex-shrink: 0;">
+      <PriorityMeter value={priority} onchange={handlePriorityChange} />
     </div>
     <div style="flex-shrink: 0;">
       <DatePicker value={dueDate} onchange={handleDateChange} />

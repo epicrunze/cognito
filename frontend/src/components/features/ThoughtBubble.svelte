@@ -8,8 +8,9 @@
   import { proposalsApi, subtasksApi } from '$lib/api';
   import { addToast } from '$lib/stores/toast.svelte';
   import { showConfirmDialog } from '$lib/stores/confirmDialog.svelte';
-  import { onMount, tick } from 'svelte';
+  import { tick } from 'svelte';
   import PriorityIndicator from '$components/ui/PriorityIndicator.svelte';
+  import PriorityMeter from '$components/ui/PriorityMeter.svelte';
   import Badge from '$components/ui/Badge.svelte';
   import DateDisplay from '$components/ui/DateDisplay.svelte';
   import DatePicker from '$components/ui/DatePicker.svelte';
@@ -29,6 +30,7 @@
     kanban = false,
     proposalMode = false,
     selected = false,
+    showPip = false,
     onselect,
     onapprove,
     onreject,
@@ -43,6 +45,7 @@
     kanban?: boolean;
     proposalMode?: boolean;
     selected?: boolean;
+    showPip?: boolean;
     onselect?: () => void;
     onapprove?: () => void;
     onreject?: () => void;
@@ -53,7 +56,7 @@
 
   let hovering = $state(false);
   let celebrating = $state(false);
-  let quickCompleteRef = $state<HTMLButtonElement | undefined>(undefined);
+  let miniCheckRef = $state<HTMLButtonElement | undefined>(undefined);
   let doneButtonRef = $state<HTMLButtonElement | undefined>(undefined);
   let compactCheckboxEl = $state<HTMLDivElement | undefined>(undefined);
 
@@ -62,7 +65,7 @@
     if (data.isProposal || typeof data.id !== 'number') return;
     const taskId = data.id;
     // Pick the best element to register based on mode
-    const el = quickCompleteRef ?? doneButtonRef ?? compactCheckboxEl;
+    const el = miniCheckRef ?? doneButtonRef ?? compactCheckboxEl;
     if (el) {
       registerCelebrationElement(taskId, el);
       return () => unregisterCelebrationElement(taskId);
@@ -150,9 +153,11 @@
     const now = new Date();
     return start.getFullYear() === now.getFullYear() && start.getMonth() === now.getMonth() && start.getDate() === now.getDate();
   });
-  const hasIndicators = $derived(isOverdue || data.attachmentCount > 0 || data.subtaskTotal > 0 || (isScheduledToday && !data.done));
   const expanded = $derived(bubbleStore.expandedTaskId === data.id);
   const supportsVT = $derived(typeof document !== 'undefined' && !!document.startViewTransition);
+
+  // Whether the leading project pip shows in the data line (cross-project stream)
+  const pipColor = $derived(showPip && projectColor ? projectColor : '');
 
   // Swipe-to-complete (mobile only)
   let swipeX = $state(0);
@@ -160,6 +165,8 @@
   let swipeStartX = 0;
   let swipeStartY = 0;
   let swipeLocked = false;
+  const SWIPE_THRESHOLD = 96;
+  const swipePast = $derived(swipeX >= SWIPE_THRESHOLD);
 
   function handleSwipeStart(e: TouchEvent) {
     if (!responsiveStore.isMobile || data.done || data.isProposal || expanded) return;
@@ -185,21 +192,21 @@
 
     if (swiping) {
       e.preventDefault();
-      swipeX = Math.max(0, dx); // only swipe right
+      swipeX = Math.max(0, Math.min(140, dx)); // only swipe right
     }
   }
 
   function handleSwipeEnd() {
     if (!swiping) { swipeX = 0; return; }
-    const el = document.querySelector(`[data-transition-id="${data.id}"]`) as HTMLElement;
-    const threshold = el ? el.offsetWidth * 0.3 : 100;
-
-    if (swipeX > threshold && typeof data.id === 'number') {
+    if (swipeX >= SWIPE_THRESHOLD && typeof data.id === 'number') {
       // Complete the task
       if (typeof navigator?.vibrate === 'function') navigator.vibrate(15);
+      if (!data.done) {
+        celebrating = true;
+        setTimeout(() => celebrating = false, 750);
+      }
       toggleDone(data.id);
     }
-
     swipeX = 0;
     swiping = false;
   }
@@ -222,35 +229,66 @@
     }
   });
 
-  // --- Priority as presence ---
-  const presenceOpacity = $derived.by(() => {
-    if (data.done) return 0.35;
-    return 1;
+  // --- Priority as presence (one vocabulary: position/weight/brightness/opacity/shadow) ---
+  type Tier = 'urgent' | 'high' | 'medium' | 'low' | 'none';
+  const tier = $derived.by((): Tier => {
+    const p = data.priority;
+    if (p >= 5) return 'urgent';
+    if (p === 4) return 'high';
+    if (p === 3) return 'medium';
+    if (p >= 1) return 'low';
+    return 'none';
+  });
+  const tierColor: Record<Tier, string> = {
+    urgent: 'var(--urgent)', high: 'var(--high)', medium: 'var(--medium)', low: 'var(--low)', none: 'transparent',
+  };
+  const presence = $derived.by(() => {
+    switch (tier) {
+      case 'urgent': return { ink: 'var(--text-primary)', op: 1, weight: 600, fs: '16px' };
+      case 'high': return { ink: 'var(--text-primary)', op: 1, weight: 500, fs: '15px' };
+      case 'medium': return { ink: 'var(--text-primary)', op: 1, weight: 400, fs: '15px' };
+      case 'low': return { ink: 'var(--text-secondary)', op: 0.8, weight: 400, fs: '15px' };
+      default: return { ink: 'var(--text-secondary)', op: 0.92, weight: 400, fs: '15px' };
+    }
   });
 
-  const titleColor = $derived.by(() => {
-    if (data.done) return 'var(--text-tertiary)';
-    return 'var(--text-primary)';
-  });
+  // Whisper rail — 45% at rest, full color on hover; overdue forces red; hidden when done/none.
+  const railBase = $derived(isOverdue && !data.done ? 'var(--urgent)' : tierColor[tier]);
+  const hasRail = $derived(railBase !== 'transparent' && !data.done);
+  const railColor = $derived(
+    hovering
+      ? (isOverdue && !data.done ? 'var(--overdue-hint)' : railBase)
+      : `color-mix(in srgb, ${railBase} 45%, transparent)`
+  );
+
+  const presenceOpacity = $derived(data.done ? 0.55 : presence.op);
+  const titleColor = $derived(data.done ? 'var(--text-tertiary)' : presence.ink);
 
   const shadowStyle = $derived.by(() => {
     if (compact || data.done) return 'none';
     if (expanded) return 'var(--shadow-md)';
-    const p = data.priority;
-    if (hovering) {
-      return p <= 2 ? 'var(--shadow-sm)' : 'var(--shadow-lift)';
-    }
-    if (p <= 2) return 'none';
-    if (p === 3) return 'var(--shadow-sm)';
-    return 'var(--shadow-md)';
+    if (hovering) return 'var(--shadow-lift)';
+    return 'var(--shadow-rest)';
   });
 
-  // --- Bubble size by priority (spatial gravity) ---
-  const bubbleWidth = $derived(180 + (data.priority - 1) * 10);
-  const bubbleMinHeight = $derived.by(() => {
-    const heights: Record<number, number> = { 5: 95, 4: 92, 3: 90, 2: 85, 1: 82 };
-    return heights[data.priority] ?? 90;
+  const bubbleBorder = $derived.by(() => {
+    if (showGlow) return 'var(--ai)';
+    if (expanded) return 'var(--border-strong)';
+    return 'transparent';
   });
+
+  // Card padding — reserve the left rail gutter without changing geometry on hover.
+  const cardPadding = $derived(
+    expanded
+      ? '18px 20px'
+      : kanbanCompact
+        ? (hasRail ? '8px 10px 8px 13px' : '8px 10px')
+        : (hasRail ? '13px 14px 12px 17px' : '13px 14px 12px')
+  );
+
+  // Collapsed check shows on hover (or stays once done); real tasks only.
+  const showCollapsedCheck = $derived(!data.isProposal && !proposalMode && (hovering || data.done));
+  const canCollapsedCheck = $derived(!data.isProposal && !proposalMode);
 
   // --- Expanded state editing ---
   let editTitle = $state('');
@@ -259,9 +297,6 @@
   let descFocused = $state(false);
   let titleTimer: ReturnType<typeof setTimeout> | null = null;
   let descTimer: ReturnType<typeof setTimeout> | null = null;
-
-  // Priority hover preview
-  let hoveredPriority = $state<number | null>(null);
 
   // Date picker portal state
   let showDatePicker = $state(false);
@@ -390,7 +425,6 @@
       if (!titleFocused) editTitle = data.title;
       if (!descFocused) editDescription = data.description;
       showDatePicker = false;
-      hoveredPriority = null;
     }
   });
 
@@ -484,7 +518,7 @@
     // Flash celebrating class when completing
     if (!data.done) {
       celebrating = true;
-      setTimeout(() => celebrating = false, 700);
+      setTimeout(() => celebrating = false, 750);
     }
     if (ontoggle) {
       ontoggle();
@@ -515,39 +549,8 @@
     onclick?.();
   }
 
-  // Priority border
-  const priorityBorderColor = $derived.by(() => {
-    if (isOverdue && !data.done) return 'var(--overdue-border)';
-    const colors: Record<number, string> = {
-      5: 'var(--priority-urgent)', 4: 'var(--priority-high)',
-      3: 'var(--priority-medium)', 2: 'var(--priority-low)',
-      1: 'var(--priority-none)',
-    };
-    return colors[data.priority] ?? 'var(--priority-none)';
-  });
-
-  const priorityBorderWidth = $derived(data.priority >= 4 ? '3px' : '2px');
-
-  // Border color (not shorthand — avoids flash on left priority border during hover transition)
-  const borderColor = $derived.by(() => {
-    if (compact) {
-      if (showGlow) return 'var(--bg-surface)';
-      return 'transparent';
-    }
-    if (expanded) return 'var(--border-strong)';
-    if (showGlow) return 'rgba(232,119,46,0.5)';
-    if (hovering) return 'var(--border-strong)';
-    return 'var(--border-subtle)';
-  });
-
-  // Compact-mode border-left for AI-tagged
-  const compactBorderLeft = $derived(showGlow ? '2px solid var(--accent)' : '2px solid transparent');
-
-  // Priority dot color helper — uses hovered level for preview
-  function dotColor(dotIndex: number): string {
-    const previewLevel = hoveredPriority ?? data.priority;
-    const activeColor = priorityDotColor(previewLevel);
-    return dotIndex <= previewLevel ? activeColor : 'var(--border-default)';
+  function formatDate(dateStr: string): string {
+    return formatRelativeDate(dateStr);
   }
 </script>
 
@@ -563,7 +566,7 @@
     onkeydown={handleKeydown}
     data-transition-id="{data.id}"
     data-task-priority="{data.priority}"
-    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; display: flex; align-items: center; width: 100%; border-radius: 8px; padding: 8px 12px; gap: 10px; background: {hovering ? 'var(--bg-surface-hover)' : 'transparent'}; border-bottom: 1px solid var(--border-subtle); border-left: {compactBorderLeft}; box-shadow: {showGlow ? 'inset 3px 0 8px -4px var(--accent-glow)' : 'none'}; cursor: pointer; transition: width var(--transition-fast) ease-out, background var(--transition-fast) ease-out, border-bottom-color var(--transition-fast) ease-out, box-shadow var(--transition-fast) ease-out, opacity var(--transition-fast) ease-out; opacity: {presenceOpacity}; min-height: 44px;"
+    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; display: flex; align-items: center; width: 100%; border-radius: 8px; padding: 8px 12px; gap: 10px; background: {hovering ? 'var(--surface-card-hover)' : 'transparent'}; border-bottom: 1px solid var(--border-subtle); border-left: {showGlow ? '2px solid var(--ai)' : '2px solid transparent'}; box-shadow: {showGlow ? 'inset 3px 0 8px -4px var(--ai-glow)' : 'none'}; cursor: pointer; transition: background var(--t-fast) var(--ease-out), border-bottom-color var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease-out), opacity var(--t-fast) var(--ease-out); opacity: {presenceOpacity}; min-height: 44px;"
   >
     {#if proposalMode}
       <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -579,7 +582,7 @@
     <div style="padding-top: 1px;">
       <PriorityIndicator level={data.priority} size="sm" />
     </div>
-    <span style="flex: 1; font-size: 14.5px; font-weight: {data.priority >= 4 ? 500 : 400}; color: {titleColor}; text-decoration: {data.done ? 'line-through' : 'none'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;">
+    <span style="flex: 1; font-size: 14.5px; font-weight: {presence.weight}; color: {titleColor}; text-decoration: {data.done ? 'line-through' : 'none'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;">
       {data.title}
     </span>
     {#if data.labels.length > 0}
@@ -598,12 +601,16 @@
 
 {:else}
   <!-- BUBBLE MODE (card) -->
-  <div class="swipe-wrapper" style="position: relative; {responsiveStore.isMobile && !data.done && !data.isProposal ? 'overflow: hidden; border-radius: 10px;' : ''}">
+  <div class="swipe-wrapper" style="position: relative; {responsiveStore.isMobile && !data.done && !data.isProposal ? 'overflow: hidden; border-radius: var(--radius-card);' : ''}">
     {#if swipeX > 0}
-      <div class="swipe-reveal" style="width: {swipeX}px;">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="20 6 9 17 4 12"/>
-        </svg>
+      <div class="swipe-reveal" style="background: color-mix(in srgb, var(--done) {swipePast ? 16 : 10}%, transparent);">
+        <span class="swipe-check" class:past={swipePast}>
+          {#if swipePast}
+            <svg width="12" height="12" viewBox="0 0 11 11" fill="none">
+              <path d="M2.5 6L4.5 8L8.5 3.5" stroke="var(--bg-base)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          {/if}
+        </span>
       </div>
     {/if}
   <div
@@ -619,25 +626,11 @@
     ontouchend={handleSwipeEnd}
     data-transition-id="{data.id}"
     data-task-priority="{data.priority}"
-    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? 'min(360px, 100%)' : kanban || responsiveStore.isMobile ? '100%' : `${bubbleWidth}px`}; min-height: {expanded ? 'auto' : kanbanCompact ? '50px' : `${bubbleMinHeight}px`}; border-radius: 10px; background: {expanded ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border-top: 1px solid {borderColor}; border-right: 1px solid {borderColor}; border-bottom: 1px solid {borderColor}; border-left: {priorityBorderWidth} solid {priorityBorderColor}; padding: {expanded ? '18px 20px' : kanbanCompact ? '8px 10px' : '14px 14px 11px'}; cursor: pointer; box-shadow: {shadowStyle}{showGlow && !expanded ? ', inset 0 0 12px -4px var(--accent-glow)' : ''}; transition: {swiping ? 'none' : 'background var(--transition-normal) ease-out, border-top-color var(--transition-normal) ease-out, border-right-color var(--transition-normal) ease-out, border-bottom-color var(--transition-normal) ease-out, box-shadow var(--transition-normal) ease-out, opacity var(--transition-normal) ease-out, transform 200ms ease-out'}; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden; {swipeX > 0 ? `transform: translateX(${swipeX}px);` : ''}"
+    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? 'min(360px, 100%)' : (kanban || responsiveStore.isMobile) ? '100%' : '232px'}; min-height: {expanded ? 'auto' : kanbanCompact ? '50px' : 'auto'}; border-radius: var(--radius-card); background: {expanded ? 'var(--bg-elevated)' : (hovering && !data.done ? 'var(--surface-card-hover)' : 'var(--surface-card)')}; border: 1px solid {bubbleBorder}; padding: {cardPadding}; cursor: pointer; box-shadow: {showGlow && !expanded ? '0 0 10px var(--ai-glow), ' + shadowStyle : shadowStyle}; transition: {swiping ? 'none' : 'background var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease-out), opacity var(--t-fast) var(--ease-out), transform var(--t-normal) var(--ease-out)'}; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden; transform: {swipeX > 0 ? `translateX(${swipeX}px)` : (hovering && !expanded && !swiping ? 'translateY(-2px)' : 'none')};"
   >
-    <!-- Project corner triangle -->
-    {#if projectColor}
-      <div class="project-triangle" style="position: absolute; top: 0; right: 0; width: 0; height: 0; border-left: 18px solid transparent; border-top: 18px solid {projectColor}; border-top-right-radius: 9px; opacity: {expanded ? 0.6 : 0.7}; transition: opacity var(--transition-normal); pointer-events: none;"></div>
-    {/if}
-
-    <!-- Quick-complete circle — top-right, appears on hover -->
-    {#if !expanded && !kanbanCompact && !data.done && !data.isProposal && !proposalMode}
-      <button
-        bind:this={quickCompleteRef}
-        class="quick-complete"
-        onclick={handleDoneToggle}
-        aria-label="Complete task"
-      >
-        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3.5 8.5l3 3 6-6" />
-        </svg>
-      </button>
+    <!-- Whisper rail (priority as presence — 45% at rest, full on hover) -->
+    {#if hasRail && !expanded}
+      <span class="priority-rail" style="background: {railColor};"></span>
     {/if}
 
     {#if proposalMode && !expanded}
@@ -648,39 +641,61 @@
     {/if}
 
     {#if !expanded}
-      <!-- COLLAPSED STATE -->
-      <div style="font-size: {kanbanCompact ? '13px' : '14.5px'}; font-weight: {data.priority >= 4 ? 500 : 400}; color: {titleColor}; text-decoration: {data.done ? 'line-through' : 'none'}; line-height: 1.4; letter-spacing: -0.01em; display: -webkit-box; -webkit-line-clamp: {kanbanCompact ? 2 : 3}; -webkit-box-orient: vertical; overflow: hidden; padding-right: {projectColor ? '14px' : '0'}; {proposalMode ? 'margin-left: 28px;' : ''}">
+      <!-- COLLAPSED STATE — quiet anatomy -->
+      <span
+        class="bubble-title"
+        style="font-size: {kanbanCompact ? '13px' : presence.fs}; font-weight: {presence.weight}; color: {titleColor}; text-decoration: {data.done ? 'line-through' : 'none'}; -webkit-line-clamp: {kanbanCompact ? 2 : 3}; {proposalMode ? 'margin-left: 28px;' : ''}"
+      >
         {data.title}
-      </div>
-      <!-- Unified bottom row: indicators + quick-complete + hover meta -->
+      </span>
+
+      <!-- One mono data line. No checkbox at rest; hover slides the check in. -->
       {#if !kanbanCompact}
-      <div class="card-bottom-row" class:has-hover-labels={data.labels.length > 0} style="position: relative; {proposalMode ? 'margin-left: 28px;' : ''}">
-        <div class="card-meta">
-          {#if data.dueDate}
-            <span style="color: {isOverdue ? 'var(--overdue)' : 'inherit'};">{formatDate(data.dueDate)}</span>
+        <div class="data-line" style="{proposalMode ? 'margin-left: 28px;' : ''}">
+          {#if canCollapsedCheck}
+            <button
+              bind:this={miniCheckRef}
+              class="mini-check-slot"
+              class:show={showCollapsedCheck}
+              onclick={handleDoneToggle}
+              aria-label={data.done ? 'Mark not done' : 'Complete task'}
+            >
+              <span class="mini-check" class:checked={data.done}>
+                {#if data.done}
+                  <svg width="8" height="8" viewBox="0 0 11 11" fill="none">
+                    <path d="M2.5 6L4.5 8L8.5 3.5" stroke="var(--bg-base)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                {/if}
+              </span>
+            </button>
           {/if}
-          {#if data.subtaskTotal > 0}
-            <span class="card-indicator">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2" /><path d="M5 8l2 2 4-4" stroke-linecap="round" stroke-linejoin="round" /></svg>
-              {data.subtaskDone}/{data.subtaskTotal}
-            </span>
-          {/if}
-          {#if data.attachmentCount > 0}
-            <span class="card-indicator">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 7.5l-5.4 5.4a3.2 3.2 0 01-4.5-4.5l5.4-5.4a2 2 0 012.8 2.8L6.4 11.2a.8.8 0 01-1.1-1.1l4.5-4.5" stroke-linecap="round" /></svg>
-              {data.attachmentCount}
-            </span>
-          {/if}
-          {#if isScheduledToday && !data.done}
-            <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: 0.5; flex-shrink: 0;"></span>
-          {/if}
+          <span class="data-parts">
+            {#if pipColor}
+              <span class="dp"><span class="pip" style="background: {pipColor};"></span></span>
+            {/if}
+            {#if data.dueDate}
+              <span class="dp" style="color: {isOverdue ? 'var(--overdue)' : 'inherit'};">{formatDate(data.dueDate)}</span>
+            {/if}
+            {#if data.subtaskTotal > 0}
+              <span class="dp">{data.subtaskDone}/{data.subtaskTotal}</span>
+            {/if}
+            {#if data.attachmentCount > 0}
+              <span class="dp attach">
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.5 7.5l-5.4 5.4a3.2 3.2 0 01-4.5-4.5l5.4-5.4a2 2 0 012.8 2.8L6.4 11.2a.8.8 0 01-1.1-1.1l4.5-4.5" stroke-linecap="round" /></svg>
+                {data.attachmentCount}
+              </span>
+            {/if}
+            {#if isScheduledToday && !data.done}
+              <span class="dp"><span class="today-dot"></span></span>
+            {/if}
+            {#if isAiTagged}
+              <span class="dp ai-tag">
+                <svg width="8" height="8" viewBox="0 0 10 10"><rect x="2.2" y="2.2" width="5.6" height="5.6" fill="none" stroke="currentColor" stroke-width="1.2" transform="rotate(45 5 5)"></rect></svg>
+                cognito
+              </span>
+            {/if}
+          </span>
         </div>
-        {#if data.labels.length > 0}
-          <div class="card-hover-labels">
-            <Badge color={data.labels[0].hex_color}>{data.labels[0].title}</Badge>
-          </div>
-        {/if}
-      </div>
       {/if}
 
     {:else}
@@ -714,20 +729,11 @@
         ></textarea>
 
         <!-- Metadata row -->
-        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: center; padding-left: 4px;">
-          <!-- Priority dots — hover previews the level -->
-          <div
-            style="display: flex; gap: 3px; padding: 4px 2px; border-radius: 6px; margin-right: 0; cursor: pointer;"
-            onmouseleave={() => hoveredPriority = null}
-          >
-            {#each [1, 2, 3, 4, 5] as p (p)}
-              <button
-                aria-label="Priority {p}"
-                onmouseenter={() => hoveredPriority = p}
-                onclick={(e) => { e.stopPropagation(); handlePriorityClick(p); hoveredPriority = null; }}
-                style="width: 8px; height: 8px; border-radius: 50%; border: none; padding: 0; cursor: pointer; background: {dotColor(p)}; transition: background 100ms;"
-              ></button>
-            {/each}
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; align-items: center; padding-left: 4px;">
+          <!-- Priority — editable meter -->
+          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+          <div onclick={(e) => e.stopPropagation()}>
+            <PriorityMeter value={data.priority} showLabel={false} segWidth={18} onchange={(p) => handlePriorityClick(p)} />
           </div>
 
           <!-- Due date — click to open portal DatePicker -->
@@ -850,19 +856,125 @@
   </div>
 {/if}
 
-<script module lang="ts">
-  const priorityColors = ['', 'var(--priority-low)', 'var(--priority-low)', 'var(--priority-medium)', 'var(--priority-high)', 'var(--priority-urgent)'];
-
-  function priorityDotColor(level: number): string {
-    return priorityColors[level] ?? priorityColors[0];
-  }
-
-  function formatDate(dateStr: string): string {
-    return formatRelativeDate(dateStr);
-  }
-</script>
-
 <style>
+  /* Collapsed title — owns the full first line */
+  .bubble-title {
+    font-family: var(--font-sans);
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    text-decoration-color: var(--text-tertiary);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-wrap: pretty;
+  }
+
+  /* Whisper rail */
+  .priority-rail {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-top-left-radius: var(--radius-card);
+    border-bottom-left-radius: var(--radius-card);
+    transition: background var(--t-fast) var(--ease-out);
+    pointer-events: none;
+  }
+
+  /* One mono data line — reserved height so hover never resizes the card */
+  .data-line {
+    display: flex;
+    align-items: center;
+    min-height: 14px;
+    margin-top: 9px;
+  }
+
+  .mini-check-slot {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    overflow: hidden;
+    width: 0;
+    margin-right: 0;
+    opacity: 0;
+    transition: width var(--t-fast) var(--ease-out), margin-right var(--t-fast) var(--ease-out), opacity var(--t-fast) var(--ease-out);
+  }
+  .mini-check-slot.show {
+    width: 14px;
+    margin-right: 8px;
+    opacity: 1;
+  }
+  .mini-check {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    border: 1.5px solid var(--border-strong);
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--t-normal) var(--ease-out);
+  }
+  .mini-check.checked {
+    border: none;
+    background: var(--done);
+  }
+  /* Hovering the bubble cues completability — the unchecked box goes green. */
+  :global([role="button"]:hover) .mini-check:not(.checked) {
+    border-color: var(--done);
+  }
+  /* Hovering the check itself fills it, for a clear click target. */
+  .mini-check-slot:hover .mini-check:not(.checked) {
+    background: var(--done);
+    border-color: var(--done);
+  }
+
+  .data-parts {
+    display: inline-flex;
+    align-items: center;
+    font: var(--type-data);
+    color: var(--text-tertiary);
+    letter-spacing: var(--tracking-mono);
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .dp {
+    display: inline-flex;
+    align-items: center;
+  }
+  .dp + .dp::before {
+    content: '·';
+    opacity: 0.5;
+    padding: 0 5px;
+  }
+  .dp.attach {
+    gap: 2px;
+  }
+  .ai-tag {
+    color: var(--ai);
+    gap: 4px;
+  }
+  .pip {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .today-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.5;
+    display: inline-block;
+  }
+
   /* Editable text fields (title, description) */
   .bubble-editable {
     background: transparent;
@@ -924,112 +1036,30 @@
     opacity: 1 !important;
   }
 
-  /* Unified bottom row */
-  .card-bottom-row {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    min-height: 20px;
-    margin-top: auto;
-    padding-top: 10px;
-    font-size: 11px;
-    color: var(--text-tertiary);
-  }
-
-  .card-indicator {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    opacity: 0.65;
-  }
-
-  /* Quick-complete: absolutely positioned top-right, shown on card hover */
-  .quick-complete {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 16px;
-    height: 16px;
-    border-radius: 3px;
-    border: 1.5px solid var(--border-strong);
-    background: transparent;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    padding: 0;
-    color: transparent;
-    z-index: 1;
-    opacity: 0;
-    transition: opacity var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
-  }
-
-  :global([role="button"]:hover) .quick-complete {
-    opacity: 1;
-    border-color: var(--done);
-  }
-
-  .quick-complete:hover {
-    opacity: 1 !important;
-    border-color: var(--done);
-    background: var(--done);
-    color: var(--bg-base);
-  }
-
-  /* Project triangle fades out on card hover */
-  :global([role="button"]:hover) .project-triangle {
-    opacity: 0 !important;
-    pointer-events: none;
-  }
-
-  /* Persistent metadata row */
-  .card-meta {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    opacity: 0.55;
-    transition: opacity var(--transition-fast);
-  }
-
-  /* Hover labels — hidden by default, shown on card hover */
-  .card-hover-labels {
-    position: absolute;
-    top: 10px;
-    left: 0;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-  }
-
-  /* When card has labels: swap meta for labels on hover */
-  :global([role="button"]:hover) .has-hover-labels .card-meta {
-    opacity: 0;
-  }
-
-  :global([role="button"]:hover) .has-hover-labels .card-hover-labels {
-    opacity: 1;
-  }
-
-  .swipe-container {
-    position: relative;
-    overflow: hidden;
-    border-radius: 10px;
-  }
-
+  /* Swipe-to-complete (mobile) — green gutter with a check that fills past threshold */
   .swipe-reveal {
     position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    background: var(--done);
+    inset: 0;
     display: flex;
     align-items: center;
-    justify-content: center;
-    color: white;
-    border-radius: 10px 0 0 10px;
-    min-width: 48px;
+    padding-left: 18px;
+    border-radius: var(--radius-card);
   }
-
+  .swipe-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    box-sizing: border-box;
+    border: 1.5px solid var(--done);
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 130ms var(--ease-out);
+  }
+  .swipe-check.past {
+    border: none;
+    background: var(--done);
+    transform: scale(1.1);
+  }
 </style>

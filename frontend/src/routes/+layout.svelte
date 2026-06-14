@@ -3,7 +3,7 @@
   import type { Snippet } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { fly, fade } from 'svelte/transition';
   import { authStore, tasksStore, projectsStore, labelsStore, bubbleStore, toggleDone } from '$lib/stores.svelte';
   import { shortcuts } from '$lib/shortcuts';
@@ -28,6 +28,8 @@
   import TaskDetail from '$components/features/TaskDetail.svelte';
   import BottomSheet from '$components/ui/BottomSheet.svelte';
   import MobileQuickAdd from '$components/features/MobileQuickAdd.svelte';
+  import TabBar from '$components/features/TabBar.svelte';
+  import LensTabs from '$components/ui/LensTabs.svelte';
 
   let { children }: { children: Snippet } = $props();
 
@@ -54,8 +56,42 @@
     '/': 'All Tasks',
     '/upcoming': 'Upcoming',
     '/overdue': 'Overdue',
+    '/projects': 'Projects',
     '/settings': 'Settings',
   };
+
+  // ── Mobile bottom-nav (TabBar) ──
+  const mobileTabs = [
+    { value: 'thoughts', label: 'Thoughts' },
+    { value: 'projects', label: 'Projects' },
+    { value: 'upcoming', label: 'Upcoming' },
+    { value: 'search', label: 'Search' },
+  ];
+  const activeTab = $derived.by(() => {
+    const p = $page.url.pathname;
+    if (p === '/projects' || p.startsWith('/project/')) return 'projects';
+    if (p === '/upcoming') return 'upcoming';
+    return 'thoughts';
+  });
+  let mobileSearchOpen = $state(false);
+
+  function handleTabChange(value: string) {
+    mobileSearchOpen = false;
+    if (value === 'thoughts') goto('/');
+    else if (value === 'projects') goto('/projects');
+    else if (value === 'upcoming') goto('/upcoming');
+    else if (value === 'search') {
+      mobileSearchOpen = true;
+      tick().then(() => searchRef?.focus());
+    }
+  }
+
+  // Home lenses (all / upcoming / overdue) — the mobile perspective row.
+  const homeLenses = $derived([
+    { value: '/', label: 'all' },
+    { value: '/upcoming', label: 'upcoming', count: upcomingCount || undefined },
+    { value: '/overdue', label: 'overdue', count: overdueCount || undefined },
+  ]);
   const pageTitle = $derived.by(() => {
     const path = $page.url.pathname;
     if (path.startsWith('/project/')) {
@@ -200,17 +236,6 @@
     <main style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;">
       <!-- Top bar -->
       <div style="display: flex; align-items: center; padding: 10px {responsiveStore.isMobile ? '16px' : '24px'}; border-bottom: 1px solid var(--border-subtle); gap: 10px; flex-shrink: 0;">
-        {#if responsiveStore.isMobile}
-          <button
-            class="hamburger-btn"
-            aria-label="Open menu"
-            onclick={() => responsiveStore.toggleSidebar()}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <path d="M3 12h18"/><path d="M3 6h18"/><path d="M3 18h18"/>
-            </svg>
-          </button>
-        {/if}
         {#if currentProject}
           <div class="project-title-group">
             <div
@@ -234,23 +259,12 @@
             >&#8942;</button>
           </div>
         {:else if responsiveStore.isMobile && isTaskViewRoute}
-          <div class="mobile-topbar-chips" style="margin-right: auto;">
-            <button
-              class="topbar-chip"
-              class:topbar-chip-active={$page.url.pathname === '/'}
-              onclick={() => goto('/')}
-            >All</button>
-            <button
-              class="topbar-chip"
-              class:topbar-chip-active={$page.url.pathname === '/upcoming'}
-              onclick={() => goto('/upcoming')}
-            >Upcoming{upcomingCount > 0 ? ` ${upcomingCount}` : ''}</button>
-            <button
-              class="topbar-chip"
-              class:topbar-chip-active={$page.url.pathname === '/overdue'}
-              onclick={() => goto('/overdue')}
-            >Overdue{overdueCount > 0 ? ` ${overdueCount}` : ''}</button>
+          <div style="margin-right: auto;">
+            <LensTabs lenses={homeLenses} value={$page.url.pathname} onchange={(v) => goto(v)} />
           </div>
+          <button class="topbar-gear" aria-label="Settings" onclick={() => goto('/settings')}>
+            <svg width="20" height="20" viewBox="0 0 22 22" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"><circle cx="11" cy="11" r="2.6" /><path d="M11 2.5v2.4M11 17.1v2.4M2.5 11h2.4M17.1 11h2.4M5 5l1.7 1.7M15.3 15.3L17 17M17 5l-1.7 1.7M6.7 15.3L5 17" /></svg>
+          </button>
         {:else}
           <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; flex-shrink: 0; margin-right: auto;">{pageTitle}</span>
         {/if}
@@ -292,7 +306,7 @@
 
       <!-- Content + Detail Pane -->
       <div style="flex: 1; display: flex; overflow: hidden;">
-        <div style="flex: 1; overflow-y: auto; min-width: 0;">
+        <div style="flex: 1; overflow-y: auto; min-width: 0; {responsiveStore.isMobile ? 'padding-bottom: 76px;' : ''}">
           {#if isTaskViewRoute}
             <ViewOrchestrator />
           {:else}
@@ -328,9 +342,7 @@
           <h3 class="sheet-task-title">{selectedTask.title}</h3>
           <div class="sheet-task-meta">
             {#if selectedTask.priority && selectedTask.priority > 1}
-              <span class="sheet-priority" style="color: var(--priority-{selectedTask.priority === 5 ? 'urgent' : selectedTask.priority === 4 ? 'high' : selectedTask.priority === 3 ? 'medium' : 'low'});">
-                {'●'.repeat(selectedTask.priority)}
-              </span>
+              <span style="width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--priority-{selectedTask.priority === 5 ? 'urgent' : selectedTask.priority === 4 ? 'high' : selectedTask.priority === 3 ? 'medium' : 'low'});"></span>
             {/if}
             {#if selectedTask.due_date}
               {@const isOverdueDate = checkOverdue(selectedTask.due_date) && !selectedTask.done}
@@ -380,11 +392,18 @@
   <ToastContainer />
   <ConfirmDialog />
   {#if responsiveStore.isMobile}
-    <button class="fab-extract" aria-label="Quick add" onclick={() => quickAddOpen = true}>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-        <path d="M12 5v14"/><path d="M5 12h14"/>
-      </svg>
-    </button>
+    {#if mobileSearchOpen}
+      <div class="mobile-search-bar" transition:fly={{ y: -40, duration: 200 }}>
+        <Input placeholder="Search thoughts..." bind:value={searchValue} bind:ref={searchRef} height={38} oninput={handleSearchInput} style="flex: 1;" />
+        <button class="mobile-search-close" onclick={() => { mobileSearchOpen = false; searchValue = ''; handleSearchInput(); }} aria-label="Close search">&times;</button>
+      </div>
+    {/if}
+    <TabBar
+      tabs={mobileTabs}
+      active={activeTab}
+      onchange={handleTabChange}
+      oncapture={() => quickAddOpen = true}
+    />
     <MobileQuickAdd open={quickAddOpen} onclose={() => quickAddOpen = false} />
   {:else}
     <button class="fab-extract" class:fab-active={thinkingOpen} aria-label={thinkingOpen ? 'Close thinking margin' : 'Open thinking margin'} onclick={openThinking}>
@@ -466,7 +485,7 @@
     animation-duration: 4s;
   }
 
-  .hamburger-btn {
+  .topbar-gear {
     width: 36px;
     height: 36px;
     display: flex;
@@ -482,8 +501,33 @@
     padding: 0;
   }
 
-  .hamburger-btn:hover {
+  .topbar-gear:hover {
     background: var(--bg-surface-hover);
+  }
+
+  .mobile-search-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--bg-base);
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .mobile-search-close {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
+    padding: 0 4px;
+    flex-shrink: 0;
   }
 
   .mobile-overlay {
@@ -635,29 +679,4 @@
     color: var(--done);
   }
 
-  .mobile-topbar-chips {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-  }
-
-  .topbar-chip {
-    height: 28px;
-    padding: 0 10px;
-    font-size: 13px;
-    font-weight: 600;
-    font-family: var(--font-sans);
-    border-radius: 14px;
-    border: none;
-    background: transparent;
-    color: var(--text-tertiary);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    white-space: nowrap;
-  }
-
-  .topbar-chip-active {
-    color: var(--text-primary);
-    background: var(--bg-surface-hover);
-  }
 </style>
