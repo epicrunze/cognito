@@ -586,7 +586,7 @@
     background: var(--bg-elevated);
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all var(--transition-fast) ease-out;
+    transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);
     flex-shrink: 0;
   }
 

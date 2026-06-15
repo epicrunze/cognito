@@ -44,7 +44,7 @@
     align-items: center;
     justify-content: center;
     box-shadow: var(--shadow-hover);
-    transition: all var(--t-fast) var(--ease-out);
+    transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);
   }
   .fab:hover {
     box-shadow: var(--shadow-lift);

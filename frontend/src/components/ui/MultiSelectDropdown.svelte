@@ -78,7 +78,7 @@
   <button
     type="button"
     onclick={() => { open = !open; if (!open) search = ''; }}
-    style="width: 100%; height: 34px; padding: 0 12px; font-size: 13.5px; font-weight: 400; color: {hasSelection ? 'var(--text-primary)' : 'var(--text-tertiary)'}; background: var(--bg-elevated); border: 1px solid {open || hasSelection ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all var(--transition-fast) ease-out; outline: none; box-shadow: {open ? '0 0 0 2px rgba(232,119,46,0.15)' : 'none'}; font-family: var(--font-sans);"
+    style="width: 100%; height: 34px; padding: 0 12px; font-size: 13.5px; font-weight: 400; color: {hasSelection ? 'var(--text-primary)' : 'var(--text-tertiary)'}; background: var(--bg-elevated); border: 1px solid {open || hasSelection ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out); outline: none; box-shadow: {open ? '0 0 0 2px rgba(232,119,46,0.15)' : 'none'}; font-family: var(--font-sans);"
   >
     <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
       {buttonLabel}
@@ -107,9 +107,9 @@
             onmouseenter={() => hoveredValue = opt.value}
             onmouseleave={() => hoveredValue = null}
             onclick={() => toggle(opt.value)}
-            style="width: 100%; height: 34px; padding: 0 10px; font-size: 13.5px; font-weight: {isSelected(opt.value) ? 500 : 400}; color: {isSelected(opt.value) ? 'var(--text-primary)' : hoveredValue === opt.value ? 'var(--text-primary)' : 'var(--text-secondary)'}; background: {isSelected(opt.value) ? 'var(--accent-subtle)' : hoveredValue === opt.value ? 'var(--bg-surface-hover)' : 'transparent'}; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; text-align: left; transition: all 100ms ease-out; font-family: var(--font-sans);"
+            style="width: 100%; height: 34px; padding: 0 10px; font-size: 13.5px; font-weight: {isSelected(opt.value) ? 500 : 400}; color: {isSelected(opt.value) ? 'var(--text-primary)' : hoveredValue === opt.value ? 'var(--text-primary)' : 'var(--text-secondary)'}; background: {isSelected(opt.value) ? 'var(--accent-subtle)' : hoveredValue === opt.value ? 'var(--bg-surface-hover)' : 'transparent'}; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; text-align: left; transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out); font-family: var(--font-sans);"
           >
-            <span style="width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid {isSelected(opt.value) ? 'var(--accent)' : 'var(--border-strong)'}; background: {isSelected(opt.value) ? 'var(--accent)' : 'transparent'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 100ms ease-out;">
+            <span style="width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid {isSelected(opt.value) ? 'var(--accent)' : 'var(--border-strong)'}; background: {isSelected(opt.value) ? 'var(--accent)' : 'transparent'}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);">
               {#if isSelected(opt.value)}
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="display: block;">
                   <path d="M2 5.5L4 7.5L8 3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>

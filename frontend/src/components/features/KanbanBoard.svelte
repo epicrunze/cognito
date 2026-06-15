@@ -7,7 +7,7 @@
   import { responsiveStore } from '$lib/stores/responsive.svelte';
   import { applyClientFilters } from '$lib/filterUtils';
   import { dragHandleZone } from 'svelte-dnd-action';
-  import { slide } from 'svelte/transition';
+  import { listSlide } from '$lib/transitions';
   import KanbanColumn from './KanbanColumn.svelte';
   import ThoughtBubble from './ThoughtBubble.svelte';
   import Skeleton from '$components/ui/Skeleton.svelte';
@@ -193,7 +193,7 @@
             <span class="accordion-chevron" class:accordion-chevron-open={isExpanded}>&#9656;</span>
           </button>
           {#if isExpanded}
-            <div class="accordion-body" transition:slide={{ duration: 200 }}>
+            <div class="accordion-body" transition:listSlide>
               {#each tasks as task (task.id)}
                 <ThoughtBubble {task} kanban={true} kanbanCompact={kanbanDensity === 'compact'} onclick={() => handleTaskClick(task.id)} />
               {/each}
@@ -211,7 +211,7 @@
       <div style="display: flex; align-items: center; justify-content: flex-end; padding: 8px 24px 0; flex-shrink: 0;">
         <button
           onclick={toggleDensity}
-          style="height: 28px; padding: 0 10px; font-size: 12px; font-weight: 500; color: var(--text-tertiary); background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 6px; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
+          style="height: 28px; padding: 0 10px; font-size: 12px; font-weight: 500; color: var(--text-tertiary); background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 6px; cursor: pointer; font-family: var(--font-sans); transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);"
         >{kanbanDensity === 'full' ? 'Compact' : 'Full'}</button>
       </div>
       <div style="display: flex; gap: 16px; padding: 12px 24px 20px; overflow-x: auto; -webkit-overflow-scrolling: touch; flex: 1; align-items: flex-start;">
@@ -251,7 +251,7 @@
       {:else}
         <button
           onclick={() => addingColumn = true}
-          style="width: 280px; flex-shrink: 0; padding: 14px 16px; background: var(--bg-surface); border: 1px dashed var(--border-default); border-radius: 10px; color: var(--text-tertiary); font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast);"
+          style="width: 280px; flex-shrink: 0; padding: 14px 16px; background: var(--bg-surface); border: 1px dashed var(--border-default); border-radius: 10px; color: var(--text-tertiary); font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);"
         >+ Add Column</button>
       {/if}
       </div>

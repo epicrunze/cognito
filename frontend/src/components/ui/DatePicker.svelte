@@ -200,7 +200,7 @@
 
 <div bind:this={ref} style="position: relative; display: inline-flex;">
   <!-- Text input + calendar icon -->
-  <div style="display: flex; align-items: center; gap: 0; height: 40px; background: var(--bg-elevated); border: 1px solid {open ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; transition: all var(--transition-fast) ease-out; box-shadow: {open ? '0 0 0 2px rgba(232,119,46,0.15)' : 'none'};">
+  <div style="display: flex; align-items: center; gap: 0; height: 40px; background: var(--bg-elevated); border: 1px solid {open ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out); box-shadow: {open ? '0 0 0 2px rgba(232,119,46,0.15)' : 'none'};">
     <input
       type="text"
       bind:value={inputValue}
@@ -273,7 +273,7 @@
             <button
               type="button"
               onclick={() => selectDay(day)}
-              style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: {isSelected ? 600 : 400}; color: {isSelected ? 'white' : 'var(--text-primary)'}; background: {isSelected ? 'var(--accent)' : 'transparent'}; border: {isToday && !isSelected ? '1px solid rgba(232,119,46,0.4)' : '1px solid transparent'}; border-radius: 8px; cursor: pointer; opacity: {day.isCurrentMonth ? 1 : 0.3}; transition: all 100ms ease-out; font-family: var(--font-sans); margin: auto;"
+              style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: {isSelected ? 600 : 400}; color: {isSelected ? 'white' : 'var(--text-primary)'}; background: {isSelected ? 'var(--accent)' : 'transparent'}; border: {isToday && !isSelected ? '1px solid rgba(232,119,46,0.4)' : '1px solid transparent'}; border-radius: 8px; cursor: pointer; opacity: {day.isCurrentMonth ? 1 : 0.3}; transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out); font-family: var(--font-sans); margin: auto;"
             >
               {day.date}
             </button>
@@ -289,7 +289,7 @@
             <button
               type="button"
               onclick={() => selectMonth(i)}
-              style="height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: {isSelected ? 600 : 400}; color: {isSelected ? 'white' : 'var(--text-primary)'}; background: {isSelected ? 'var(--accent)' : 'transparent'}; border: {isCurrentMonth && !isSelected ? '1px solid rgba(232,119,46,0.4)' : '1px solid transparent'}; border-radius: 8px; cursor: pointer; transition: all 100ms ease-out; font-family: var(--font-sans);"
+              style="height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: {isSelected ? 600 : 400}; color: {isSelected ? 'white' : 'var(--text-primary)'}; background: {isSelected ? 'var(--accent)' : 'transparent'}; border: {isCurrentMonth && !isSelected ? '1px solid rgba(232,119,46,0.4)' : '1px solid transparent'}; border-radius: 8px; cursor: pointer; transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out); font-family: var(--font-sans);"
             >
               {month}
             </button>
@@ -305,7 +305,7 @@
             <button
               type="button"
               onclick={() => selectYear(year)}
-              style="height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: {isSelected ? 600 : 400}; color: {isSelected ? 'white' : 'var(--text-primary)'}; background: {isSelected ? 'var(--accent)' : 'transparent'}; border: {isCurrentYear && !isSelected ? '1px solid rgba(232,119,46,0.4)' : '1px solid transparent'}; border-radius: 8px; cursor: pointer; transition: all 100ms ease-out; font-family: var(--font-sans);"
+              style="height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: {isSelected ? 600 : 400}; color: {isSelected ? 'white' : 'var(--text-primary)'}; background: {isSelected ? 'var(--accent)' : 'transparent'}; border: {isCurrentYear && !isSelected ? '1px solid rgba(232,119,46,0.4)' : '1px solid transparent'}; border-radius: 8px; cursor: pointer; transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out); font-family: var(--font-sans);"
             >
               {year}
             </button>

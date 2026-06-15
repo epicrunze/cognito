@@ -835,7 +835,7 @@
                         type="button"
                         aria-label="Color {color}"
                         onclick={() => { newLabelColor = color; }}
-                        style="width: 20px; height: 20px; border-radius: 50%; background: {color}; border: 2px solid {newLabelColor === color ? 'var(--text-primary)' : 'transparent'}; cursor: pointer; padding: 0; transition: all var(--transition-fast); transform: {newLabelColor === color ? 'scale(1.15)' : 'scale(1)'};"
+                        style="width: 20px; height: 20px; border-radius: 50%; background: {color}; border: 2px solid {newLabelColor === color ? 'var(--text-primary)' : 'transparent'}; cursor: pointer; padding: 0; transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out); transform: {newLabelColor === color ? 'scale(1.15)' : 'scale(1)'};"
                       ></button>
                     {/each}
                   </div>
@@ -971,7 +971,7 @@
           role="button"
           tabindex="0"
           onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef?.click(); }}
-          style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px; border: 1.5px dashed {dragOver ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-tertiary); background: {dragOver ? 'var(--accent-ghost)' : 'transparent'}; transition: all var(--transition-fast);"
+          style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px; border: 1.5px dashed {dragOver ? 'var(--accent)' : 'var(--border-default)'}; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-tertiary); background: {dragOver ? 'var(--accent-ghost)' : 'transparent'}; transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);"
         >
           {#if uploading}
             <span>Uploading...</span>

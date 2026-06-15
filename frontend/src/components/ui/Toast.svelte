@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ToastAction } from '$lib/stores/toast.svelte';
+  import { dialogPop, DURATION } from '$lib/transitions';
 
   let {
     message,
@@ -22,7 +23,12 @@
   };
 </script>
 
-<div class="toast" role="status">
+<div
+  class="toast"
+  role="status"
+  in:dialogPop
+  out:dialogPop={{ duration: DURATION.fast }}
+>
   {#if ai}
     <svg class="diamond" width="10" height="10" viewBox="0 0 10 10"><rect x="2.2" y="2.2" width="5.6" height="5.6" fill="none" stroke="var(--ai)" stroke-width="1.2" transform="rotate(45 5 5)"></rect></svg>
   {:else}
@@ -46,7 +52,6 @@
     box-shadow: var(--shadow-popover);
     font: var(--type-ui);
     color: var(--text-primary);
-    animation: slideUp var(--t-slow) var(--ease-out);
     min-width: 240px;
   }
   .dot {

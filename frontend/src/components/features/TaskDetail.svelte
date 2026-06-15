@@ -1,7 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { fly } from 'svelte/transition';
-  import { DURATION } from '$lib/transitions';
+  import { panelFly } from '$lib/transitions';
   import { tasksStore } from '$lib/stores.svelte';
   import { kanbanStore } from '$lib/stores/kanban.svelte';
   import { taskDetailStore } from '$lib/stores/taskDetail.svelte';
@@ -109,7 +108,7 @@
   {#if isKanban}
     <!-- Kanban mode: fixed overlay panel -->
     <div
-      transition:fly={{ x: 200, duration: DURATION.normal }}
+      transition:panelFly={{ x: 200 }}
       class="kanban-detail-panel"
       style="top: {dragPos.top}px; right: {dragPos.right}px; {dragging ? 'user-select: none;' : ''}"
     >
@@ -136,7 +135,7 @@
   {:else}
     <!-- Default: flex sibling panel -->
     <div
-      transition:fly={{ x: 200, duration: DURATION.normal }}
+      transition:panelFly={{ x: 200 }}
       style="width: 440px; flex-shrink: 0; border-left: 1px solid var(--border-subtle); overflow-y: auto; height: 100%; background: var(--bg-surface);"
     >
       {#if task}

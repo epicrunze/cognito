@@ -102,7 +102,7 @@
       <button
         type="button"
         onclick={() => filterStore.clearAll()}
-        style="height: 34px; padding: 0 12px; font-size: 12.5px; color: var(--text-tertiary); background: none; border: 1px solid var(--border-default); border-radius: 8px; cursor: pointer; font-family: var(--font-sans); white-space: nowrap; flex-shrink: 0; transition: all var(--transition-fast);"
+        style="height: 34px; padding: 0 12px; font-size: 12.5px; color: var(--text-tertiary); background: none; border: 1px solid var(--border-default); border-radius: 8px; cursor: pointer; font-family: var(--font-sans); white-space: nowrap; flex-shrink: 0; transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);"
       >Clear all</button>
     {/if}
   </div>

@@ -11,8 +11,8 @@
   import Kbd from '$components/ui/Kbd.svelte';
   import TaskPanel from '$components/features/TaskPanel.svelte';
   import ThoughtBubble from '$components/features/ThoughtBubble.svelte';
-  import { fly, slide, fade } from 'svelte/transition';
-  import { DURATION } from '$lib/transitions';
+  import { fly } from 'svelte/transition';
+  import { DURATION, listSlide, easeOut } from '$lib/transitions';
   import { onMount, tick } from 'svelte';
 
   let modelOptions = $state<{ value: string; label: string; description: string }[]>([
@@ -180,11 +180,11 @@
   <div style="display: flex; gap: 0; margin-bottom: 20px; border: 1px solid var(--border-default); border-radius: 8px; overflow: hidden; width: fit-content;">
     <button
       onclick={() => tab = 'paste'}
-      style="padding: 7px 18px; font-size: 13px; font-weight: 500; font-family: var(--font-sans); border: none; cursor: pointer; background: {tab === 'paste' ? 'var(--accent)' : 'transparent'}; color: {tab === 'paste' ? 'white' : 'var(--text-secondary)'}; transition: all var(--transition-fast);"
+      style="padding: 7px 18px; font-size: 13px; font-weight: 500; font-family: var(--font-sans); border: none; cursor: pointer; background: {tab === 'paste' ? 'var(--accent)' : 'transparent'}; color: {tab === 'paste' ? 'white' : 'var(--text-secondary)'}; transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);"
     >Paste</button>
     <button
       onclick={() => tab = 'chat'}
-      style="padding: 7px 18px; font-size: 13px; font-weight: 500; font-family: var(--font-sans); border: none; border-left: 1px solid var(--border-default); cursor: pointer; background: {tab === 'chat' ? 'var(--accent)' : 'transparent'}; color: {tab === 'chat' ? 'white' : 'var(--text-secondary)'}; transition: all var(--transition-fast);"
+      style="padding: 7px 18px; font-size: 13px; font-weight: 500; font-family: var(--font-sans); border: none; border-left: 1px solid var(--border-default); cursor: pointer; background: {tab === 'chat' ? 'var(--accent)' : 'transparent'}; color: {tab === 'chat' ? 'white' : 'var(--text-secondary)'}; transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);"
     >Chat</button>
   </div>
 
@@ -269,7 +269,7 @@
       <div style="display: flex; flex-wrap: wrap; gap: 12px;">
         {#each proposals as proposal, i (proposal.id)}
           {#if proposal.status !== 'approved'}
-            <div in:fly={{ y: 20, duration: DURATION.normal, delay: i * 50 }} out:slide|local={{ duration: DURATION.normal }}>
+            <div in:fly={{ y: 20, duration: DURATION.normal, delay: i * 50, easing: easeOut }} out:listSlide|local>
               <ThoughtBubble
                 {proposal}
                 proposalMode
@@ -291,7 +291,7 @@
               />
             </div>
           {:else}
-            <div out:slide|local={{ duration: DURATION.normal }} style="opacity: 0.5;">
+            <div out:listSlide|local style="opacity: 0.5;">
               <ThoughtBubble
                 {proposal}
                 proposalMode

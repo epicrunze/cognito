@@ -4,7 +4,8 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount, tick } from 'svelte';
-  import { fly, fade } from 'svelte/transition';
+  import { fly } from 'svelte/transition';
+  import { panelFly, backdropFade, easeOut, DURATION } from '$lib/transitions';
   import { authStore, tasksStore, projectsStore, labelsStore, bubbleStore, toggleDone } from '$lib/stores.svelte';
   import { shortcuts } from '$lib/shortcuts';
   import { isOverdue as checkOverdue, isUpcoming as checkUpcoming, parseDateOnly, formatRelativeDate } from '$lib/dateUtils';
@@ -372,10 +373,10 @@
     <div
       class="mobile-sidebar-backdrop"
       role="presentation"
-      transition:fade={{ duration: 200 }}
+      transition:backdropFade
       onclick={() => responsiveStore.closeSidebar()}
     ></div>
-    <div class="mobile-sidebar" transition:fly={{ x: -280, duration: 200 }}>
+    <div class="mobile-sidebar" transition:panelFly={{ x: -280 }}>
       <div class="mobile-sidebar-header">
         <div class="mobile-sidebar-brand"></div>
         <button class="mobile-sidebar-close" onclick={() => responsiveStore.closeSidebar()} aria-label="Close menu">
@@ -393,7 +394,7 @@
   <ConfirmDialog />
   {#if responsiveStore.isMobile}
     {#if mobileSearchOpen}
-      <div class="mobile-search-bar" transition:fly={{ y: -40, duration: 200 }}>
+      <div class="mobile-search-bar" transition:fly={{ y: -40, duration: DURATION.normal, easing: easeOut }}>
         <Input placeholder="Search thoughts..." bind:value={searchValue} bind:ref={searchRef} height={38} oninput={handleSearchInput} style="flex: 1;" />
         <button class="mobile-search-close" onclick={() => { mobileSearchOpen = false; searchValue = ''; handleSearchInput(); }} aria-label="Close search">&times;</button>
       </div>
@@ -667,7 +668,7 @@
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);
   }
 
   .sheet-action-btn:active {

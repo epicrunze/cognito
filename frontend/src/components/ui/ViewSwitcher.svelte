@@ -45,7 +45,7 @@
     background: transparent;
     color: var(--text-secondary);
     font-weight: var(--font-normal);
-    transition: all var(--t-fast) var(--ease-out);
+    transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);
   }
   .view-switcher button.active {
     background: var(--selected-tint);

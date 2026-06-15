@@ -151,13 +151,18 @@
   --type-data: var(--font-normal) var(--text-xs)/var(--leading-normal) var(--font-mono);
   --type-pill: var(--font-medium) var(--text-2xs)/1.4 var(--font-mono);
 
-  /* Motion — fast & physical; house easing is snappy-out */
+  /* Motion — fast & physical; house easing is snappy-out.
+     Mirrored in lib/transitions.ts (DURATION, VIEW, easeOut/easeInOut/easeExit)
+     so JS-driven Svelte transitions match these CSS curves. */
   --t-fast: 150ms;
   --t-normal: 200ms;
   --t-slow: 300ms;
-  --t-view: 380ms;
+  --t-view: 300ms; /* view-switch card flight (VIEW.flightEnter) */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* Semantic easing vocabulary (see DESIGN_PHILOSOPHY.md → Motion) */
+  --ease-spring: var(--ease-out); /* entrances — snappy settle */
+  --ease-exit: cubic-bezier(0.55, 0, 1, 0.45); /* exits — accelerate away */
   /* Legacy transition aliases */
   --transition-fast: var(--t-fast);
   --transition-normal: var(--t-normal);

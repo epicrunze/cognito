@@ -100,9 +100,15 @@
       return;
     }
 
-    // Start transition — browser captures old DOM here
+    // Start transition — browser captures old DOM synchronously HERE, before
+    // the callback runs.
     const transition = document.startViewTransition(async () => {
-      // Prefetch INSIDE callback (old DOM already captured by browser)
+      // Prefetch INSIDE the callback on purpose: it can mutate a store that the
+      // *currently visible* view reads from (e.g. same-store bubbles→bubbles
+      // project nav uses tasksStore). Doing it before startViewTransition would
+      // re-render the old view and the browser would snapshot the new content as
+      // "old" — a flash and a broken flight. The cost is that a slow backend
+      // holds the captured frame until data arrives; correctness wins here.
       await prefetchData(newMode, newProjectId);
       viewMode = newMode;
       displayProjectId = newProjectId;
@@ -159,10 +165,12 @@
     return opts;
   });
 
-  // Auto-switch away from Gantt/List when resizing to mobile
+  // Auto-switch away from Gantt/List/Calendar when resizing to mobile.
+  // Route through updateView() so it animates like any other view change
+  // instead of snapping. (Fires once per breakpoint cross, not continuously.)
   $effect(() => {
     if (responsiveStore.isMobile && (viewMode === 'gantt' || viewMode === 'list' || viewMode === 'calendar')) {
-      viewMode = 'bubbles';
+      void updateView('bubbles', projectId, filterMode, pathname);
     }
   });
 
@@ -212,7 +220,7 @@
     color: var(--text-secondary);
     cursor: pointer;
     font-family: var(--font-sans);
-    transition: all var(--t-fast) var(--ease-out);
+    transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);
   }
   .focus-chip.active {
     border-color: var(--accent);

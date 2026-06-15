@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { confirmDialogState, resolveDialog } from '$lib/stores/confirmDialog.svelte';
-	import { fade, fly } from 'svelte/transition';
-	import { DURATION } from '$lib/transitions';
+	import { backdropFade, dialogPop, DURATION } from '$lib/transitions';
 
 	const request = $derived(confirmDialogState.request);
 
@@ -16,14 +15,14 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		class="confirm-backdrop"
-		transition:fade={{ duration: DURATION.fast }}
+		transition:backdropFade={{ duration: DURATION.fast }}
 		onclick={() => resolveDialog(false)}
 		onkeydown={handleKeydown}
 	>
 		{#key request.id}
 			<div
 				class="confirm-card"
-				transition:fly={{ y: 8, duration: DURATION.normal }}
+				transition:dialogPop
 				onclick={(e) => e.stopPropagation()}
 				onkeydown={(e) => e.stopPropagation()}
 			>

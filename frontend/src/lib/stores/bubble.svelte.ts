@@ -1,9 +1,10 @@
 import { tick } from 'svelte';
+import { prefersReducedMotion } from '$lib/transitions';
 
 let _expandedTaskId = $state<number | string | null>(null);
 
 function withViewTransition(update: () => void) {
-  if (typeof document !== 'undefined' && document.startViewTransition) {
+  if (typeof document !== 'undefined' && document.startViewTransition && !prefersReducedMotion()) {
     document.startViewTransition(async () => {
       update();
       await tick();

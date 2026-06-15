@@ -36,6 +36,28 @@ You can also think out loud — the chat agent is a natural language interface t
 
 **The dark theme serves the metaphor.** Dark background = surface of thought. Lighter bubbles float on it. Light objects on dark ground creates "things emerging from a background" — the cognitive metaphor made visual.
 
+## Motion
+
+Motion communicates state change — never decoration. Every transition should answer "what just changed and where did it go?" Speed > spectacle.
+
+**The scale.** Four durations, no others. Defined as CSS tokens (`--t-*`) and mirrored in `lib/transitions.ts` (`DURATION`, `VIEW`):
+- **150ms (`--t-fast`)** — micro-interactions: hover, focus, button/input state.
+- **200ms (`--t-normal`)** — UI moves: dialogs, list insert/remove, accordions, side panels' content.
+- **300ms (`--t-slow`)** — larger surfaces entering: slide-overs, bottom sheets.
+- **~300ms view-switch (`--t-view` / `VIEW`)** — the signature card flight between views. This is the one place a little more time and stagger is earned.
+
+**The curves.** Two, plus an exit variant:
+- **`--ease-out` / `easeOut`** (spring-out, `cubic-bezier(0.22, 1, 0.36, 1)`) — entrances and most interactions. Settles with confidence.
+- **`--ease-in-out` / `easeInOut`** — moves/reorders where both ends matter (drag reflow, repositioning).
+- **`--ease-exit` / `easeExit`** — exits accelerate away; they shouldn't linger.
+
+**Rules.**
+- **Never `transition: all`.** Name the properties (`background-color, border-color, box-shadow, transform`). `all` animates layout-affecting properties and causes repaint/reflow jank.
+- **JS transitions use the motion module.** Reach for the factories in `lib/transitions.ts` (`panelFly`, `backdropFade`, `dialogPop`, `listSlide`, `sheetRise`) so Svelte `fly`/`slide`/`fade` carry the house easing — not Svelte's default curve.
+- **Entrances and exits are symmetric.** If a thing animates in, it animates out. No abrupt removals.
+- **Paired elements share timing.** A backdrop and its panel/sheet finish together.
+- **Reduced motion is honoured everywhere.** The CSS tokens collapse under `prefers-reduced-motion`, and the JS factories + view-switch flight check `prefersReducedMotion()`. Don't hardcode durations that bypass this.
+
 ## The AI Extraction Experience
 
 You paste unstructured text. Proposals appear as new bubbles with tangerine glow, streaming in as thoughts crystallize. Approve them and they join the main view. The extraction page is an incubator — a staging area where raw input becomes structured thought.

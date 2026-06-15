@@ -138,7 +138,7 @@
       width: 28px; height: 28px; border-radius: 6px;
       border: 1px solid var(--border-default); background: transparent;
       color: var(--text-secondary); cursor: pointer;
-      font-size: var(--text-sm); transition: all var(--transition-fast);
+      font-size: var(--text-sm); transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);
     "
     aria-label="Previous day"
   >&lsaquo;</button>
@@ -155,7 +155,7 @@
       width: 28px; height: 28px; border-radius: 6px;
       border: 1px solid var(--border-default); background: transparent;
       color: var(--text-secondary); cursor: pointer;
-      font-size: var(--text-sm); transition: all var(--transition-fast);
+      font-size: var(--text-sm); transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);
     "
     aria-label="Next day"
   >&rsaquo;</button>
@@ -168,7 +168,7 @@
       background: {isToday ? 'var(--accent-subtle)' : 'transparent'};
       color: {isToday ? 'var(--accent)' : 'var(--text-secondary)'};
       cursor: pointer; font-family: var(--font-sans);
-      transition: all var(--transition-fast);
+      transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);
     "
   >Today</button>
 
@@ -182,7 +182,7 @@
       border-radius: 6px; border: 1px solid var(--accent);
       background: var(--accent-subtle); color: var(--accent);
       cursor: {calendarStore.suggestLoading ? 'wait' : 'pointer'};
-      font-family: var(--font-sans); transition: all var(--transition-fast);
+      font-family: var(--font-sans); transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);
       display: flex; align-items: center; gap: 6px;
       opacity: {calendarStore.suggestLoading ? 0.7 : 1};
     "
@@ -235,7 +235,7 @@
               border-radius: 4px; border: 1px solid var(--accent);
               background: var(--accent-subtle); color: var(--accent);
               cursor: pointer; font-family: var(--font-sans);
-              transition: all var(--transition-fast); flex-shrink: 0;
+              transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out); flex-shrink: 0;
               display: inline-flex; align-items: center; text-decoration: none;
             "
           >Reconnect Google</a>
@@ -247,7 +247,7 @@
               border-radius: 4px; border: 1px solid var(--border-default);
               background: var(--bg-surface); color: var(--text-secondary);
               cursor: pointer; font-family: var(--font-sans);
-              transition: all var(--transition-fast); flex-shrink: 0;
+              transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out); flex-shrink: 0;
             "
           >Retry</button>
         {/if}
@@ -456,7 +456,7 @@
                   border-radius: 4px; border: 1px solid var(--accent);
                   background: var(--accent-subtle); color: var(--accent);
                   cursor: pointer; font-family: var(--font-sans);
-                  transition: all var(--transition-fast);
+                  transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);
                 "
               >Accept</button>
               <button
@@ -466,7 +466,7 @@
                   border-radius: 4px; border: 1px solid var(--border-default);
                   background: transparent; color: var(--text-tertiary);
                   cursor: pointer; font-family: var(--font-sans);
-                  transition: all var(--transition-fast);
+                  transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);
                 "
               >Dismiss</button>
             </div>

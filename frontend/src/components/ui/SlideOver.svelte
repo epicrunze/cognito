@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { fly, fade } from 'svelte/transition';
-  import { DURATION } from '$lib/transitions';
+  import { panelFly, backdropFade, DURATION } from '$lib/transitions';
 
   let {
     open = false,
@@ -34,15 +33,15 @@
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div
     role="presentation"
-    transition:fade={{ duration: DURATION.normal }}
+    transition:backdropFade={{ duration: DURATION.slow }}
     onclick={onclose}
     style="position: fixed; inset: 0; background: var(--bg-overlay); z-index: 100;"
   ></div>
 
-  <!-- Panel -->
+  <!-- Panel — shares the backdrop's duration so they finish together. -->
   <div
     class="slide-panel"
-    transition:fly={{ x: width, duration: DURATION.slow }}
+    transition:panelFly={{ x: width }}
     style="width: {width}px;"
   >
     {@render children()}

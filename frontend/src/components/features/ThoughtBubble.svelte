@@ -626,7 +626,7 @@
     ontouchend={handleSwipeEnd}
     data-transition-id="{data.id}"
     data-task-priority="{data.priority}"
-    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? 'min(360px, 100%)' : (kanban || responsiveStore.isMobile) ? '100%' : '232px'}; min-height: {expanded ? 'auto' : kanbanCompact ? '50px' : 'auto'}; border-radius: var(--radius-card); background: {expanded ? 'var(--bg-elevated)' : (hovering && !data.done ? 'var(--surface-card-hover)' : 'var(--surface-card)')}; border: 1px solid {bubbleBorder}; padding: {cardPadding}; cursor: pointer; box-shadow: {showGlow && !expanded ? '0 0 10px var(--ai-glow), ' + shadowStyle : shadowStyle}; transition: {swiping ? 'none' : 'background var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease-out), opacity var(--t-fast) var(--ease-out), transform var(--t-normal) var(--ease-out)'}; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden; transform: {swipeX > 0 ? `translateX(${swipeX}px)` : (hovering && !expanded && !swiping ? 'translateY(-2px)' : 'none')};"
+    style="view-transition-name: {data.isProposal ? 'proposal' : 'task'}-{data.id}; position: relative; width: {expanded ? 'min(360px, 100%)' : (kanban || responsiveStore.isMobile) ? '100%' : '232px'}; min-height: {expanded ? 'auto' : kanbanCompact ? '50px' : 'auto'}; border-radius: var(--radius-card); background: {expanded ? 'var(--bg-elevated)' : (hovering && !data.done ? 'var(--surface-card-hover)' : 'var(--surface-card)')}; border: 1px solid {bubbleBorder}; padding: {cardPadding}; cursor: pointer; box-shadow: {showGlow && !expanded ? '0 0 10px var(--ai-glow), ' + shadowStyle : shadowStyle}; transition: background var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease-out), opacity var(--t-fast) var(--ease-out){swiping ? '' : ', transform var(--t-normal) var(--ease-out)'}; opacity: {presenceOpacity}; display: flex; flex-direction: column; overflow: hidden; transform: {swipeX > 0 ? `translateX(${swipeX}px)` : (hovering && !expanded && !swiping ? 'translateY(-2px)' : 'none')};"
   >
     <!-- Whisper rail (priority as presence — 45% at rest, full on hover) -->
     {#if hasRail && !expanded}
@@ -919,7 +919,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: all var(--t-normal) var(--ease-out);
+    transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-normal); transition-timing-function: var(--ease-out);
   }
   .mini-check.checked {
     border: none;
@@ -1055,7 +1055,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: all 130ms var(--ease-out);
+    transition-property: background-color, border-color, color, box-shadow, transform, opacity; transition-duration: var(--t-fast); transition-timing-function: var(--ease-out);
   }
   .swipe-check.past {
     border: none;

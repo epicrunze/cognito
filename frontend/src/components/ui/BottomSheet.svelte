@@ -1,8 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { onMount } from 'svelte';
-  import { fade } from 'svelte/transition';
-  import { DURATION } from '$lib/transitions';
+  import { onMount, untrack } from 'svelte';
+  import { DURATION, prefersReducedMotion } from '$lib/transitions';
 
   let {
     open = false,
@@ -29,8 +28,21 @@
     ? (window.visualViewport?.height ?? window.innerHeight)
     : 812);
 
+  // Entry/exit lifecycle: `present` keeps the DOM mounted through the close
+  // animation; `entered` drives the slide. The sheet mounts off-screen, then
+  // `entered` flips on the next frame so the CSS transform transition animates
+  // the rise (instead of popping in at the open position). On close, `entered`
+  // flips off (slide down) and `present` unmounts after the transition.
+  let present = $state(false); // driven by the lifecycle effect below
+  let entered = $state(false);
+  let closeTimer: ReturnType<typeof setTimeout> | null = null;
+
   const sheetHeight = $derived(snapPoints[activeSnapIndex] * viewportHeight);
-  const translateY = $derived(dragging ? currentY : viewportHeight - sheetHeight);
+  const translateY = $derived(
+    dragging ? currentY
+    : entered ? viewportHeight - sheetHeight
+    : viewportHeight // fully below the fold
+  );
 
   // Track viewport height changes (handles mobile browser address bar show/hide)
   onMount(() => {
@@ -52,11 +64,24 @@
     }
   });
 
+  // Drive the enter/exit lifecycle off `open` only.
   $effect(() => {
-    if (open) {
-      activeSnapIndex = initialSnap;
-      currentY = viewportHeight - snapPoints[initialSnap] * viewportHeight;
-    }
+    const isOpen = open;
+    untrack(() => {
+      if (isOpen) {
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+        present = true;
+        entered = false;
+        activeSnapIndex = initialSnap;
+        currentY = viewportHeight - snapPoints[initialSnap] * viewportHeight;
+        // Next frame: flip `entered` so the off-screen → open transform animates.
+        requestAnimationFrame(() => { if (open) entered = true; });
+      } else if (present) {
+        entered = false;
+        const ms = prefersReducedMotion() ? 0 : DURATION.slow;
+        closeTimer = setTimeout(() => { present = false; closeTimer = null; }, ms);
+      }
+    });
   });
 
   function handleTouchStart(e: TouchEvent) {
@@ -136,13 +161,13 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-{#if open}
-  <!-- Backdrop -->
+{#if present}
+  <!-- Backdrop — fades in lockstep with the sheet (shared curve & duration). -->
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div
     class="sheet-backdrop"
+    class:entered
     role="presentation"
-    transition:fade={{ duration: DURATION.normal }}
     onclick={onclose}
   ></div>
 
@@ -175,9 +200,15 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.55);
     z-index: 150;
+    opacity: 0;
+    transition: opacity var(--t-slow) cubic-bezier(0.32, 0.72, 0, 1);
   }
 
-  /* {#if open} guarantees the sheet unmounts on close, so a stuck CSS
+  .sheet-backdrop.entered {
+    opacity: 1;
+  }
+
+  /* {#if present} unmounts the sheet after the close animation, so a stuck CSS
      transition can never leave a ghost over the screen (the DS lesson). */
   .sheet {
     position: fixed;
@@ -192,7 +223,7 @@
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
-    transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+    transition: transform var(--t-slow) cubic-bezier(0.32, 0.72, 0, 1);
     will-change: transform;
     touch-action: none;
   }

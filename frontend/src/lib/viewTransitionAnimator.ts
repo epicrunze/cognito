@@ -1,5 +1,7 @@
 // View transition flight animations — cards fly from/to sidebar icons
 
+import { VIEW, EASING_CSS, prefersReducedMotion } from './transitions';
+
 interface CardSnapshot {
   id: string;
   rect: DOMRect;
@@ -15,12 +17,14 @@ interface FlightConfig {
 }
 
 const MAX_ANIMATED = 15;
-const ENTER_DURATION = 300;
-const LEAVE_DURATION = 240;
-const ENTER_STAGGER = 25;
-const LEAVE_STAGGER = 15;
-const ENTER_EASING = 'cubic-bezier(0.16, 1, 0.3, 1)';
-const LEAVE_EASING = 'cubic-bezier(0.7, 0, 1, 0.5)';
+// Timing/easing come from the motion module so the flight, the `--t-view`
+// token, and `::view-transition-group` stay in lockstep (see transitions.ts).
+const ENTER_DURATION = VIEW.flightEnter;
+const LEAVE_DURATION = VIEW.flightLeave;
+const ENTER_STAGGER = VIEW.enterStagger;
+const LEAVE_STAGGER = VIEW.leaveStagger;
+const ENTER_EASING = EASING_CSS.out;
+const LEAVE_EASING = EASING_CSS.exit;
 const SCALE_AT_SIDEBAR = 0.15;
 
 export function snapshotCards(): CardSnapshot[] {
@@ -66,6 +70,11 @@ export function animateFlights(
   ];
 
   if (allNames.length === 0) return;
+
+  // Reduced motion: skip the flight choreography entirely and let the default
+  // cross-fade run — it's already collapsed to ~0ms by the prefers-reduced-motion
+  // rule in app.css. (The CSS-only path can't see this JS, so guard here too.)
+  if (prefersReducedMotion()) return;
 
   // Inject style to suppress default cross-fade and hide new pseudo-elements until animation applies
   const style = document.createElement('style');
