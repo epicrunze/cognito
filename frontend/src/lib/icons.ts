@@ -8,6 +8,12 @@ export const allTasksIcon = `<svg width="18" height="18" viewBox="0 0 18 18" fil
   <circle cx="13" cy="11" r="2" fill="currentColor"/>
 </svg>`;
 
+/** Today: a sun — the day's briefing */
+export const todayIcon = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="9" cy="9" r="3" stroke="currentColor" stroke-width="1.6"/>
+  <path d="M9 2v1.6M9 14.4V16M2 9h1.6M14.4 9H16M4 4l1.1 1.1M12.9 12.9L14 14M14 4l-1.1 1.1M5.1 12.9L4 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+</svg>`;
+
 /** Upcoming: forward-pointing arc/chevron */
 export const upcomingIcon = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M7 4L12 9L7 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>

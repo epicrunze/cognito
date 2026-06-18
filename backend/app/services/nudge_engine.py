@@ -206,15 +206,19 @@ class NudgeEngine:
 
     # ── Calendar context (best-effort) ────────────────────────────────────────
 
-    async def _calendar_summary(
+    async def _fetch_today_events(
         self, conn: sqlite3.Connection, local_now: datetime
-    ) -> str:
-        """One-line-per-event summary of today's calendar, or a fallback string."""
+    ) -> list[dict]:
+        """Today's events across all selected calendars, or [] if unavailable.
+
+        Best-effort: any failure (no Google account, refresh error, API error)
+        collapses to an empty list so callers degrade gracefully.
+        """
         row = conn.execute(
             "SELECT refresh_token FROM users WHERE refresh_token IS NOT NULL LIMIT 1"
         ).fetchone()
         if not row:
-            return "No calendar connected."
+            return []
         try:
             from app.auth.oauth import refresh_access_token
             from app.routers.schedule import _fetch_all_events
@@ -222,20 +226,29 @@ class NudgeEngine:
             token_data = await refresh_access_token(row[0])
             access_token = token_data.get("access_token")
             if not access_token:
-                return "Calendar unavailable."
+                return []
             day_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
             day_end = day_start + timedelta(days=1)
-            events = await _fetch_all_events(
+            return await _fetch_all_events(
                 access_token, conn, day_start.isoformat(), day_end.isoformat()
             )
-            if not events:
-                return "No calendar events today."
-            return "\n".join(
-                f"- {e['summary']}: {e['start']} to {e['end']}" for e in events[:10]
-            )
         except Exception as exc:
-            logger.warning("Calendar summary failed: %s", exc)
-            return "Calendar unavailable."
+            logger.warning("Calendar fetch failed: %s", exc)
+            return []
+
+    def _calendar_lines(self, events: list[dict]) -> str:
+        """One-line-per-event prompt summary, or a fallback string."""
+        if not events:
+            return "No calendar events today."
+        return "\n".join(
+            f"- {e['summary']}: {e['start']} to {e['end']}" for e in events[:10]
+        )
+
+    async def _calendar_summary(
+        self, conn: sqlite3.Connection, local_now: datetime
+    ) -> str:
+        """One-line-per-event summary of today's calendar, or a fallback string."""
+        return self._calendar_lines(await self._fetch_today_events(conn, local_now))
 
     # ── Trigger: morning digest ───────────────────────────────────────────────
 
@@ -261,27 +274,82 @@ class NudgeEngine:
         tasks = await self.vikunja.list_tasks(
             filter="done = false", sort_by="priority", order_by="desc", per_page=50
         )
-        due_today, overdue = [], []
+        # tasks arrive sorted by priority desc, so undated stays priority-ordered.
+        due_today, overdue, undated = [], [], []
         for t in tasks:
             due = parse_vikunja_date(t.get("due_date"))
             if due is None:
-                continue
-            if due.astimezone(local_now.tzinfo).date() == local_now.date():
+                undated.append(t)
+            elif due.astimezone(local_now.tzinfo).date() == local_now.date():
                 due_today.append(t)
             elif due < now_utc:
                 overdue.append(t)
 
         calendar = await self._calendar_summary(conn, local_now)
+        try:
+            body, _ = await self._get_or_create_briefing_text(
+                conn, cfg, local_now,
+                due_today=due_today, overdue=overdue, undated=undated, calendar=calendar,
+            )
+        except Exception as exc:
+            logger.warning("Digest LLM call failed, skipping today: %s", exc)
+            return
+
+        await self.notifier.send(
+            conn, cfg, type="digest", title="Morning digest", body=body, now=now_utc
+        )
+
+    # ── Shared briefing (digest notification + /api/briefing page) ────────────
+
+    async def _get_or_create_briefing_text(
+        self,
+        conn: sqlite3.Connection,
+        cfg: dict,
+        local_now: datetime,
+        *,
+        due_today: list[dict],
+        overdue: list[dict],
+        undated: list[dict],
+        calendar: str,
+        force_regen: bool = False,
+    ) -> tuple[str, str]:
+        """Return (text, generated_at_iso) for today's AI briefing line.
+
+        Cached per local day in scheduler_state so the morning digest and the
+        Today page show the SAME line, and repeat page loads don't re-bill the
+        LLM. A cache hit ignores the passed task context (the cached line was
+        written from the same day's data). Raises if generation fails — the
+        caller decides whether that's fatal (digest skips, endpoint 502s).
+        """
+        key = f"daily_briefing:{local_now.date().isoformat()}"
+        if not force_regen:
+            cached = get_state(conn, key)
+            if cached:
+                try:
+                    data = json.loads(cached)
+                    return data["text"], data["generated_at"]
+                except (json.JSONDecodeError, KeyError, TypeError):
+                    pass  # corrupt cache → regenerate
+
         task_lines = "\n".join(
             f"- {t['title']} (priority {t.get('priority', 3)})" for t in due_today[:10]
         ) or "Nothing due today."
 
-        prompt = f"""Write a morning briefing for a personal task app notification. 2-3 short sentences, friendly but not saccharine, no emoji spam (one emoji max). Mention what's due, the calendar shape, and suggest what to tackle first.
+        undated_lines = "\n".join(
+            f"- {t['title']} (priority {t.get('priority', 3)})" for t in undated[:10]
+        ) or "None."
+        if len(undated) > 10:
+            undated_lines += f"\n…and {len(undated) - 10} more."
+
+        prompt = f"""Write a morning briefing for a personal task app notification. 2-3 short sentences, friendly but not saccharine, no emoji spam (one emoji max). Mention what's due, the calendar shape, and surface any important no-deadline tasks worth attention. Suggest what to tackle first.
 
 ## Tasks due today:
 {task_lines}
 
 ## Overdue: {len(overdue)} task(s)
+
+## No due date (sorted by priority — call out the important ones):
+{undated_lines}
 
 ## Today's calendar:
 {calendar}
@@ -290,19 +358,85 @@ Respond with ONLY the briefing text, no preamble."""
 
         from app.services.llm import get_llm_client
 
-        try:
-            llm = get_llm_client()
-            body = (await llm.generate(
-                messages=[{"role": "user", "content": prompt}],
-                system_prompt="You write concise, helpful daily briefings.",
-            )).strip()[:300]
-        except Exception as exc:
-            logger.warning("Digest LLM call failed, skipping today: %s", exc)
-            return
+        llm = get_llm_client()
+        text = (await llm.generate(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt="You write concise, helpful daily briefings.",
+        )).strip()[:300]
+        generated_at = local_now.astimezone(timezone.utc).isoformat()
+        set_state(conn, key, json.dumps({"text": text, "generated_at": generated_at}))
+        return text, generated_at
 
-        await self.notifier.send(
-            conn, cfg, type="digest", title="Morning digest", body=body, now=now_utc
+    async def build_briefing(
+        self,
+        conn: sqlite3.Connection,
+        cfg: dict,
+        local_now: datetime,
+        *,
+        force_regen: bool = False,
+    ) -> dict:
+        """Assemble the Today page payload: AI line + structured task/calendar lists.
+
+        Fetches calendar once and derives both the prompt string and the
+        structured event list from it. Tasks are returned as raw Vikunja dicts
+        (the frontend Task shape).
+        """
+        now_utc = local_now.astimezone(timezone.utc)
+        open_tasks = await self.vikunja.list_tasks(
+            filter="done = false", sort_by="priority", order_by="desc", per_page=100
         )
+        # open_tasks arrive sorted by priority desc, so undated stays priority-ordered.
+        due_today, overdue, undated = [], [], []
+        for t in open_tasks:
+            due = parse_vikunja_date(t.get("due_date"))
+            if due is None:
+                undated.append(t)
+            elif due.astimezone(local_now.tzinfo).date() == local_now.date():
+                due_today.append(t)
+            elif due < now_utc:
+                overdue.append(t)
+
+        day_start_utc = local_now.replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ).astimezone(timezone.utc)
+        done = await self.vikunja.list_tasks(
+            filter="done = true", sort_by="done_at", order_by="desc", per_page=50
+        )
+        done_today = [
+            t for t in done
+            if (d := parse_vikunja_date(t.get("done_at"))) and d >= day_start_utc
+        ]
+
+        events = await self._fetch_today_events(conn, local_now)
+        calendar = [
+            {
+                "summary": e.get("summary", "(untitled)"),
+                "start": e.get("start", ""),
+                "end": e.get("end", ""),
+                "color": e.get("calendar_color"),
+            }
+            for e in events[:10]
+        ]
+
+        # AI line failure is non-fatal for the page — still show the lists.
+        try:
+            text, generated_at = await self._get_or_create_briefing_text(
+                conn, cfg, local_now,
+                due_today=due_today, overdue=overdue, undated=undated,
+                calendar=self._calendar_lines(events), force_regen=force_regen,
+            )
+        except Exception as exc:
+            logger.warning("Briefing text generation failed: %s", exc)
+            text, generated_at = "", now_utc.isoformat()
+        return {
+            "briefing_text": text,
+            "generated_at": generated_at,
+            "due_today": due_today,
+            "overdue": overdue,
+            "undated": undated,
+            "done_today": done_today,
+            "calendar": calendar,
+        }
 
     # ── Trigger: evening review ───────────────────────────────────────────────
 

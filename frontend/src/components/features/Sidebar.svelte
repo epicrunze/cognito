@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { projectsStore, tasksStore } from '$lib/stores.svelte';
-  import { allTasksIcon, upcomingIcon, overdueIcon, settingsIcon } from '$lib/icons';
+  import { allTasksIcon, todayIcon, upcomingIcon, overdueIcon, settingsIcon } from '$lib/icons';
   import { registerRect } from '$lib/stores/sidebarRects.svelte';
   import { projectIdentifierStore } from '$lib/stores/projectIdentifiers.svelte';
   import Tip from '$components/ui/Tip.svelte';
@@ -24,6 +24,7 @@
 
   const nav = $derived([
     { id: '/', label: 'All Tasks', icon: allTasksIcon, path: '/', count: allCount },
+    { id: '/briefing', label: 'Today', icon: todayIcon, path: '/briefing', count: 0 },
     { id: '/upcoming', label: 'Upcoming', icon: upcomingIcon, path: '/upcoming', count: upcomingCount },
     { id: '/overdue', label: 'Overdue', icon: overdueIcon, path: '/overdue', count: overdueCount, countColor: 'var(--overdue)' },
   ]);

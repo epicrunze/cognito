@@ -16,6 +16,7 @@ from app.database import get_connection, init_schema
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 from app.routers.auth import router as auth_router
+from app.routers.briefing import router as briefing_router
 from app.routers.chat import router as chat_router
 from app.routers.config import router as config_router
 from app.routers.ingest import router as ingest_router
@@ -80,6 +81,7 @@ app.add_middleware(
 
 # Routers
 app.include_router(auth_router)
+app.include_router(briefing_router)
 app.include_router(chat_router)
 app.include_router(config_router)
 app.include_router(ingest_router)

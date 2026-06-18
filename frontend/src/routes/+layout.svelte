@@ -55,6 +55,7 @@
   // Page title mapping
   const pageTitles: Record<string, string> = {
     '/': 'All Tasks',
+    '/briefing': 'Today',
     '/upcoming': 'Upcoming',
     '/overdue': 'Overdue',
     '/projects': 'Projects',
@@ -125,7 +126,36 @@
       labelsStore.fetchAll();
       labelsStore.fetchStats();
       revisionsStore.fetchRecent();
+
+      // Cold start from a reminder notification: ?task=123 opens that task,
+      // then we strip the param so a refresh doesn't reopen it.
+      const taskParam = $page.url.searchParams.get('task');
+      if (taskParam) {
+        const id = Number(taskParam);
+        if (Number.isFinite(id)) taskDetailStore.open(id);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('task');
+        history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+      }
     }
+  });
+
+  // Warm start: the running app receives the click intent from the service
+  // worker and routes client-side (no reload).
+  onMount(() => {
+    if (!('serviceWorker' in navigator)) return;
+    function handleSwMessage(e: MessageEvent) {
+      const data = e.data;
+      if (!data || data.type !== 'notification-click') return;
+      if (data.taskId) {
+        goto('/');
+        taskDetailStore.open(Number(data.taskId));
+      } else {
+        goto(typeof data.url === 'string' ? data.url : '/');
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleSwMessage);
   });
 
   // Mutual exclusion: ThinkingMargin ↔ TaskDetail (imperative, no $effect)

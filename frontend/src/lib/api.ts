@@ -612,6 +612,35 @@ export const notificationsApi = {
   },
 };
 
+// ── Briefing (Today page) ───────────────────────────────────────────────────
+
+export interface BriefingCalendarEvent {
+  summary: string;
+  start: string;
+  end: string;
+  color: string | null;
+}
+
+export interface BriefingResponse {
+  briefing_text: string;
+  generated_at: string | null;
+  due_today: Task[];
+  overdue: Task[];
+  undated: Task[];
+  done_today: Task[];
+  calendar: BriefingCalendarEvent[];
+}
+
+export const briefingApi = {
+  get() {
+    return request<BriefingResponse>('/briefing');
+  },
+
+  regenerate() {
+    return request<BriefingResponse>('/briefing/regenerate', { method: 'POST' });
+  },
+};
+
 // ── Ingest (SSE streaming) ─────────────────────────────────────────────────
 
 export interface IngestEvent {
