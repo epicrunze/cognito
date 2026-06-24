@@ -15,6 +15,11 @@ Single SQLite file holds all tables:
   - push_subscriptions       (Web Push device subscriptions)
   - notification_log         (sent notification history)
   - scheduler_state          (background scheduler last-run state)
+  - knowledge_concepts       (native knowledge source of truth)
+  - concepts                 (materialized projection cache)
+  - concept_links            (knowledge graph edges)
+  - concepts_fts             (FTS5 full-text search index)
+  - knowledge_meta           (metadata key-value store)
 """
 
 import sqlite3
@@ -280,6 +285,61 @@ def init_schema(conn: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS scheduler_state (
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
+        )
+    """)
+
+    # ── OKF knowledge layer ──────────────────────────────────────────────────
+    # Source of truth for native (standalone) knowledge concepts.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS knowledge_concepts (
+            concept_id   TEXT PRIMARY KEY,
+            type         TEXT NOT NULL CHECK (length(type) > 0),
+            title        TEXT,
+            description  TEXT,
+            resource     TEXT,
+            tags         TEXT DEFAULT '[]',
+            frontmatter  TEXT DEFAULT '{}',
+            body         TEXT DEFAULT '',
+            created_at   TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S','now')),
+            updated_at   TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S','now'))
+        )
+    """)
+
+    # Materialized projection cache (rebuildable from adapters at any time).
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS concepts (
+            concept_id      TEXT PRIMARY KEY,
+            source          TEXT NOT NULL,
+            type            TEXT NOT NULL,
+            title           TEXT,
+            description     TEXT,
+            resource        TEXT,
+            tags            TEXT DEFAULT '[]',
+            timestamp       TEXT,
+            frontmatter     TEXT DEFAULT '{}',
+            body            TEXT DEFAULT '',
+            materialized_at TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS concept_links (
+            src_id TEXT NOT NULL,
+            dst_id TEXT NOT NULL,
+            PRIMARY KEY (src_id, dst_id)
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_links_dst ON concept_links(dst_id)")
+    conn.execute("""
+        CREATE VIRTUAL TABLE IF NOT EXISTS concepts_fts USING fts5(
+            concept_id UNINDEXED,
+            title, description, tags, body,
+            tokenize = 'porter unicode61'
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS knowledge_meta (
+            key   TEXT PRIMARY KEY,
+            value TEXT
         )
     """)
 
