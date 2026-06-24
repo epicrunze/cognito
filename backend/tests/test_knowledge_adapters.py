@@ -8,6 +8,7 @@ from app.database import init_schema
 from app.services.knowledge.adapters.base import Concept, FieldCaps
 from app.services.knowledge.adapters.native import NativeConceptAdapter
 from app.services.knowledge.adapters.vikunja_tasks import VikunjaTaskAdapter
+from app.services.knowledge.adapters.vikunja_projects import VikunjaProjectAdapter
 
 
 def test_concept_defaults():
@@ -97,3 +98,24 @@ async def test_vikunja_task_adapter_get_single():
     assert c.title == "One"
     vik.get_task.assert_awaited_once_with(9)
     assert await adapter.get_concept("projects/1") is None
+
+
+async def test_vikunja_project_adapter():
+    vik = AsyncMock()
+    vik.list_projects.return_value = [
+        {"id": 7, "title": "Roadmap", "description": "Big plans"}
+    ]
+    adapter = VikunjaProjectAdapter(vik)
+    concepts = await adapter.list_concepts()
+    assert len(concepts) == 1
+    c = concepts[0]
+    assert c.concept_id == "projects/7"
+    assert c.type == "Project"
+    assert c.title == "Roadmap"
+    assert "/projects/7/notes.md" in c.body     # links to its notes concept
+    assert adapter.owns("projects/7") is True
+    assert adapter.owns("projects/7/notes") is False   # notes owned by NotesAdapter
+
+    vik.get_project.return_value = {"id": 3, "title": "Solo", "description": ""}
+    one = await adapter.get_concept("projects/3")
+    assert one.title == "Solo"
