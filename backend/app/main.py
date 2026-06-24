@@ -20,6 +20,7 @@ from app.routers.briefing import router as briefing_router
 from app.routers.chat import router as chat_router
 from app.routers.config import router as config_router
 from app.routers.ingest import router as ingest_router
+from app.routers.knowledge import router as knowledge_router
 from app.routers.labels import router as labels_router
 from app.routers.proposals import router as proposals_router
 from app.routers.projects import router as projects_router
@@ -85,6 +86,7 @@ app.include_router(briefing_router)
 app.include_router(chat_router)
 app.include_router(config_router)
 app.include_router(ingest_router)
+app.include_router(knowledge_router)
 app.include_router(labels_router)
 app.include_router(models_router)
 app.include_router(notifications_router)
