@@ -15,10 +15,10 @@ def search_concepts(conn: sqlite3.Connection, q: str, type: str | None = None,
         "WHERE concepts_fts MATCH ?",
     ]
     params: list = [q]
-    if type:
+    if type is not None:
         sql.append("AND c.type = ?")
         params.append(type)
-    if source:
+    if source is not None:
         sql.append("AND c.source = ?")
         params.append(source)
     sql.append("ORDER BY bm25(concepts_fts) LIMIT ?")
@@ -58,7 +58,6 @@ def graph(conn: sqlite3.Connection, root: str | None = None, depth: int | None =
     all_edges = conn.execute("SELECT src_id, dst_id FROM concept_links").fetchall()
     if root is None:
         node_rows = conn.execute("SELECT concept_id, type, source, title FROM concepts").fetchall()
-        node_ids = {r[0] for r in node_rows}
         edges = [{"src": s, "dst": d} for (s, d) in all_edges]
     else:
         adj: dict[str, set[str]] = {}
@@ -67,8 +66,8 @@ def graph(conn: sqlite3.Connection, root: str | None = None, depth: int | None =
             adj.setdefault(d, set()).add(s)
         node_ids = {root}
         frontier = {root}
-        hops = depth if depth is not None else 999
-        for _ in range(hops):
+        hop = 0
+        while depth is None or hop < depth:
             nxt: set[str] = set()
             for n in frontier:
                 nxt |= adj.get(n, set()) - node_ids
@@ -76,6 +75,7 @@ def graph(conn: sqlite3.Connection, root: str | None = None, depth: int | None =
                 break
             node_ids |= nxt
             frontier = nxt
+            hop += 1
         edges = [{"src": s, "dst": d} for (s, d) in all_edges
                  if s in node_ids and d in node_ids]
         node_rows = conn.execute(
