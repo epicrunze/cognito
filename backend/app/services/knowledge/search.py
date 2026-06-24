@@ -57,7 +57,11 @@ def graph(conn: sqlite3.Connection, root: str | None = None, depth: int | None =
     """Whole graph, or BFS from *root* to *depth* hops over the link edges."""
     all_edges = conn.execute("SELECT src_id, dst_id FROM concept_links").fetchall()
     if root is None:
-        node_rows = conn.execute("SELECT concept_id, type, source, title FROM concepts").fetchall()
+        node_rows = conn.execute(
+            "SELECT concept_id, type, source, title FROM concepts ORDER BY concept_id"
+        ).fetchall()
+        # Intentional asymmetry: whole-graph includes broken-link edges to nonexistent nodes
+        # (per spec §10 — UI renders them faintly); the rooted BFS below is node-bounded.
         edges = [{"src": s, "dst": d} for (s, d) in all_edges]
     else:
         adj: dict[str, set[str]] = {}
@@ -80,7 +84,7 @@ def graph(conn: sqlite3.Connection, root: str | None = None, depth: int | None =
                  if s in node_ids and d in node_ids]
         node_rows = conn.execute(
             "SELECT concept_id, type, source, title FROM concepts WHERE concept_id IN (%s)"
-            % ",".join("?" * len(node_ids)),
+            " ORDER BY concept_id" % ",".join("?" * len(node_ids)),
             tuple(node_ids),
         ).fetchall()
     nodes = [{"concept_id": r[0], "type": r[1], "source": r[2], "title": r[3]}

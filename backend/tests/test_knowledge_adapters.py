@@ -2,8 +2,6 @@ import json
 import sqlite3
 from unittest.mock import AsyncMock
 
-import pytest
-
 from app.database import init_schema
 from app.services.knowledge.adapters.base import Concept, FieldCaps
 from app.services.knowledge.adapters.native import NativeConceptAdapter

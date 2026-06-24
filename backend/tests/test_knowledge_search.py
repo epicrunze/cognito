@@ -1,8 +1,6 @@
 # backend/tests/test_knowledge_search.py
 import sqlite3
 
-import pytest
-
 from app.database import init_schema
 from app.services.knowledge.adapters.native import NativeConceptAdapter
 from app.services.knowledge.materializer import KnowledgeMaterializer

@@ -48,7 +48,7 @@ async def get_graph(
         return search.graph(conn, root=root, depth=depth)
 
 
-@router.get("/index")
+@router.get("/index", response_class=Response)
 async def get_index(current_user: User = Depends(get_current_user)):
     with get_db() as conn:
         await ensure_fresh(conn)

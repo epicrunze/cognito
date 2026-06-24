@@ -88,3 +88,10 @@ def test_refresh_endpoint(client):
     r = client.post("/api/knowledge/refresh")
     assert r.status_code == 200
     assert r.json()["concepts"] >= 2
+
+
+def test_index_endpoint(client):
+    r = client.get("/api/knowledge/index")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/markdown")
+    assert "Alpha" in r.text or "knowledge/a" in r.text

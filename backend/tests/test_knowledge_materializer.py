@@ -2,7 +2,6 @@
 import json
 import sqlite3
 
-import pytest
 from unittest.mock import AsyncMock
 
 from app.database import init_schema
@@ -78,3 +77,39 @@ async def test_rebuild_survives_failing_adapter():
     counts = await mat.rebuild()   # must not raise
     assert counts["concepts"] == 1
     assert "vikunja" in counts["failed_sources"]
+
+
+async def test_refresh_concept_eviction():
+    """refresh_concept returns False and clears all three cache tables when the
+    source concept no longer exists in knowledge_concepts."""
+    conn = _db()
+    # Seed with a link so concept_links has a src row for "knowledge/evict"
+    _seed_native(conn, "knowledge/evict", "Evict this. Links to [other](/knowledge/other.md).")
+    _seed_native(conn, "knowledge/other", "Other leaf.")
+    mat = KnowledgeMaterializer(conn, [NativeConceptAdapter(conn)])
+    await mat.rebuild()
+
+    # Confirm concept is in cache before eviction
+    assert conn.execute(
+        "SELECT 1 FROM concepts WHERE concept_id='knowledge/evict'"
+    ).fetchone() is not None
+    assert conn.execute(
+        "SELECT 1 FROM concept_links WHERE src_id='knowledge/evict'"
+    ).fetchone() is not None
+
+    # Delete from the native source table — simulates removal at source
+    conn.execute("DELETE FROM knowledge_concepts WHERE concept_id='knowledge/evict'")
+
+    result = await mat.refresh_concept("knowledge/evict")
+
+    assert result is False
+    # Evicted from all three cache tables
+    assert conn.execute(
+        "SELECT 1 FROM concepts WHERE concept_id='knowledge/evict'"
+    ).fetchone() is None
+    assert conn.execute(
+        "SELECT 1 FROM concepts_fts WHERE concept_id='knowledge/evict'"
+    ).fetchone() is None
+    assert conn.execute(
+        "SELECT 1 FROM concept_links WHERE src_id='knowledge/evict'"
+    ).fetchone() is None

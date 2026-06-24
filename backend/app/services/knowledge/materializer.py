@@ -69,13 +69,13 @@ class KnowledgeMaterializer:
         for adapter in self._adapters:
             try:
                 concepts = await adapter.list_concepts()
+                for c in concepts:
+                    self._write_concept(c)
+                    count += 1
             except Exception:
                 logger.exception("adapter %s failed during rebuild", adapter.source_name)
                 failed.append(adapter.source_name)
                 continue
-            for c in concepts:
-                self._write_concept(c)
-                count += 1
         self._conn.execute(
             "INSERT OR REPLACE INTO knowledge_meta (key, value) VALUES ('last_materialized', ?)",
             (str(time.time()),),
