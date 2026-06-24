@@ -9,6 +9,7 @@ from app.services.knowledge.adapters.base import Concept, FieldCaps
 from app.services.knowledge.adapters.native import NativeConceptAdapter
 from app.services.knowledge.adapters.vikunja_tasks import VikunjaTaskAdapter
 from app.services.knowledge.adapters.vikunja_projects import VikunjaProjectAdapter
+from app.services.knowledge.adapters.notes import NotesAdapter
 
 
 def test_concept_defaults():
@@ -119,3 +120,29 @@ async def test_vikunja_project_adapter():
     vik.get_project.return_value = {"id": 3, "title": "Solo", "description": ""}
     one = await adapter.get_concept("projects/3")
     assert one.title == "Solo"
+
+
+async def test_notes_adapter_projects_nonempty_notes():
+    conn = _db()
+    conn.execute(
+        "INSERT INTO project_workspace (project_id, notes, notes_updated_at) VALUES (?,?,?)",
+        (7, "Remember the [orders task](/tasks/42.md).", "2026-06-18T09:00:00Z"),
+    )
+    conn.execute(
+        "INSERT INTO project_workspace (project_id, notes) VALUES (?,?)",
+        (8, ""),   # empty notes -> no concept
+    )
+    adapter = NotesAdapter(conn)
+    concepts = await adapter.list_concepts()
+    ids = [c.concept_id for c in concepts]
+    assert ids == ["projects/7/notes"]
+    c = concepts[0]
+    assert c.type == "Project Notes"
+    assert c.source == "notes"
+    assert "/tasks/42.md" in c.body
+
+    assert adapter.owns("projects/7/notes") is True
+    assert adapter.owns("projects/7") is False
+    got = await adapter.get_concept("projects/7/notes")
+    assert got.title == "Notes — project 7"
+    assert await adapter.get_concept("projects/8/notes") is None  # empty
