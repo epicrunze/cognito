@@ -132,3 +132,83 @@ async def test_fallback_reply_with_actions(agent):
 async def test_fallback_reply_no_results(agent):
     reply = agent._fallback_reply([])
     assert "details" in reply.lower() or "couldn't" in reply.lower()
+
+
+# --- Phase 2a: knowledge read tools ---
+import sqlite3 as _sqlite3
+from contextlib import contextmanager as _contextmanager
+
+from app.database import init_schema as _init_schema
+
+
+def _agent_mock_db(conn):
+    @_contextmanager
+    def _cm(database_path=None):
+        yield conn
+    return _cm
+
+
+def test_knowledge_tools_present_in_all_tools(agent):
+    names = {t["name"] for t in agent.all_tools}
+    assert "search_knowledge" in names
+    assert "get_concept" in names
+
+
+async def test_search_knowledge_tool_is_readonly(agent):
+    agent._retriever.search = AsyncMock(return_value=[
+        {"concept_id": "knowledge/auth", "type": "Note", "source": "native",
+         "title": "Auth", "description": "", "snippet": "auth redesign"}
+    ])
+    result = await agent._tool_handler("search_knowledge", {"query": "auth"})
+    assert isinstance(result, list)
+    assert result[0]["concept_id"] == "knowledge/auth"
+    # read-only: no side effects
+    assert agent._pending_actions == []
+    assert agent._actions == []
+    agent._retriever.search.assert_awaited_once()
+
+
+async def test_get_concept_tool_returns_detail(agent):
+    agent._retriever.get = AsyncMock(return_value={
+        "concept_id": "knowledge/b", "title": "Beta", "body": "hello",
+        "links": [], "backlinks": ["knowledge/a"],
+    })
+    result = await agent._tool_handler("get_concept", {"concept_id": "knowledge/b"})
+    assert result["title"] == "Beta"
+    assert result["backlinks"] == ["knowledge/a"]
+    assert agent._pending_actions == []
+
+
+async def test_get_concept_missing_returns_error(agent):
+    agent._retriever.get = AsyncMock(return_value=None)
+    result = await agent._tool_handler("get_concept", {"concept_id": "knowledge/nope"})
+    assert "error" in result
+
+
+async def test_get_concept_requires_id(agent):
+    result = await agent._tool_handler("get_concept", {})
+    assert "error" in result
+
+
+async def test_chat_flow_routes_search_knowledge(agent):
+    """End-to-end: the LLM calls search_knowledge; the tool result flows back."""
+    captured = {}
+
+    class FakeLLM:
+        async def generate_with_tools(self, messages, system_prompt, tools, tool_handler):
+            captured["tool_result"] = await tool_handler("search_knowledge", {"query": "auth"})
+            captured["tool_names"] = {t["name"] for t in tools}
+            return "Your notes mention the auth redesign."
+
+    agent._retriever.search = AsyncMock(return_value=[
+        {"concept_id": "knowledge/auth", "type": "Note", "source": "native",
+         "title": "Auth", "description": "", "snippet": "auth redesign"}
+    ])
+    conn = _sqlite3.connect(":memory:", isolation_level=None, check_same_thread=False)
+    _init_schema(conn)
+    with patch("app.services.agent.get_llm_client", return_value=FakeLLM()), \
+         patch("app.services.agent.get_db", _agent_mock_db(conn)):
+        out = await agent.process("what about auth?", history=[])
+    assert "auth" in out["reply"].lower()
+    assert "search_knowledge" in captured["tool_names"]
+    assert captured["tool_result"][0]["concept_id"] == "knowledge/auth"
