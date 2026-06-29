@@ -14,6 +14,7 @@ from app.database import get_db
 from app.models.proposal import TaskProposal, TaskProposalCreate
 from app.services.extractor import EXTRACTION_TOOLS, TaskExtractor
 from app.services.llm import get_llm_client
+from app.services.knowledge.retriever import KnowledgeRetriever
 from app.services.vikunja import VikunjaError, vikunja
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,32 @@ MODIFICATION_TOOLS = [
     },
 ]
 
+# Read-only knowledge-graph tools (Phase 2a)
+KNOWLEDGE_TOOLS = [
+    {
+        "name": "search_knowledge",
+        "description": "Search the knowledge graph (the user's tasks, projects, "
+            "project notes, and standalone notes) by keyword. Returns ranked "
+            "summaries with id, title, and a snippet. Use source='notes' to "
+            "search only notes, type='Task' for tasks, etc. Then call "
+            "get_concept to read one in full.",
+        "parameters": {
+            "query":  {"type": "string", "description": "Search keywords"},
+            "source": {"type": "string", "description": "Optional: vikunja | notes | native"},
+            "type":   {"type": "string", "description": "Optional: Task | Project | Project Notes | <native type>"},
+        },
+    },
+    {
+        "name": "get_concept",
+        "description": "Read one concept in full by its id (e.g. 'tasks/42', "
+            "'projects/7/notes'). Returns the body plus links and backlinks "
+            "(what cites it) — use backlinks to find related tasks/notes.",
+        "parameters": {
+            "concept_id": {"type": "string", "description": "Concept id from a search result"},
+        },
+    },
+]
+
 AGENT_SYSTEM_PROMPT = """\
 You are a task management assistant for a PhD student. You can both extract new tasks \
 from unstructured text AND modify existing tasks.
@@ -96,6 +123,19 @@ TASK MODIFICATION:
 Use search_tasks to find tasks, then update_task, complete_task, move_task, or delete_task.
 - Always search first to confirm the task exists and get the correct task_id.
 - For delete, the tool returns a pending confirmation — tell the user you're asking for confirmation.
+
+KNOWLEDGE SEARCH:
+You can search the user's knowledge graph — their tasks, projects, project notes, \
+and standalone notes — with search_knowledge, then read any result in full with \
+get_concept (which also returns backlinks to related items).
+- When the user ASKS a question about their work ("what do my notes say about X", \
+"which tasks relate to Y", "summarize what I know about Z"), search first, read the \
+most relevant concept(s), and answer in prose, referring to concepts by title. Do not \
+invent — if search returns nothing relevant, say so.
+- When EXTRACTING tasks from freeform text, you MAY first search_knowledge for related \
+notes or existing tasks to avoid duplicates and add context — but only when it would \
+genuinely help.
+- Prefer one search_knowledge then a single get_concept; avoid long search loops.
 
 For each extracted task, produce JSON:
 {{{{
@@ -126,10 +166,11 @@ class ChatAgent:
         self._actions: list[dict] = []
         self._pending_actions: list[dict] = []
         self._proposals: list[TaskProposal] = []
+        self._retriever = KnowledgeRetriever()
 
     @property
     def all_tools(self) -> list[dict]:
-        return EXTRACTION_TOOLS + MODIFICATION_TOOLS
+        return EXTRACTION_TOOLS + MODIFICATION_TOOLS + KNOWLEDGE_TOOLS
 
     async def _tool_handler(self, tool_name: str, args: dict):
         """Dispatch tool calls — extraction tools + modification tools."""
@@ -264,6 +305,26 @@ class ChatAgent:
                 "create_data": create_data,
                 "message": "Task creation requires user confirmation. Tell the user what task you'll create and that you need their approval.",
             }
+
+        if tool_name == "search_knowledge":
+            try:
+                return await self._retriever.search(
+                    args.get("query", ""),
+                    type=args.get("type") or None,
+                    source=args.get("source") or None,
+                )
+            except Exception as e:
+                return {"error": str(e)}
+
+        if tool_name == "get_concept":
+            concept_id = args.get("concept_id")
+            if not concept_id:
+                return {"error": "concept_id is required"}
+            try:
+                detail = await self._retriever.get(concept_id)
+                return detail if detail is not None else {"error": "Concept not found"}
+            except Exception as e:
+                return {"error": str(e)}
 
         return {"error": f"Unknown tool: {tool_name}"}
 
